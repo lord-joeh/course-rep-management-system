@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const lecturerRoute = require('./routes/lecturerRoute');
 const courseRoute = require('./routes/courseRoute')
+const groupRoute = require('./routes/groupRoute')
 
 const app = express();
 
@@ -13,5 +14,6 @@ app.use(express.json());
 //ROUTES
 app.use('/lecturer', lecturerRoute);
 app.use('/course', courseRoute)
+app.use('/group', groupRoute)
 
 module.exports = app;
