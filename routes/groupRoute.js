@@ -6,6 +6,7 @@ const {
   getGroupById,
   updateGroup,
   deleteGroup,
+  createCustomGroup,
 } = require('../controllers/groupController');
 
 //Route to create a group
@@ -22,4 +23,7 @@ router.put('/:id', updateGroup);
 
 //Route to delete group
 router.delete('/:id', deleteGroup);
+
+//Route to create custom groups
+router.post('/custom', createCustomGroup);
 module.exports = router;
