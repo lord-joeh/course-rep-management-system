@@ -2,7 +2,6 @@ const generatedId = require('../services/generateIdService');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
-const { cli } = require('winston/lib/winston/config');
 
 exports.addGroup = async (req, res) => {
   let client;
