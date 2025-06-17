@@ -2,7 +2,7 @@ const generatedId = require('../services/generateIdService');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
-const { cli } = require('winston/lib/winston/config');
+const shuffle = require('../services/arrayShuffleService');
 
 exports.addGroup = async (req, res) => {
   let client;
@@ -59,17 +59,24 @@ exports.getGroupById = async (req, res) => {
     const { id } = req.params;
     const group = await client.query(
       `
-            SELECT 
-            groups.*, 
-            course.id AS course_id, 
-            course.name AS course_name, 
-            course.lecturerid, 
-            group_member.isleader
-            FROM groups
-            LEFT JOIN course ON groups.courseid = course.id
-            LEFT JOIN group_member ON groups.id = group_member.groupid
-            LEFT JOIN student ON group_member.studentid = student.id
-            WHERE groups.id = $1;`,
+          SELECT 
+          groups.*,
+          course.id AS course_id,
+          course.name AS course_name,
+          ARRAY_AGG(
+            JSONB_BUILD_OBJECT(
+              'student_id', student.id,
+              'student_name', student.name,
+              'student_email', student.email,
+              'is_leader', group_member.isleader
+            )
+          ) AS members
+        FROM groups
+        LEFT JOIN course ON groups.courseid = course.id
+        LEFT JOIN group_member ON groups.id = group_member.groupid
+        LEFT JOIN student ON group_member.studentid = student.id
+        WHERE groups.id = $1
+        GROUP BY groups.id, course.id, course.name;`,
       [id],
     );
 
@@ -129,7 +136,7 @@ exports.deleteGroup = async (req, res) => {
 
     handleResponse(res, 200, 'Group deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting group');
+    handleError(res, 500, 'Error deleting group', error);
   } finally {
     client.release();
   }
@@ -153,7 +160,7 @@ exports.createCustomGroup = async (req, res) => {
     }
 
     const studentIds = await client.query(`SELECT id FROM student`);
-    const studentIDs = studentIds.rows;
+    const studentIDs = await shuffle(studentIds.rows);
 
     if (!studentIDs.length) {
       handleError(res, 404, 'No students found in Database');
@@ -172,16 +179,18 @@ exports.createCustomGroup = async (req, res) => {
         [groupId, groupName, courseId, groupName],
       );
 
-      console.log(201, `${groupName} successfully created`);
       const group = studentIDs.slice(i, i + studentsPerGroup);
 
       // Await all member insertions
       await Promise.all(
-        group.map(async (student) => {
+        group.map(async (student, idx) => {
+          let isLeader = true;
+          idx !== 0 ? (isLeader = false) : isLeader;
+
           await client.query(
-            `INSERT INTO group_member (groupId, studentId)
-            VALUES ($1, $2)`,
-            [groupId, student.id],
+            `INSERT INTO group_member (groupId, studentId, isLeader)
+            VALUES ($1, $2, $3)`,
+            [groupId, student.id, isLeader],
           );
 
           const studentNameResult = await client.query(
@@ -190,7 +199,6 @@ exports.createCustomGroup = async (req, res) => {
           );
 
           const studentName = studentNameResult.rows[0]?.name || 'Unknown';
-          console.log(201, `Successfully added ${studentName} to ${groupName}`);
         }),
       );
 
@@ -206,5 +214,64 @@ exports.createCustomGroup = async (req, res) => {
     handleError(res, 500, 'Error creating groups', error);
   } finally {
     if (client) client.release();
+  }
+};
+
+exports.addGroupMember = async (req, res) => {
+  let client;
+  try {
+    client = await connect();
+    const { studentId, groupId } = req.body;
+    if (!studentId || !groupId) {
+      handleError(res, 409, 'Student ID and Course ID are required');
+    }
+
+    //Check if student already exist in group
+    const existingMember = await client.query(
+      `SELECT * FROM group_member WHERE groupId = $1 AND studentId = $2`,
+      [groupId, studentId],
+    );
+
+    if (existingMember.rows.length) {
+      handleError(res, 409, 'Student already exist in group');
+    }
+
+    const newMember = await client.query(
+      `INSERT INTO group_member (groupId, studentId)
+      VALUES ($1, $2)
+      RETURNING *`,
+      [groupId, studentId],
+    );
+
+    handleResponse(
+      res,
+      201,
+      'Student added to group successfully',
+      newMember.rows[0],
+    );
+  } catch (error) {
+    handleError(res, 500, 'Error adding group member', error);
+  } finally {
+    if (client) {
+      client.release();
+    }
+  }
+};
+
+exports.deleteGroupMember = async (req, res) => {
+  let client;
+  try {
+    const { id } = req.body;
+    client = await connect();
+    
+    await client.query(`DELETE FROM group_member WHERE studentId = $1`, [id]);
+
+    handleResponse(res, 200, 'Successfully deleted group member');
+  } catch (error) {
+    handleError(res, 500, 'Error deleting group member', error);
+  } finally {
+    if (client) {
+      client.release();
+    }
   }
 };

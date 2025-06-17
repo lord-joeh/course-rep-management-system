@@ -83,18 +83,19 @@ exports.getStudentById = async (req, res) => {
     const student = await client.query(
       `
             SELECT 
-            student.*, 
-            course.id AS course_id, 
-            course.name AS course_name, 
-            groups.id AS group_id, 
-            groups.name AS group_name, 
-            group_member.isleader
-            FROM student
-            LEFT JOIN course_student ON student.id = course_student.studentid
-            LEFT JOIN course ON course_student.courseid = course.id
-            LEFT JOIN group_member ON student.id = group_member.studentid
-            LEFT JOIN groups ON group_member.groupid = groups.id
-            WHERE student.id = $1;`,
+            student.*,
+            ARRAY_AGG(
+              JSONB_BUILD_OBJECT(
+                'group_id', groups.id,
+                'group_name', groups.name,
+                'is_leader', group_member.isleader
+              )
+            ) AS groups
+          FROM student
+          LEFT JOIN group_member ON student.id = group_member.studentid
+          LEFT JOIN groups ON group_member.groupid = groups.id
+          WHERE student.id = $1
+          GROUP BY student.id;`,
       [id],
     );
     if (!student.rows) {

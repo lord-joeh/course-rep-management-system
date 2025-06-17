@@ -1,8 +1,6 @@
-const { log } = require('console');
 const app = require('./app');
 const PORT = process.env.PORT || 4000;
 const { connect } = require('./config/db');
-const { randomBytes } = require('crypto');
 
 app.listen(PORT, (error) => {
   error
