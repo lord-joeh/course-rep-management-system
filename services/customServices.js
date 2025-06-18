@@ -13,6 +13,16 @@ exports.formatDateAndTime = (dateStr, timeStr) => {
   };
 };
 
+exports.formatDate = (dateStr) => {
+  try {
+    // Parse date string (e.g., "6th June, 2025")
+    const parsedDate = parse(dateStr, 'do MMMM, yyyy', new Date());
+    return format(parsedDate, 'yyyy-MM-dd');
+  } catch (error) {
+    throw new Error('Invalid date format. Expected format: "6th June, 2025"');
+  }
+};
+
 //Algorithm for array shuffle
 exports.shuffle = (array) => {
   for (let i = array.length - 1; i > 0; i--) {

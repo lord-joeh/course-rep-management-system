@@ -1,8 +1,7 @@
-const { generatedId } = require('../services/customServices');
+const { generatedId, shuffle } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
-const { shuffle } = require('../services/customServices');
 
 exports.addGroup = async (req, res) => {
   let client;
@@ -160,7 +159,7 @@ exports.createCustomGroup = async (req, res) => {
     }
 
     const studentIds = await client.query(`SELECT id FROM student`);
-    const studentIDs = await shuffle(studentIds.rows);
+    const studentIDs = await shuffle(studentIds.rows);  
 
     if (!studentIDs.length) {
       handleError(res, 404, 'No students found in Database');

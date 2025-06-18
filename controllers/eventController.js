@@ -1,8 +1,7 @@
 const { connect } = require('../config/db');
-const { generatedId } = require('../services/customServices');
+const { generatedId, formatDateAndTime } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
-const { formatDateAndTime } = require('../services/customServices');
 
 exports.addEvent = async (req, res) => {
   let client;
