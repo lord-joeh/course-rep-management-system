@@ -2,7 +2,7 @@ require('dotenv').config();
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
-const generatedId = require('../services/generateIdService');
+const { generatedId } = require('../services/customServices');
 
 exports.addLecturer = async (req, res) => {
   let client;
@@ -162,6 +162,6 @@ exports.deleteLecturer = async (req, res) => {
   } catch (error) {
     handleError(res, 500, 'Error deleting lecturer', error);
   } finally {
-    client.release()
+    client.release();
   }
 };

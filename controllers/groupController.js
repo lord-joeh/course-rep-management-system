@@ -1,8 +1,8 @@
-const generatedId = require('../services/generateIdService');
+const { generatedId } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
-const shuffle = require('../services/arrayShuffleService');
+const { shuffle } = require('../services/customServices');
 
 exports.addGroup = async (req, res) => {
   let client;
@@ -263,7 +263,7 @@ exports.deleteGroupMember = async (req, res) => {
   try {
     const { id } = req.body;
     client = await connect();
-    
+
     await client.query(`DELETE FROM group_member WHERE studentId = $1`, [id]);
 
     handleResponse(res, 200, 'Successfully deleted group member');

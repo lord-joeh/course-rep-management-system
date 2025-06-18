@@ -2,7 +2,6 @@ const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
 
-
 exports.addCourse = async (req, res) => {
   let client;
   try {
