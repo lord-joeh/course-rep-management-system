@@ -7,6 +7,7 @@ const groupRoute = require('./routes/groupRoute')
 const studentRoute = require('./routes/studentRoute')
 const eventRoute = require('./routes/eventRoute')
 const assignmentRoute = require('./routes/assignmentRoute')
+const notificationRoute = require('./routes/notificationRoute')
 const app = express();
 
 app.use(cors());
@@ -20,5 +21,6 @@ app.use('/group', groupRoute)
 app.use('/student', studentRoute)
 app.use('/event', eventRoute)
 app.use('/assignment', assignmentRoute)
+app.use('/notification', notificationRoute)
 
 module.exports = app;
