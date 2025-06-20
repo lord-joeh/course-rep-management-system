@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const authRoute = require('./routes/authRoute')
 const lecturerRoute = require('./routes/lecturerRoute');
 const courseRoute = require('./routes/courseRoute')
 const groupRoute = require('./routes/groupRoute')
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 //ROUTES
+app.use('/auth', authRoute)
 app.use('/lecturer', lecturerRoute);
 app.use('/course', courseRoute)
 app.use('/group', groupRoute)
