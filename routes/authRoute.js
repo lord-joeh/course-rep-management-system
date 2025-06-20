@@ -18,4 +18,5 @@ router.post('/reset', resetPassword);
 
 //Route to change password
 router.post('/change', changePassword);
+
 module.exports = router;
