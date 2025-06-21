@@ -34,7 +34,7 @@ exports.addLecturer = async (req, res) => {
     );
 
     await client.query('COMMIT');
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Lecturer added successfully',
@@ -42,7 +42,7 @@ exports.addLecturer = async (req, res) => {
     );
   } catch (error) {
     if (client) await client.query('ROLLBACK');
-    handleError(res, 500, 'Error adding lecturer', error);
+    return handleError(res, 500, 'Error adding lecturer', error);
   } finally {
     if (client) client.release();
   }
@@ -59,14 +59,14 @@ exports.getAllLecturer = async (req, res) => {
       return handleError(res, 404, 'No lecturer was found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Lecturers retrieved successfully',
       lecturers.rows,
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving lecturers', error);
+    return handleError(res, 500, 'Error retrieving lecturers', error);
   } finally {
     if (client) client.release();
   }
@@ -94,17 +94,17 @@ exports.getLecturerById = async (req, res) => {
     );
 
     if (lecturer.rows.length === 0) {
-      handleError(res, 404, 'Lecturer not found');
+      return handleError(res, 404, 'Lecturer not found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Lecturer retrieved successfully',
       lecturer.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving lecturer', error);
+    return handleError(res, 500, 'Error retrieving lecturer', error);
   } finally {
     if (client) client.release();
   }
@@ -118,7 +118,7 @@ exports.updateLecturer = async (req, res) => {
     const { name, email, phone } = req.body;
 
     if (!name || !email || !phone) {
-      handleError(res, 409, 'name, email, and phone are required');
+      return handleError(res, 409, 'name, email, and phone are required');
     }
     client = await connect();
 
@@ -134,17 +134,17 @@ exports.updateLecturer = async (req, res) => {
     );
 
     if (updatedLecturer.rows.length === 0) {
-      handleError(res, 404, 'Lecturer not found');
+      return handleError(res, 404, 'Lecturer not found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       202,
       'Lecturer updated successfully',
       updatedLecturer.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating lecturer', error);
+    return handleError(res, 500, 'Error updating lecturer', error);
   } finally {
     client.release();
   }
@@ -158,9 +158,9 @@ exports.deleteLecturer = async (req, res) => {
 
     await client.query(`DELETE FROM lecturer WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Lecturer deleted successfully');
+    return handleResponse(res, 200, 'Lecturer deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting lecturer', error);
+    return handleError(res, 500, 'Error deleting lecturer', error);
   } finally {
     client.release();
   }

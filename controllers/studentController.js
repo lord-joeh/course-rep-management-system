@@ -11,7 +11,7 @@ exports.registerStudent = async (req, res) => {
     client.query('BEGIN');
 
     if (!id || !name || !email || !phone || !password) {
-      handleError(
+      return handleError(
         res,
         409,
         'Student Id, name, email, phone, and password are required',
@@ -26,7 +26,7 @@ exports.registerStudent = async (req, res) => {
     client.query('COMMIT');
 
     if (existingStudent.rows[0]) {
-      handleError(res, 409, 'Student already exist');
+      return handleError(res, 409, 'Student already exist');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,7 +40,7 @@ exports.registerStudent = async (req, res) => {
 
     client.query('COMMIT');
     newStudent.rows[0].password_hash = undefined;
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Student registered successfully',
@@ -48,7 +48,7 @@ exports.registerStudent = async (req, res) => {
     );
   } catch (error) {
     client.query('ROLLBACK');
-    handleError(res, 500, 'Error registering student', error);
+    return handleError(res, 500, 'Error registering student', error);
   } finally {
     client.release();
   }
@@ -59,17 +59,24 @@ exports.getAllStudent = async (req, res) => {
   try {
     client = await connect();
 
-    const students = await client.query(`SELECT * FROM student`);
+    const students = await client.query(
+      `SELECT * FROM student ORDER BY name ASC`,
+    );
 
     if (!students.rows) {
-      handleError(res, 409, 'No student found');
+      return handleError(res, 409, 'No student found');
     }
 
     await students.rows.forEach((s) => (s.password_hash = undefined));
 
-    handleResponse(res, 200, 'Students retrieved successfully', students.rows);
+    return handleResponse(
+      res,
+      200,
+      'Students retrieved successfully',
+      students.rows,
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving students');
+    return handleError(res, 500, 'Error retrieving students');
   } finally {
     client.release();
   }
@@ -99,14 +106,19 @@ exports.getStudentById = async (req, res) => {
       [id],
     );
     if (!student.rows) {
-      handleError(res, 404, 'Student not found');
+      return handleError(res, 404, 'Student not found');
     }
 
     student.rows[0].password_hash = undefined;
 
-    handleResponse(res, 200, 'Student retrieved successfully', student.rows[0]);
+    return handleResponse(
+      res,
+      200,
+      'Student retrieved successfully',
+      student.rows[0],
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving student', error);
+    return handleError(res, 500, 'Error retrieving student', error);
   } finally {
     client.release();
   }
@@ -131,18 +143,18 @@ exports.updateStudent = async (req, res) => {
     );
 
     if (!updatedStudent.rows) {
-      handleError(res, 404, 'Student not found for update');
+      return handleError(res, 404, 'Student not found for update');
     }
 
     updatedStudent.rows[0].password_hash = undefined;
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Student updated successfully',
       updatedStudent.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating student', error);
+    return handleError(res, 500, 'Error updating student', error);
   } finally {
     client.release();
   }
@@ -156,9 +168,9 @@ exports.deleteStudent = async (req, res) => {
 
     await client.query(`DELETE FROM student WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Student deleted successfully');
+    return handleResponse(res, 200, 'Student deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting student', error);
+    return handleError(res, 500, 'Error deleting student', error);
   } finally {
     client.release();
   }

@@ -12,7 +12,7 @@ exports.addGroup = async (req, res) => {
     let courseId = req.body.courseId;
     isGeneral ? (courseId = null) : courseId;
     if (!name || !description) {
-      handleError(res, 409, 'Name and description are required');
+      return handleError(res, 409, 'Name and description are required');
     }
 
     const id = await generatedId('GRP');
@@ -24,10 +24,15 @@ exports.addGroup = async (req, res) => {
       [id, name, courseId, isGeneral, description],
     );
     client.query('COMMIT');
-    handleResponse(res, 201, 'Group created successfully', newGroup.rows[0]);
+    return handleResponse(
+      res,
+      201,
+      'Group created successfully',
+      newGroup.rows[0],
+    );
   } catch (error) {
     client.query('ROLLBACK');
-    handleError(res, 500, 'Error adding group', error);
+    return handleError(res, 500, 'Error adding group', error);
   } finally {
     client.release();
   }
@@ -40,12 +45,17 @@ exports.getAllGroups = async (req, res) => {
     const groups = await client.query(`SELECT * FROM groups`);
 
     if (!groups.rows) {
-      handleError(res, 404, 'No groups was found');
+      return handleError(res, 404, 'No groups was found');
     }
 
-    handleResponse(res, 200, 'Groups retrieved successfully', groups.rows);
+    return handleResponse(
+      res,
+      200,
+      'Groups retrieved successfully',
+      groups.rows,
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving groups', error);
+    return handleError(res, 500, 'Error retrieving groups', error);
   } finally {
     client.release();
   }
@@ -80,12 +90,17 @@ exports.getGroupById = async (req, res) => {
     );
 
     if (!group.rows.length) {
-      handleError(res, 404, 'No group found');
+      return handleError(res, 404, 'No group found');
     }
 
-    handleResponse(res, 200, 'Group retrieved successfully', group.rows[0]);
+    return handleResponse(
+      res,
+      200,
+      'Group retrieved successfully',
+      group.rows[0],
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving group', error);
+    return handleError(res, 500, 'Error retrieving group', error);
   } finally {
     if (client) {
       client.release();
@@ -110,16 +125,16 @@ exports.updateGroup = async (req, res) => {
       [name, courseId, description, id],
     );
     if (!updatedGroup.rows) {
-      handleError(res, 404, 'Group not found for update');
+      return handleError(res, 404, 'Group not found for update');
     }
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Group updated successfully',
       updatedGroup.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating group', error);
+    return handleError(res, 500, 'Error updating group', error);
   } finally {
     client.release();
   }
@@ -133,9 +148,9 @@ exports.deleteGroup = async (req, res) => {
 
     await client.query(`DELETE FROM groups WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Group deleted successfully');
+    return handleResponse(res, 200, 'Group deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting group', error);
+    return handleError(res, 500, 'Error deleting group', error);
   } finally {
     client.release();
   }
@@ -151,7 +166,7 @@ exports.createCustomGroup = async (req, res) => {
     isGeneral ? (courseId = null) : courseId;
 
     if (typeof studentsPerGroup !== 'number' || studentsPerGroup < 1) {
-      handleError(
+      return handleError(
         res,
         409,
         'Invalid input. Provide a positive number for group size.',
@@ -159,10 +174,10 @@ exports.createCustomGroup = async (req, res) => {
     }
 
     const studentIds = await client.query(`SELECT id FROM student`);
-    const studentIDs = await shuffle(studentIds.rows);  
+    const studentIDs = await shuffle(studentIds.rows);
 
     if (!studentIDs.length) {
-      handleError(res, 404, 'No students found in Database');
+      return handleError(res, 404, 'No students found in Database');
     }
 
     let currentGroupNumber = 1;
@@ -204,13 +219,13 @@ exports.createCustomGroup = async (req, res) => {
       currentGroupNumber += 1;
       totalGroups += 1;
     }
-    handleResponse(
+    return handleResponse(
       res,
       201,
       `Successfully created ${totalGroups} groups with ${studentIDs.length} students`,
     );
   } catch (error) {
-    handleError(res, 500, 'Error creating groups', error);
+    return handleError(res, 500, 'Error creating groups', error);
   } finally {
     if (client) client.release();
   }
@@ -222,7 +237,7 @@ exports.addGroupMember = async (req, res) => {
     client = await connect();
     const { studentId, groupId } = req.body;
     if (!studentId || !groupId) {
-      handleError(res, 409, 'Student ID and Course ID are required');
+      return handleError(res, 409, 'Student ID and Course ID are required');
     }
 
     //Check if student already exist in group
@@ -232,7 +247,7 @@ exports.addGroupMember = async (req, res) => {
     );
 
     if (existingMember.rows.length) {
-      handleError(res, 409, 'Student already exist in group');
+      return handleError(res, 409, 'Student already exist in group');
     }
 
     const newMember = await client.query(
@@ -242,14 +257,14 @@ exports.addGroupMember = async (req, res) => {
       [groupId, studentId],
     );
 
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Student added to group successfully',
       newMember.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error adding group member', error);
+    return handleError(res, 500, 'Error adding group member', error);
   } finally {
     if (client) {
       client.release();
@@ -265,9 +280,9 @@ exports.deleteGroupMember = async (req, res) => {
 
     await client.query(`DELETE FROM group_member WHERE studentId = $1`, [id]);
 
-    handleResponse(res, 200, 'Successfully deleted group member');
+    return handleResponse(res, 200, 'Successfully deleted group member');
   } catch (error) {
-    handleError(res, 500, 'Error deleting group member', error);
+    return handleError(res, 500, 'Error deleting group member', error);
   } finally {
     if (client) {
       client.release();

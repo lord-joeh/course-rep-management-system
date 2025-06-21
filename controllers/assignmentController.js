@@ -9,7 +9,7 @@ exports.addAssignment = async (req, res) => {
     const { title, description, courseId, deadline } = req.body;
 
     if (!title || !description || !courseId || !deadline) {
-      handleError(
+      return handleError(
         res,
         409,
         'Title, description, course ID and dead line are required',
@@ -26,14 +26,14 @@ exports.addAssignment = async (req, res) => {
       [id, title, description, courseId, formattedDeadline],
     );
 
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Successfully added assignment',
       newAssignment.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error adding assignment', error);
+    return handleError(res, 500, 'Error adding assignment', error);
   } finally {
     if (client) {
       client.release();
@@ -48,17 +48,17 @@ exports.allAssignment = async (req, res) => {
 
     const assignments = await client.query(`SELECT * FROM assignment`);
     if (!assignments.rows.length) {
-      handleError(res, 404, 'No assignments found');
+      return handleError(res, 404, 'No assignments found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Assignments retrieved successfully',
       assignments.rows,
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving assignments', error);
+    return handleError(res, 500, 'Error retrieving assignments', error);
   } finally {
     if (client) {
       client.release();
@@ -82,17 +82,17 @@ exports.assignmentById = async (req, res) => {
       [id],
     );
     if (!assignment.rows.length) {
-      handleError(res, 404, 'Assignment not found');
+      return handleError(res, 404, 'Assignment not found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Assignment retrieved successfully',
       assignment.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving assignment', error);
+    return handleError(res, 500, 'Error retrieving assignment', error);
   } finally {
     if (client) {
       client.release();
@@ -107,7 +107,11 @@ exports.updateAssignment = async (req, res) => {
     const { title, description, deadline } = req.body;
 
     if (!title || !description || !deadline) {
-      handleError(res, 409, 'Title, description, and deadline are required');
+      return handleError(
+        res,
+        409,
+        'Title, description, and deadline are required',
+      );
     }
     client = await connect();
     const formattedDeadline = formatDate(deadline);
@@ -123,17 +127,17 @@ exports.updateAssignment = async (req, res) => {
     );
 
     if (!assignment.rows.length) {
-      handleError(res, 404, 'Assignment not found for update');
+      return handleError(res, 404, 'Assignment not found for update');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Assignment updated successfully',
       assignment.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating assignment', error);
+    return handleError(res, 500, 'Error updating assignment', error);
   } finally {
     if (client) {
       client.release();
@@ -149,9 +153,9 @@ exports.deleteAssignment = async (req, res) => {
 
     await client.query(`DELETE FROM assignment WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Assignment deleted successfully');
+    return handleResponse(res, 200, 'Assignment deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting assignment', error);
+    return handleError(res, 500, 'Error deleting assignment', error);
   } finally {
     if (client) {
       client.release();

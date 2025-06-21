@@ -8,7 +8,7 @@ exports.sendFeedback = async (req, res) => {
   try {
     const { studentId, content, isAnonymous } = req.body;
     if (!studentId || !content) {
-      handleError(res, 409, 'Student ID and content are required');
+      return handleError(res, 409, 'Student ID and content are required');
     }
 
     const id = await generatedId('FED');
@@ -21,14 +21,14 @@ exports.sendFeedback = async (req, res) => {
       [id, studentId, content, isAnonymous],
     );
 
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Feedback submitted successfully',
       newFeedback.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error sending feedback', error);
+    return handleError(res, 500, 'Error sending feedback', error);
   } finally {
     if (client) {
       client.release();
@@ -49,7 +49,7 @@ exports.allFeedback = async (req, res) => {
         ORDER BY submitted_at DESC;`,
     );
     if (!feedbacks.rows.length) {
-      handleError(res, 404, 'No feedbacks found');
+      return handleError(res, 404, 'No feedbacks found');
     }
 
     feedbacks.rows.map((f) => {
@@ -59,14 +59,14 @@ exports.allFeedback = async (req, res) => {
       }
     });
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Feedbacks retrieved successfully',
       feedbacks.rows,
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving feedbacks');
+    return handleError(res, 500, 'Error retrieving feedbacks');
   } finally {
     if (client) {
       client.release();
@@ -91,7 +91,7 @@ exports.feedbackById = async (req, res) => {
       [id],
     );
     if (!feedback.rows.length) {
-      handleError(res, 404, 'Feedback not found');
+      return handleError(res, 404, 'Feedback not found');
     }
 
     if (feedback.rows[0].is_anonymous) {
@@ -100,14 +100,14 @@ exports.feedbackById = async (req, res) => {
       feedback.rows[0].student_email = undefined;
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Feedback retrieved successfully',
       feedback.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving feedback', error);
+    return handleError(res, 500, 'Error retrieving feedback', error);
   } finally {
     if (client) {
       client.release();
@@ -122,9 +122,9 @@ exports.deleteFeedback = async (req, res) => {
     client = await connect();
     await client.query(`DELETE FROM feedback WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Feedback deleted successfully');
+    return handleResponse(res, 200, 'Feedback deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting feedback', error);
+    return handleError(res, 500, 'Error deleting feedback', error);
   } finally {
     if (client) {
       client.release();

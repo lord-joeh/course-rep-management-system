@@ -1,5 +1,6 @@
 const { format, parse } = require('date-fns');
 const { randomInt } = require('crypto');
+const qrCode = require('qrcode');
 
 // Function to format date and time
 exports.formatDateAndTime = (dateStr, timeStr) => {
@@ -36,4 +37,9 @@ exports.shuffle = (array) => {
 exports.generatedId = async (short) => {
   const generatedId = await randomInt(1000, 9999);
   return `${short}${generatedId}`;
+};
+
+//Function to generate qr code
+exports.generateQR = async (url) => {
+  return await qrCode.toDataURL(url)
 };

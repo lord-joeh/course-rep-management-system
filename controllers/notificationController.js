@@ -8,7 +8,7 @@ exports.addNotification = async (req, res) => {
   try {
     const { title, message } = req.body;
     if (!title || !message) {
-      handleError(res, 409, 'Title and message are required');
+      return handleError(res, 409, 'Title and message are required');
     }
     client = await connect();
 
@@ -20,14 +20,14 @@ exports.addNotification = async (req, res) => {
             RETURNING *`,
       [id, title, message],
     );
-    handleResponse(
+    return handleResponse(
       res,
       201,
       'Notification added successfully',
       newNotification.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error adding notification', error);
+    return handleError(res, 500, 'Error adding notification', error);
   } finally {
     if (client) {
       client.release();
@@ -45,17 +45,17 @@ exports.allNotification = async (req, res) => {
             ORDER BY created_at DESC`,
     );
     if (!notifications.rows.length) {
-      handleError(res, 409, 'No notifications found');
+      return handleError(res, 409, 'No notifications found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Notifications retrieved successfully',
       notifications.rows,
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving notifications', error);
+    return handleError(res, 500, 'Error retrieving notifications', error);
   } finally {
     if (client) {
       client.release();
@@ -74,17 +74,17 @@ exports.notificationById = async (req, res) => {
       [id],
     );
     if (!notification.rows.length) {
-      handleError(res, 404, 'Notification not found');
+      return handleError(res, 404, 'Notification not found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Notification retrieved successfully',
       notification.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving notification', error);
+    return handleError(res, 500, 'Error retrieving notification', error);
   } finally {
     if (client) {
       client.release();
@@ -98,7 +98,7 @@ exports.updateNotification = async (req, res) => {
     const { id } = req.params;
     const { title, message } = req.body;
     if (!title || !message) {
-      handleError(res, 409, 'Title and message are required');
+      return handleError(res, 409, 'Title and message are required');
     }
     client = await connect();
     const updatedNotification = await client.query(
@@ -110,17 +110,17 @@ exports.updateNotification = async (req, res) => {
       [title, message, id],
     );
     if (!updatedNotification.rows.length) {
-      handleError(res, 404, 'Notification not found');
+      return handleError(res, 404, 'Notification not found');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Notification updated successfully',
       updatedNotification.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating notification', error);
+    return handleError(res, 500, 'Error updating notification', error);
   } finally {
     if (client) {
       client.release();
@@ -135,9 +135,9 @@ exports.deleteNotification = async (req, res) => {
     client = await connect();
     await client.query(`DELETE FROM notification WHERE id = $1`, [id]);
 
-    handleResponse(res, 200, 'Notification deleted successfully');
+    return handleResponse(res, 200, 'Notification deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting notification', error);
+    return handleError(res, 500, 'Error deleting notification', error);
   } finally {
     if (client) {
       client.release();

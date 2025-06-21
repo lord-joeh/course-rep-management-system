@@ -1,5 +1,8 @@
 const { connect } = require('../config/db');
-const { generatedId, formatDateAndTime } = require('../services/customServices');
+const {
+  generatedId,
+  formatDateAndTime,
+} = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 
@@ -10,7 +13,7 @@ exports.addEvent = async (req, res) => {
     client = await connect();
 
     if (!title || !description || !date || !time || !venue) {
-      handleError(
+      return handleError(
         res,
         409,
         'Title, description, date, time, and venue are required',
@@ -26,9 +29,14 @@ exports.addEvent = async (req, res) => {
       [id, title, description, formattedDate, formattedTime, venue],
     );
 
-    handleResponse(res, 201, 'Event added successfully', newEvent.rows[0]);
+    return handleResponse(
+      res,
+      201,
+      'Event added successfully',
+      newEvent.rows[0],
+    );
   } catch (error) {
-    handleError(res, 500, 'Error adding event', error);
+    return handleError(res, 500, 'Error adding event', error);
   } finally {
     if (client) {
       client.release();
@@ -54,12 +62,17 @@ exports.getAllEvent = async (req, res) => {
         ORDER BY date DESC, time DESC;`,
     );
     if (!events.rows.length) {
-      handleError(res, 404, 'No Events found');
+      return handleError(res, 404, 'No Events found');
     }
 
-    handleResponse(res, 200, 'Events retrieved successfully', events.rows);
+    return handleResponse(
+      res,
+      200,
+      'Events retrieved successfully',
+      events.rows,
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving events', error);
+    return handleError(res, 500, 'Error retrieving events', error);
   } finally {
     if (client) {
       client.release();
@@ -80,12 +93,17 @@ exports.eventById = async (req, res) => {
     );
 
     if (!event.rows.length) {
-      handleError(res, 404, 'Event not found');
+      return handleError(res, 404, 'Event not found');
     }
 
-    handleResponse(res, 200, 'Event retrieved successfully', event.rows[0]);
+    return handleResponse(
+      res,
+      200,
+      'Event retrieved successfully',
+      event.rows[0],
+    );
   } catch (error) {
-    handleError(res, 500, 'Error retrieving event', error);
+    return handleError(res, 500, 'Error retrieving event', error);
   } finally {
     if (client) {
       client.release();
@@ -100,7 +118,7 @@ exports.updateEvent = async (req, res) => {
     const { title, description, date, time, venue } = req.body;
     const { formattedDate, formattedTime } = formatDateAndTime(date, time);
     if (!title || !description || !date || !time || !venue) {
-      handleError(
+      return handleError(
         res,
         409,
         'Title, description, date, time, and venue are required',
@@ -121,17 +139,17 @@ exports.updateEvent = async (req, res) => {
     );
 
     if (!updatedEvent.rows.length) {
-      handleError(res, 404, 'Event not found for update');
+      return handleError(res, 404, 'Event not found for update');
     }
 
-    handleResponse(
+    return handleResponse(
       res,
       200,
       'Event updated successfully',
       updatedEvent.rows[0],
     );
   } catch (error) {
-    handleError(res, 500, 'Error updating event', error);
+    return handleError(res, 500, 'Error updating event', error);
   } finally {
     if (client) {
       client.release();
@@ -146,9 +164,9 @@ exports.deleteEvent = async (req, res) => {
     client = await connect();
 
     await client.query(`DELETE FROM event WHERE id = $1`, [id]);
-    handleResponse(res, 200, 'Event deleted successfully');
+    return handleResponse(res, 200, 'Event deleted successfully');
   } catch (error) {
-    handleError(res, 500, 'Error deleting event', error);
+    return handleError(res, 500, 'Error deleting event', error);
   } finally {
     if (client) {
       client.release();

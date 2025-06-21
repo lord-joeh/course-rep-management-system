@@ -12,7 +12,7 @@ exports.login = async (req, res) => {
     const { studentId, password } = req.body;
 
     if (!studentId || !password) {
-      handleError(res, 409, 'Student ID and Password are required');
+      return handleError(res, 409, 'Student ID and Password are required');
     }
 
     client = await connect();
@@ -22,7 +22,7 @@ exports.login = async (req, res) => {
     ]);
 
     if (!student.rows.length) {
-      handleError(res, 404, 'Student does not exist');
+      return handleError(res, 404, 'Student does not exist');
     }
 
     const validStudent = student.rows[0];
@@ -30,7 +30,7 @@ exports.login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, validStudent.password_hash);
 
     if (!isMatch) {
-      handleError(res, 400, 'Invalid credentials');
+      return handleError(res, 400, 'Invalid credentials');
     }
     validStudent.password_hash = undefined;
 
@@ -44,14 +44,14 @@ exports.login = async (req, res) => {
       { expiresIn: '1h' },
     );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Login successful',
       token: token,
       data: validStudent,
     });
   } catch (error) {
-    handleError(res, 500, 'Error logging in', error);
+    return handleError(res, 500, 'Error logging in', error);
   } finally {
     if (client) {
       client.release();
@@ -64,7 +64,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { studentId, email } = req.body;
     if (!studentId || !email) {
-      handleError(res, 409, 'Student ID and email required');
+      return handleError(res, 409, 'Student ID and email required');
     }
     client = await connect();
 
@@ -81,7 +81,7 @@ exports.forgotPassword = async (req, res) => {
     );
 
     if (!forgotStudent.rows.length) {
-      handleError(res, 404, 'Student not found');
+      return handleError(res, 404, 'Student not found');
     }
     const student = forgotStudent.rows[0];
 
@@ -103,9 +103,13 @@ exports.forgotPassword = async (req, res) => {
 
     /*TODO
     Send password reset link*/
-    handleResponse(res, 200, 'Reset link sent if email provided is correct');
+    return handleResponse(
+      res,
+      200,
+      'Reset link sent if email provided is correct',
+    );
   } catch (error) {
-    handleError(res, 500, 'Error requesting reset password link', error);
+    return handleError(res, 500, 'Error requesting reset password link', error);
   } finally {
     if (client) {
       client.release();
@@ -120,7 +124,7 @@ exports.resetPassword = async (req, res) => {
     const { token } = req.query;
 
     if (!newPassword) {
-      handleError(res, 409, 'New password is required');
+      return handleError(res, 409, 'New password is required');
     }
     const decoded = jwt.verify(token, process.env.JWT_RESET);
     client = await connect();
@@ -140,7 +144,11 @@ exports.resetPassword = async (req, res) => {
     );
 
     if (!student.rows.length) {
-      handleError(res, 409, 'Invalid or Expired token. Request link again');
+      return handleError(
+        res,
+        409,
+        'Invalid or Expired token. Request link again',
+      );
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
@@ -151,9 +159,9 @@ exports.resetPassword = async (req, res) => {
       [hashedPassword, decoded.id, decoded.email],
     );
 
-    handleResponse(res, 200, 'Password has successfully been reset');
+    return handleResponse(res, 200, 'Password has successfully been reset');
   } catch (error) {
-    handleError(res, 500, 'Error resetting password', error);
+    return handleError(res, 500, 'Error resetting password', error);
   } finally {
     if (client) {
       client.release();
@@ -168,7 +176,7 @@ exports.changePassword = async (req, res) => {
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      handleError(res, 409, 'Current and new password required');
+      return handleError(res, 409, 'Current and new password required');
     }
     client = await connect();
     const student = await client.query(
@@ -178,7 +186,11 @@ exports.changePassword = async (req, res) => {
     );
 
     if (!student.rows.length) {
-      handleError(res, 404, 'Can not change the password of this account');
+      return handleError(
+        res,
+        404,
+        'Can not change the password of this account',
+      );
     }
 
     const isMatch = await bcrypt.compare(
@@ -186,7 +198,7 @@ exports.changePassword = async (req, res) => {
       student.rows[0].password_hash,
     );
     if (!isMatch) {
-      handleError(res, 400, 'Invalid password for current password');
+      return handleError(res, 400, 'Invalid password for current password');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -198,9 +210,9 @@ exports.changePassword = async (req, res) => {
       [hashedPassword, sid],
     );
 
-    handleResponse(res, 200, 'Password successfully changed');
+    return handleResponse(res, 200, 'Password successfully changed');
   } catch (error) {
-    handleError(res, 500, 'Error changing password', error);
+    return handleError(res, 500, 'Error changing password', error);
   } finally {
     if (client) {
       client.release();
