@@ -2,6 +2,7 @@ const { generatedId, shuffle } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { connect } = require('../config/db');
+const { sendGroupAssignmentEmail } = require('../services/customEmails');
 
 exports.addGroup = async (req, res) => {
   let client;
@@ -211,10 +212,11 @@ exports.createCustomGroup = async (req, res) => {
             `SELECT name FROM student WHERE id = $1`,
             [student.id],
           );
-
-          const studentName = studentNameResult.rows[0]?.name || 'Unknown';
         }),
       );
+
+      //Send group assignment mail
+      await sendGroupAssignmentEmail(groupId, groupName, group);
 
       currentGroupNumber += 1;
       totalGroups += 1;

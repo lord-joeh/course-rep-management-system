@@ -3,41 +3,93 @@ const { generatedId, generateQR } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const jwt = require('jsonwebtoken');
+const { getDistance } = require('geolib');
 
 exports.attendanceInstance = async (req, res) => {
   let client;
   try {
-    const { courseId, date } = req.body;
-    if (!courseId || !date) {
-      handleError(res, 409, 'Course ID and date are required');
+    const { courseId, date, classType } = req.body;
+
+    // Validate required parameters
+    if (!courseId || !date || !classType) {
+      return handleError(
+        res,
+        409,
+        'Course ID, date, and class type are required',
+      );
+    }
+
+    // Validate class type
+    if (!['physical', 'online'].includes(classType)) {
+      return handleError(
+        res,
+        400,
+        'Invalid class type. Must be "physical" or "online"',
+      );
+    }
+
+    let latitude, longitude;
+
+    if (classType === 'physical') {
+      // Require location for physical classes
+      if (!req.body.latitude || !req.body.longitude) {
+        return handleError(
+          res,
+          409,
+          'Location coordinates are required for physical classes',
+        );
+      }
+      latitude = req.body.latitude;
+      longitude = req.body.longitude;
+    } else {
+      // For online classes, location is optional
+      latitude = req.body.latitude || 0;
+      longitude = req.body.longitude || 0;
     }
 
     client = await connect();
-    client.query('BEGIN');
+    await client.query('BEGIN');
 
     const id = await generatedId('ATT_INT');
-    const qrTokenExpiration = new Date(Date.now() + 3 * 60 * 60 * 1000);
+    const qrTokenExpiration = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    const qrToken = jwt.sign(
-      { courseId: courseId, instanceId: id },
-      process.env.JWT_SECRET,
-      { expiresIn: '3h' },
-    );
+    // Token payload includes class type
+    const tokenPayload = {
+      courseId,
+      instanceId: id,
+      classType,
+      latitude,
+      longitude,
+    };
 
+    const qrToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
+      expiresIn: '15m',
+    });
+
+    // Store in database including class type
     const { rows } = await client.query(
-      `INSERT INTO attendance_instance (id, courseId, date, qr_token, expires_at)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, courseId, date, expires_at;`,
-      [id, courseId, date, qrToken, qrTokenExpiration],
+      `INSERT INTO attendance_instance 
+        (id, courseId, date, qr_token, expires_at, latitude, longitude, class_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, courseId, date, expires_at, class_type;`,
+      [
+        id,
+        courseId,
+        date,
+        qrToken,
+        qrTokenExpiration,
+        latitude,
+        longitude,
+        classType,
+      ],
     );
 
+    // Create attendance records for students
     const students = await client.query(
-      `
-        SELECT s.id AS studentId
-        FROM COURSE_STUDENT cs
-        JOIN STUDENT s ON cs.studentId = s.id
-        WHERE cs.courseId = $1 AND s.status = 'active'
-        `,
+      `SELECT s.id AS studentId
+       FROM COURSE_STUDENT cs
+       JOIN STUDENT s ON cs.studentId = s.id
+       WHERE cs.courseId = $1 AND s.status = 'active'`,
       [courseId],
     );
 
@@ -45,29 +97,27 @@ exports.attendanceInstance = async (req, res) => {
       const attendanceId = await generatedId('ATT');
       await client.query(
         `INSERT INTO attendance (id, instanceId, courseId, date, studentId, status)
-        VALUES ($1, $2, $3, $4, $5, $6)`,
+         VALUES ($1, $2, $3, $4, $5, $6)`,
         [attendanceId, id, courseId, date, student.studentid, 'absent'],
       );
     }
     await client.query('COMMIT');
 
     const attendanceUrl = `${process.env.FRONTEND_URL}/mark?instanceId=${id}&token=${qrToken}`;
-
     const qrImage = await generateQR(attendanceUrl);
 
     res.status(201).json({
       success: true,
       message: 'Attendance initialized successfully',
-      qrImage: qrImage,
+      classType: classType,
+      qrCode: qrImage,
       data: rows[0],
     });
   } catch (error) {
     await client.query('ROLLBACK');
     handleError(res, 500, 'Error initializing attendance', error);
   } finally {
-    if (client) {
-      client.release();
-    }
+    if (client) client.release();
   }
 };
 
@@ -275,63 +325,156 @@ exports.autoAttendanceMark = async (req, res) => {
     const { token } = req.query;
 
     if (!studentId || !token) {
-      return handleError(res, 409, 'Missing required data to mark attendance');
+      return handleError(res, 409, 'Student ID and token are required');
     }
 
     client = await connect();
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!decoded.instanceId || !decoded.courseId) {
-      return handleError(res, 409, 'Invalid or expired attendance token');
+    // Validate token payload
+    if (!decoded.instanceId || !decoded.courseId || !decoded.classType) {
+      return handleError(res, 400, 'Invalid attendance token payload');
     }
 
+    // Get attendance instance
     const {
       rows: [instance],
     } = await client.query(
-      `SELECT * FROM attendance_instance WHERE id = $1 AND courseId = $2`,
+      `SELECT * FROM attendance_instance 
+       WHERE id = $1 AND courseId = $2`,
       [decoded.instanceId, decoded.courseId],
     );
 
-    if (
-      !instance ||
-      new Date(instance.expires_at) < new Date() ||
-      instance.is_close ||
-      instance.qr_token !== token
-    ) {
-      return handleError(res, 403, 'Attendance is either expired or closed');
+    if (!instance) {
+      return handleError(res, 404, 'Attendance session not found');
     }
 
+    if (instance.is_close) {
+      return handleError(res, 410, 'Attendance session is closed');
+    }
+
+    if (new Date(instance.expires_at) < new Date()) {
+      return handleError(res, 410, 'Attendance session has expired');
+    }
+
+    if (instance.qr_token !== token) {
+      return handleError(res, 401, 'Invalid attendance token');
+    }
+
+    // Location verification logic
+    let locationRequired = false;
+    let locationValid = false;
+    let locationMessage = '';
+
+    // For physical classes: always require location
+    if (instance.class_type === 'physical') {
+      locationRequired = true;
+
+      if (!req.body.latitude || !req.body.longitude) {
+        return handleError(res, 409, 'Location coordinates are required');
+      }
+
+      const distance = getDistance(
+        { latitude: instance.latitude, longitude: instance.longitude },
+        { latitude: req.body.latitude, longitude: req.body.longitude },
+      );
+
+      locationValid = distance <= 50;
+      locationMessage = locationValid
+        ? 'Location verified'
+        : `You must be within 50m of the classroom (${distance}m away)`;
+    }
+    // For online classes: occasionally require random location check (20% chance)
+    else if (instance.class_type === 'online') {
+      // Random location check (20% probability)
+      if (Math.random() < 0.2) {
+        locationRequired = true;
+
+        if (!req.body.latitude || !req.body.longitude) {
+          return handleError(res, 409, 'Random location check required');
+        }
+
+        // For online classes, just require location but don't verify distance
+        locationValid = true;
+        locationMessage = 'Random location check completed';
+      }
+    }
+
+    // If location was required but not provided or invalid
+    if (locationRequired && !locationValid) {
+      // Log suspicious activity
+      await client.query(
+        `INSERT INTO security_logs 
+         (student_id, instance_id, event_type, details) 
+         VALUES ($1, $2, $3, $4)`,
+        [
+          studentId,
+          instance.id,
+          'location_verification_failed',
+          locationMessage,
+        ],
+      );
+
+      return handleError(res, 403, locationMessage);
+    }
+
+    // Check existing attendance status
     const {
-      rows: [statusRow],
+      rows: [attendance],
     } = await client.query(
       `SELECT status FROM attendance
-       WHERE instanceId = $1 AND courseId = $2 AND studentId = $3`,
-      [decoded.instanceId, decoded.courseId, studentId],
+       WHERE instanceId = $1 AND studentId = $2`,
+      [decoded.instanceId, studentId],
     );
 
-    if (statusRow?.status === 'present') {
+    // Prevent duplicate marking
+    if (attendance?.status === 'present') {
       return handleError(res, 409, 'Attendance already marked');
     }
 
-    const now = new Date();
-
-    if (!statusRow) {
+    // Create or update attendance record
+    if (attendance) {
+      await client.query(
+        `UPDATE attendance
+         SET status = 'present'
+         WHERE instanceId = $1 AND studentId = $2`,
+        [decoded.instanceId, studentId],
+      );
+    } else {
       const id = await generatedId('ATT');
       await client.query(
         `INSERT INTO attendance (id, instanceId, courseId, date, studentId, status)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, decoded.instanceId, decoded.courseId, now, studentId, 'present'],
+        [
+          id,
+          decoded.instanceId,
+          decoded.courseId,
+          new Date(),
+          studentId,
+          'present',
+        ],
       );
-      return handleResponse(res, 201, 'Attendance marked successfully');
-    } else {
-      await client.query(
-        `UPDATE attendance
-         SET status = $1
-         WHERE instanceId = $2 AND courseId = $3 AND studentId = $4`,
-        ['present', decoded.instanceId, decoded.courseId, studentId],
-      );
-      return handleResponse(res, 200, 'Attendance marked successfully');
     }
+
+    // Log successful attendance with location status
+    await client.query(
+      `INSERT INTO attendance_logs 
+       (student_id, instance_id, location_checked, location_valid, details) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        studentId,
+        instance.id,
+        locationRequired,
+        locationValid,
+        locationMessage,
+      ],
+    );
+
+    return handleResponse(
+      res,
+      200,
+      `Attendance marked successfully. ${locationMessage}`,
+    );
   } catch (error) {
     return handleError(res, 500, 'Error marking attendance', error);
   } finally {

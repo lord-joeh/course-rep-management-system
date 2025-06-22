@@ -4,6 +4,7 @@ const { handleResponse } = require('../services/responseService');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { sendNotification } = require('../utils/sendEmail');
+const { sendResetLink } = require('../services/customEmails');
 require('dotenv').config();
 
 exports.login = async (req, res) => {
@@ -88,9 +89,9 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = jwt.sign(
       { id: student.student_id, email: student.student_email },
       process.env.JWT_RESET,
-      { expiresIn: '15m' },
+      { expiresIn: '5m' },
     );
-    const resetTokenExpiration = new Date(Date.now() + 15 * 60 * 1000);
+    const resetTokenExpiration = new Date(Date.now() + 5 * 60 * 1000);
 
     const resetData = await client.query(
       `INSERT INTO verification (student_id, reset_token, reset_token_expiration)
@@ -101,8 +102,7 @@ exports.forgotPassword = async (req, res) => {
       [student.student_id, resetToken, resetTokenExpiration],
     );
 
-    /*TODO
-    Send password reset link*/
+    await sendResetLink(student.student_email, resetToken);
     return handleResponse(
       res,
       200,

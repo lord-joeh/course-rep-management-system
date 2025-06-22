@@ -2,6 +2,7 @@ const { connect } = require('../config/db');
 const bcrypt = require('bcrypt');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
+const { sendRegistrationSuccessMail } = require('../services/customEmails');
 
 exports.registerStudent = async (req, res) => {
   let client;
@@ -40,6 +41,12 @@ exports.registerStudent = async (req, res) => {
 
     client.query('COMMIT');
     newStudent.rows[0].password_hash = undefined;
+    //Send registration mail
+    sendRegistrationSuccessMail(
+      newStudent.rows[0].name,
+      newStudent.rows[0].email,
+      newStudent.rows[0].id,
+    );
     return handleResponse(
       res,
       201,

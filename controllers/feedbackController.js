@@ -1,4 +1,5 @@
 const { connect } = require('../config/db');
+const { sendFeedbackReceived } = require('../services/customEmails');
 const { generatedId } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
@@ -21,6 +22,7 @@ exports.sendFeedback = async (req, res) => {
       [id, studentId, content, isAnonymous],
     );
 
+    await sendFeedbackReceived(isAnonymous, studentId);
     return handleResponse(
       res,
       201,
