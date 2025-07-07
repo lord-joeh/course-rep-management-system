@@ -216,7 +216,7 @@ exports.createCustomGroup = async (req, res) => {
       );
 
       //Send group assignment mail
-      await sendGroupAssignmentEmail(groupId, groupName, group);
+      await sendGroupAssignmentEmail(groupName, group);
 
       currentGroupNumber += 1;
       totalGroups += 1;
