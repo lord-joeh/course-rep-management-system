@@ -20,7 +20,6 @@
     "geolib": "^3.3.4",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^7.0.3",
-    "pg": "^8.16.0",
     "qrcode": "^1.5.4",
     "sequelize": "^6.37.7",
     "winston": "^3.17.0"
