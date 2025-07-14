@@ -1,0 +1,16 @@
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+  const Event = sequelize.define('Event', {
+    id: { type: DataTypes.STRING, primaryKey: true },
+    title: DataTypes.STRING,
+    description: DataTypes.STRING,
+    date: DataTypes.DATE,
+    time: DataTypes.STRING,
+    venue: DataTypes.STRING,
+  }, {
+    tableName: 'event',
+    timestamps: false,
+  });
+  return Event;
+};

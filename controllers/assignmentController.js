@@ -1,164 +1,118 @@
-const { connect } = require('../config/db');
-const { generatedId, formatDate } = require('../services/customServices');
-const { handleError } = require('../services/errorService');
-const { handleResponse } = require('../services/responseService');
+const { models } = require("../config/db");
+const { generatedId, formatDate } = require("../services/customServices");
+const { handleError } = require("../services/errorService");
+const { handleResponse } = require("../services/responseService");
 
 exports.addAssignment = async (req, res) => {
-  let client;
   try {
     const { title, description, courseId, deadline } = req.body;
-
     if (!title || !description || !courseId || !deadline) {
       return handleError(
         res,
         409,
-        'Title, description, course ID and dead line are required',
+        "Title, description, course ID and dead line are required"
       );
     }
-    client = await connect();
-    const id = await generatedId('ASS');
+    const id = await generatedId("ASS");
     const formattedDeadline = await formatDate(deadline);
-
-    const newAssignment = await client.query(
-      `INSERT INTO assignment (id, title, description, courseId, deadline)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *`,
-      [id, title, description, courseId, formattedDeadline],
-    );
-
+    const newAssignment = await models.Assignment.create({
+      id,
+      title,
+      description,
+      courseId,
+      deadline: formattedDeadline,
+    });
     return handleResponse(
       res,
       201,
-      'Successfully added assignment',
-      newAssignment.rows[0],
+      "Successfully added assignment",
+      newAssignment
     );
   } catch (error) {
-    return handleError(res, 500, 'Error adding assignment', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
+    return handleError(res, 500, "Error adding assignment", error);
   }
 };
 
 exports.allAssignment = async (req, res) => {
-  let client;
   try {
-    client = await connect();
-
-    const assignments = await client.query(`SELECT * FROM assignment`);
-    if (!assignments.rows.length) {
-      return handleError(res, 404, 'No assignments found');
+    const assignments = await models.Assignment.findAll();
+    if (!assignments.length) {
+      return handleError(res, 404, "No assignments found");
     }
-
     return handleResponse(
       res,
       200,
-      'Assignments retrieved successfully',
-      assignments.rows,
+      "Assignments retrieved successfully",
+      assignments
     );
   } catch (error) {
-    return handleError(res, 500, 'Error retrieving assignments', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
+    return handleError(res, 500, "Error retrieving assignments", error);
   }
 };
 
 exports.assignmentById = async (req, res) => {
-  let client;
   try {
     const { id } = req.params;
-    client = await connect();
-
-    const assignment = await client.query(
-      `SELECT 
-            assignment.*,
-            course.name AS course_name
-            FROM assignment
-            LEFT JOIN course ON assignment.courseid = course.id
-            WHERE assignment.id = $1;`,
-      [id],
-    );
-    if (!assignment.rows.length) {
-      return handleError(res, 404, 'Assignment not found');
+    const assignment = await models.Assignment.findOne({
+      where: { id },
+      include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
+    });
+    if (!assignment) {
+      return handleError(res, 404, "Assignment not found");
     }
-
     return handleResponse(
       res,
       200,
-      'Assignment retrieved successfully',
-      assignment.rows[0],
+      "Assignment retrieved successfully",
+      assignment
     );
   } catch (error) {
-    return handleError(res, 500, 'Error retrieving assignment', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
+    return handleError(res, 500, "Error retrieving assignment", error);
   }
 };
 
 exports.updateAssignment = async (req, res) => {
-  let client;
   try {
     const { id } = req.params;
     const { title, description, deadline } = req.body;
-
     if (!title || !description || !deadline) {
       return handleError(
         res,
         409,
-        'Title, description, and deadline are required',
+        "Title, description, and deadline are required"
       );
     }
-    client = await connect();
-    const formattedDeadline = formatDate(deadline);
-
-    const assignment = await client.query(
-      `UPDATE assignment 
-            SET title = $1,
-                description = $2,
-                deadline = $3
-                WHERE id = $4
-                RETURNING *;`,
-      [title, description, formattedDeadline, id],
+    const formattedDeadline = await formatDate(deadline);
+    const [updated] = await models.Assignment.update(
+      { title, description, deadline: formattedDeadline },
+      { where: { id }, returning: true }
     );
-
-    if (!assignment.rows.length) {
-      return handleError(res, 404, 'Assignment not found for update');
+    if (!updated) {
+      return handleError(res, 404, "Assignment not found for update");
     }
-
+    const updatedAssignment = await models.Assignment.findOne({
+      where: { id },
+    });
     return handleResponse(
       res,
       200,
-      'Assignment updated successfully',
-      assignment.rows[0],
+      "Assignment updated successfully",
+      updatedAssignment
     );
   } catch (error) {
-    return handleError(res, 500, 'Error updating assignment', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
+    return handleError(res, 500, "Error updating assignment", error);
   }
 };
 
 exports.deleteAssignment = async (req, res) => {
-  let client;
   try {
     const { id } = req.params;
-    client = await connect();
-
-    await client.query(`DELETE FROM assignment WHERE id = $1`, [id]);
-
-    return handleResponse(res, 200, 'Assignment deleted successfully');
-  } catch (error) {
-    return handleError(res, 500, 'Error deleting assignment', error);
-  } finally {
-    if (client) {
-      client.release();
+    const deleted = await models.Assignment.destroy({ where: { id } });
+    if (!deleted) {
+      return handleError(res, 404, "Assignment not found for deletion");
     }
+    return handleResponse(res, 200, "Assignment deleted successfully");
+  } catch (error) {
+    return handleError(res, 500, "Error deleting assignment", error);
   }
 };

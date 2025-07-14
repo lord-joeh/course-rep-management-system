@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const { limiter } = require('./middleware/rateLimiter')
 const authRoute = require('./routes/authRoute');
 const lecturerRoute = require('./routes/lecturerRoute');
 const courseRoute = require('./routes/courseRoute');
@@ -13,6 +14,7 @@ const feedbackRoute = require('./routes/feedbackRoute');
 const attendanceInstanceRoute = require('./routes/attendanceInstanceRoute');
 const app = express();
 
+app.use(limiter);
 app.use(cors());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());

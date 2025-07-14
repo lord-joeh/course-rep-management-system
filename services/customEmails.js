@@ -1,6 +1,6 @@
-const { connect } = require('../config/db');
-const { sendNotification } = require('../utils/sendEmail');
-require('dotenv').config();
+const { models } = require("../config/db");
+const { sendNotification } = require("../utils/sendEmail");
+require("dotenv").config();
 
 //Send password reset link
 exports.sendResetLink = async (email, reset_token) => {
@@ -18,10 +18,10 @@ exports.sendResetLink = async (email, reset_token) => {
     </div>`;
 
   try {
-    await sendNotification(email, 'Password Reset', content);
-    console.log('Password reset link sent successfully');
+    await sendNotification(email, "Password Reset", content);
+    console.log("Password reset link sent successfully");
   } catch (error) {
-    console.log('Error sending password reset link', error);
+    console.log("Error sending password reset link", error);
   }
 };
 
@@ -48,78 +48,64 @@ exports.sendRegistrationSuccessMail = async (name, email, id) => {
   try {
     await sendNotification(
       email,
-      'Welcome to the Course Rep Management System',
-      content,
+      "Welcome to the Course Rep Management System",
+      content
     );
-    console.log('Registration mail sent successfully');
+    console.log("Registration mail sent successfully");
   } catch (error) {
-    console.log('Error sending registration success mail');
+    console.log("Error sending registration success mail");
   }
 };
 
 //Send feedback received mail
 exports.sendFeedbackReceived = async (is_anonymous, id) => {
-  let client;
+  if (is_anonymous) {
+    console.log("User is anonymous ");
+    return;
+  }
   try {
-    client = await connect();
-
-    if (is_anonymous) {
-      console.log('User is anonymous ');
-
-      return;
-    }
-
-    const student = await client.query(
-      `SELECT name, email FROM student WHERE id = $1`,
-      [id],
-    );
-
+    const student = await models.Student.findOne({
+      where: { id },
+      attributes: ["name", "email"],
+    });
+    if (!student) throw new Error("Student not found");
     const content = `
     <div style="font-family: Arial, sans-serif; max-width: 600px;
          margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
         <h2 style="color: #007bff;">Feedback Received</h2>
-        <p>Dear ${student.rows[0].name}, </p>
+        <p>Dear ${student.name}, </p>
         <p>Thank you for taking the time to share your feedback with us.</p>
         <p>We’ve successfully received your message, and we truly appreciate your input.</p>
         <p>Our team will review your feedback and, if necessary, follow up with you shortly.</p>
         <p>If you have any additional thoughts or questions in the meantime, feel free to reach out.</p>
         <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
     </div>`;
-
     await sendNotification(
-      student.rows[0].email,
-      'We’ve Received Your Feedback  Thank You!',
-      content,
+      student.email,
+      "We’ve Received Your Feedback  Thank You!",
+      content
     );
-    console.log('Feedback received mail sent successfully');
+    console.log("Feedback received mail sent successfully");
   } catch (error) {
-    console.log('Error sending feedback received mail', error);
-  } finally {
-    if (client) client.release();
+    console.log("Error sending feedback received mail", error);
   }
 };
 
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
-  let client;
   try {
-    client = await connect();
-
     // Fetch student data
     const students = await Promise.all(
       group.map(async (student) => {
-        const result = await client.query(
-          `SELECT id, name, email FROM student WHERE id = $1`,
-          [student.id],
-        );
-        return result.rows[0];
-      }),
+        const s = await models.Student.findOne({
+          where: { id: student.id },
+          attributes: ["id", "name", "email"],
+        });
+        return s;
+      })
     );
-
-    if (!students.length) throw new Error('No students found for group');
-
+    if (!students.length) throw new Error("No students found for group");
     const leader = students[0]; // first member is leader
-
     // Build table rows
     const tableRows = students
       .map(
@@ -129,13 +115,12 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
         <td style="padding:8px;border:1px solid #ddd;">${s.name}</td>
         <td style="padding:8px;border:1px solid #ddd;">${s.id}</td>
         <td style="padding:8px;border:1px solid #ddd;">${
-          s.id === leader.id ? 'Leader' : 'Member'
+          s.id === leader.id ? "Leader" : "Member"
         }</td>
       </tr>
-    `,
+    `
       )
-      .join('');
-
+      .join("");
     // Send email to each student
     await Promise.all(
       students.map(async (student) => {
@@ -166,20 +151,16 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
             <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
           </div>
         `;
-
         await sendNotification(
           student.email,
           `Your Group Assignment: ${groupName}`,
-          html,
+          html
         );
-      }),
+      })
     );
-
     console.log(`Group assignment email sent to all members of ${groupName}`);
   } catch (err) {
-    console.error('Error sending group assignment email:', err.message);
+    console.error("Error sending group assignment email:", err.message);
     throw err;
-  } finally {
-    if (client) client.release();
   }
 };

@@ -1,135 +1,82 @@
-const { connect } = require('../config/db');
+const { models } = require('../config/db');
 const { sendFeedbackReceived } = require('../services/customEmails');
 const { generatedId } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 
 exports.sendFeedback = async (req, res) => {
-  let client;
   try {
     const { studentId, content, isAnonymous } = req.body;
     if (!studentId || !content) {
       return handleError(res, 409, 'Student ID and content are required');
     }
-
     const id = await generatedId('FED');
-    client = await connect();
-
-    const newFeedback = await client.query(
-      `INSERT INTO feedback (id, studentId, content, is_anonymous)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *`,
-      [id, studentId, content, isAnonymous],
-    );
-
+    const newFeedback = await models.Feedback.create({
+      id,
+      studentId,
+      content,
+      is_anonymous: isAnonymous,
+    });
     await sendFeedbackReceived(isAnonymous, studentId);
-    return handleResponse(
-      res,
-      201,
-      'Feedback submitted successfully',
-      newFeedback.rows[0],
-    );
+    return handleResponse(res, 201, 'Feedback submitted successfully', newFeedback);
   } catch (error) {
     return handleError(res, 500, 'Error sending feedback', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 };
 
 exports.allFeedback = async (req, res) => {
-  let client;
   try {
-    client = await connect();
-    const feedbacks = await client.query(
-      `SELECT 
-        f.*,
-        s.name AS student_name
-        FROM feedback f
-        LEFT JOIN student s ON f.studentid = s.id
-        ORDER BY submitted_at DESC;`,
-    );
-    if (!feedbacks.rows.length) {
+    const feedbacks = await models.Feedback.findAll({
+      include: [{ model: models.Student, attributes: ['name'] }],
+      order: [['createdAt', 'DESC']],
+    });
+    if (!feedbacks.length) {
       return handleError(res, 404, 'No feedbacks found');
     }
-
-    feedbacks.rows.map((f) => {
+    feedbacks.forEach((f) => {
       if (f.is_anonymous) {
-        f.studentid = undefined;
-        f.student_name = undefined;
+        f.studentId = undefined;
+        if (f.Student) f.Student.name = undefined;
       }
     });
-
-    return handleResponse(
-      res,
-      200,
-      'Feedbacks retrieved successfully',
-      feedbacks.rows,
-    );
+    return handleResponse(res, 200, 'Feedbacks retrieved successfully', feedbacks);
   } catch (error) {
     return handleError(res, 500, 'Error retrieving feedbacks');
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 };
 
 exports.feedbackById = async (req, res) => {
-  let client;
   try {
     const { id } = req.params;
-
-    client = await connect();
-
-    const feedback = await client.query(
-      `SELECT f.*,
-            s.name AS student_name,
-            s.email AS student_email
-            FROM feedback f
-            LEFT JOIN student s ON f.studentid = s.id
-            WHERE f.id = $1`,
-      [id],
-    );
-    if (!feedback.rows.length) {
+    const feedback = await models.Feedback.findOne({
+      where: { id },
+      include: [{ model: models.Student, attributes: ['name', 'email'] }],
+    });
+    if (!feedback) {
       return handleError(res, 404, 'Feedback not found');
     }
-
-    if (feedback.rows[0].is_anonymous) {
-      feedback.rows[0].student_name = undefined;
-      feedback.rows[0].studentid = undefined;
-      feedback.rows[0].student_email = undefined;
+    if (feedback.is_anonymous) {
+      feedback.studentId = undefined;
+      if (feedback.Student) {
+        feedback.Student.name = undefined;
+        feedback.Student.email = undefined;
+      }
     }
-
-    return handleResponse(
-      res,
-      200,
-      'Feedback retrieved successfully',
-      feedback.rows[0],
-    );
+    return handleResponse(res, 200, 'Feedback retrieved successfully', feedback);
   } catch (error) {
     return handleError(res, 500, 'Error retrieving feedback', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 };
 
 exports.deleteFeedback = async (req, res) => {
-  let client;
   try {
     const { id } = req.params;
-    client = await connect();
-    await client.query(`DELETE FROM feedback WHERE id = $1`, [id]);
-
+    const deleted = await models.Feedback.destroy({ where: { id } });
+    if (!deleted) {
+      return handleError(res, 404, 'Feedback not found for deletion');
+    }
     return handleResponse(res, 200, 'Feedback deleted successfully');
   } catch (error) {
     return handleError(res, 500, 'Error deleting feedback', error);
-  } finally {
-    if (client) {
-      client.release();
-    }
   }
 };
