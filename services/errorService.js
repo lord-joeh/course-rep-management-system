@@ -13,7 +13,6 @@ exports.handleError = (res, statusCode, message, error = null) => {
     logger.error(message);
   }
 
-  // In production, don't send error details to client
   const responseMessage =
     process.env.NODE_ENV === 'production'
       ? 'An unexpected error occurred'

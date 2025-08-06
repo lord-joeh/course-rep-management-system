@@ -16,7 +16,7 @@ exports.sendNotification = async (to, subject, message) => {
     html: message,
   };
 
-  await transporter.sendMail(mailOption, (err, info) => {
+   transporter.sendMail(mailOption, (err, info) => {
     err
       ? console.log('Email failed: ' + err.message)
       : console.log('Email sent: ' + info.response);

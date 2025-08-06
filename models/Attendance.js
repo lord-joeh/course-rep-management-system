@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
     status: DataTypes.STRING,
   }, {
     tableName: 'attendance',
-    timestamps: false,
+    timestamps: true,
   });
   Attendance.associate = (models) => {
     Attendance.belongsTo(models.AttendanceInstance, { foreignKey: 'instanceId' });

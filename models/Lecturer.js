@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
     phone: DataTypes.STRING,
   }, {
     tableName: 'lecturer',
-    timestamps: false,
+    timestamps: true,
   });
   Lecturer.associate = (models) => {
     Lecturer.hasMany(models.Course, { foreignKey: 'lecturerId' });

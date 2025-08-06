@@ -8,7 +8,7 @@ module.exports = (sequelize) => {
     is_anonymous: DataTypes.BOOLEAN,
   }, {
     tableName: 'feedback',
-    timestamps: false,
+    timestamps: true,
   });
   
   Feedback.associate = (models) => {

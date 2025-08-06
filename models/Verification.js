@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
     reset_token_expiration: DataTypes.DATE,
   }, {
     tableName: 'verification',
-    timestamps: false,
+    timestamps: true,
   });
   
   Verification.associate = (models) => {

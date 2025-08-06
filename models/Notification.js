@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
     message: DataTypes.STRING,
   }, {
     tableName: 'notification',
-    timestamps: false,
+    timestamps: true,
   });
   return Notification;
 };

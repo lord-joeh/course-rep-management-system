@@ -9,9 +9,10 @@ module.exports = (sequelize) => {
     start_time: DataTypes.STRING,
     end_time: DataTypes.STRING,
     semester: DataTypes.STRING,
+    slidesFolderID: DataTypes.STRING,
   }, {
     tableName: 'course',
-    timestamps: false,
+    timestamps: true,
   });
   Course.associate = (models) => {
     Course.belongsTo(models.Lecturer, { foreignKey: 'lecturerId' });

@@ -2,6 +2,8 @@ const { models } = require("../config/db");
 const { generatedId, formatDate } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
+const uploadToFolder = require("../googleServices/uploadToFolder");
+const createFolder = require("../googleServices/createDriveFolder");
 
 exports.addAssignment = async (req, res) => {
   try {
@@ -14,13 +16,24 @@ exports.addAssignment = async (req, res) => {
       );
     }
     const id = await generatedId("ASS");
-    const formattedDeadline = await formatDate(deadline);
+    const course = await models.Course.findOne({
+      where: { id: courseId },
+    });
+
+    const folderId = await createFolder(
+      `${course?.name} ${title} Submission`
+    );
+
+    console.log(folderId)
+
+    const formattedDeadline = formatDate(deadline);
     const newAssignment = await models.Assignment.create({
       id,
       title,
       description,
       courseId,
       deadline: formattedDeadline,
+      driveFolderID: folderId
     });
     return handleResponse(
       res,
@@ -114,5 +127,27 @@ exports.deleteAssignment = async (req, res) => {
     return handleResponse(res, 200, "Assignment deleted successfully");
   } catch (error) {
     return handleError(res, 500, "Error deleting assignment", error);
+  }
+};
+
+exports.uploadAssignment = async (req, res) => {
+  try {
+    if (!req.file) return handleError(res, 400, "No file uploaded");
+    const { folderId } = req.body;
+
+    const uploadedFile = await uploadToFolder(folderId, req.file);
+
+    if (!uploadedFile) {
+      return handleError(res, 400, "Failed to upload assignment");
+    }
+
+    return handleResponse(
+      res,
+      200,
+      "Assignment uploaded successfully",
+      uploadedFile
+    );
+  } catch (error) {
+    handleError(res, 500, "Error uploading assignment", error);
   }
 };

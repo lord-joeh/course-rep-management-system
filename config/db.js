@@ -12,7 +12,6 @@ const sequelize = new Sequelize(
   }
 );
 
-// Import all models
 const Student = require('../models/Student')(sequelize);
 const Lecturer = require('../models/Lecturer')(sequelize);
 const Course = require('../models/Course')(sequelize);
@@ -28,6 +27,7 @@ const CourseStudent = require('../models/CourseStudent')(sequelize);
 const Verification = require('../models/Verification')(sequelize);
 const SecurityLog = require('../models/SecurityLog')(sequelize);
 const AttendanceLog = require('../models/AttendanceLog')(sequelize);
+const GoogleToken = require('../models/GoogleToken')(sequelize)
 
 const models = {
   Student,
@@ -45,9 +45,10 @@ const models = {
   Verification,
   SecurityLog,
   AttendanceLog,
+  GoogleToken
 };
 
-// Run associations
+
 Object.values(models).forEach(model => {
   if (model.associate) {
     model.associate(models);

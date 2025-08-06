@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
     isLeader: DataTypes.BOOLEAN,
   }, {
     tableName: 'group_member',
-    timestamps: false,
+    timestamps: true,
   });
 
   GroupMember.associate = (models) => {

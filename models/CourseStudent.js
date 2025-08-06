@@ -7,7 +7,7 @@ module.exports = (sequelize) => {
     is_register: DataTypes.BOOLEAN,
   }, {
     tableName: 'course_student',
-    timestamps: false,
+    timestamps: true,
   });
 
   CourseStudent.associate = (models) => {

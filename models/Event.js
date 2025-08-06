@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
     venue: DataTypes.STRING,
   }, {
     tableName: 'event',
-    timestamps: false,
+    timestamps: true,
   });
   return Event;
 };

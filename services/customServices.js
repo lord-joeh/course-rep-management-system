@@ -1,24 +1,24 @@
-const { format, parse } = require('date-fns');
-const { randomInt } = require('crypto');
-const qrCode = require('qrcode');
+const { format, parse } = require("date-fns");
+const { randomInt } = require("crypto");
+const qrCode = require("qrcode");
 
 // Function to format date and time
 exports.formatDateAndTime = (dateStr, timeStr) => {
-  const parsedDate = parse(dateStr, 'do MMMM, yyyy', new Date());
+  const parsedDate = parse(dateStr, "do MMMM, yyyy", new Date());
 
-  const parsedTime = parse(timeStr, 'hh:mm a', new Date());
+  const parsedTime = parse(timeStr, "hh:mm a", new Date());
 
   return {
-    formattedDate: format(parsedDate, 'yyyy-MM-dd'),
-    formattedTime: format(parsedTime, 'HH:mm:ss') + '+01',
+    formattedDate: format(parsedDate, "yyyy-MM-dd"),
+    formattedTime: format(parsedTime, "HH:mm:ss") + "+01",
   };
 };
 
 exports.formatDate = (dateStr) => {
   try {
     // Parse date string (e.g., "6th June, 2025")
-    const parsedDate = parse(dateStr, 'do MMMM, yyyy', new Date());
-    return format(parsedDate, 'yyyy-MM-dd');
+    const parsedDate = parse(dateStr, "do MMMM, yyyy", new Date());
+    return format(parsedDate, "yyyy-MM-dd");
   } catch (error) {
     throw new Error('Invalid date format. Expected format: "6th June, 2025"');
   }
@@ -35,11 +35,10 @@ exports.shuffle = (array) => {
 
 //Function generate ids
 exports.generatedId = async (short) => {
-  const generatedId = await randomInt(1000, 9999);
-  return `${short}${generatedId}`;
+  return `${short}${randomInt(100000, 999999)}`;
 };
 
 //Function to generate qr code
 exports.generateQR = async (url) => {
-  return await qrCode.toDataURL(url)
+  return await qrCode.toDataURL(url);
 };

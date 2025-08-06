@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
     description: DataTypes.STRING,
   }, {
     tableName: 'groups',
-    timestamps: false,
+    timestamps: true,
   });
 
   Group.associate = (models) => {

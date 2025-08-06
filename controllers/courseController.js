@@ -1,6 +1,7 @@
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
 const { models } = require('../config/db');
+const createFolder = require('../googleServices/createDriveFolder')
 
 exports.addCourse = async (req, res) => {
   try {
@@ -12,6 +13,7 @@ exports.addCourse = async (req, res) => {
         'id, name, lecturerId, day, start time, end time, and semester is required',
       );
     }
+    const folderId = await createFolder(`${name} Slides`)
     const newCourse = await models.Course.create({
       id,
       name,
@@ -20,6 +22,7 @@ exports.addCourse = async (req, res) => {
       start_time: startTime,
       end_time: endTime,
       semester,
+      slidesFolderID: folderId
     });
     // Add all students to course_student
     const students = await models.Student.findAll({ attributes: ['id'] });

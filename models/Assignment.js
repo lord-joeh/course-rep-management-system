@@ -7,9 +7,10 @@ module.exports = (sequelize) => {
     description: DataTypes.STRING,
     courseId: DataTypes.STRING,
     deadline: DataTypes.DATE,
+    driveFolderID: DataTypes.STRING
   }, {
     tableName: 'assignment',
-    timestamps: false,
+    timestamps: true,
   });
   Assignment.associate = (models) => {
     Assignment.belongsTo(models.Course, { foreignKey: 'courseId' });
