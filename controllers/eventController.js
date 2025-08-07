@@ -1,4 +1,4 @@
-const { models } = require('../config/db');
+const  models  = require('../config/models');
 const { generatedId, formatDateAndTime } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');

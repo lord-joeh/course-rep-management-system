@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
-const { models } = require('../config/db');
+const  models  = require('../config/models');
 const { generatedId } = require('../services/customServices');
 
 exports.addLecturer = async (req, res) => {

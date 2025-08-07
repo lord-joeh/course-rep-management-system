@@ -1,6 +1,6 @@
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
-const { models } = require('../config/db');
+const  models  = require('../config/models');
 const createFolder = require('../googleServices/createDriveFolder')
 
 exports.addCourse = async (req, res) => {

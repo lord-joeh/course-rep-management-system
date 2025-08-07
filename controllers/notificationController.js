@@ -1,7 +1,7 @@
-const { Notification } = require('../config/db');
 const { generatedId } = require('../services/customServices');
 const { handleError } = require('../services/errorService');
 const { handleResponse } = require('../services/responseService');
+const models = require('../config/models')
 
 exports.addNotification = async (req, res) => {
   try {
@@ -10,7 +10,7 @@ exports.addNotification = async (req, res) => {
       return handleError(res, 409, 'Title and message are required');
     }
     const id = await generatedId('NTF');
-    const newNotification = await Notification.create({ id, title, message });
+    const newNotification = await models.Notification.create({ id, title, message });
     return handleResponse(
       res,
       201,
@@ -24,7 +24,7 @@ exports.addNotification = async (req, res) => {
 
 exports.allNotification = async (req, res) => {
   try {
-    const notifications = await Notification.findAll({ order: [['created_at', 'DESC']] });
+    const notifications = await models.Notification.findAll({ order: [['created_at', 'DESC']] });
     if (!notifications.length) {
       return handleError(res, 409, 'No notifications found');
     }
@@ -42,7 +42,7 @@ exports.allNotification = async (req, res) => {
 exports.notificationById = async (req, res) => {
   try {
     const { id } = req.params;
-    const notification = await Notification.findByPk(id);
+    const notification = await models.Notification.findByPk(id);
     if (!notification) {
       return handleError(res, 404, 'Notification not found');
     }
@@ -64,7 +64,7 @@ exports.updateNotification = async (req, res) => {
     if (!title || !message) {
       return handleError(res, 409, 'Title and message are required');
     }
-    const notification = await Notification.findByPk(id);
+    const notification = await models.Notification.findByPk(id);
     if (!notification) {
       return handleError(res, 404, 'Notification not found');
     }
@@ -85,7 +85,7 @@ exports.updateNotification = async (req, res) => {
 exports.deleteNotification = async (req, res) => {
   try {
     const { id } = req.params;
-    const deleted = await Notification.destroy({ where: { id } });
+    const deleted = await models.Notification.destroy({ where: { id } });
     if (!deleted) {
       return handleError(res, 404, 'Notification not found');
     }

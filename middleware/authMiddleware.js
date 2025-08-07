@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { models } = require("../config/db");
+const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 
 exports.authenticate = async (req, res, next) => {
@@ -27,11 +27,18 @@ exports.authenticate = async (req, res, next) => {
     if (error instanceof jwt.JsonWebTokenError) {
       return handleError(res, 401, "Invalid token");
     }
-    return handleError(
-      res,
-      401,
-      "Token verification or student retrieval error",
-      error
-    );
+    return handleError(res, 401, "Token verification error", error);
+  }
+};
+
+exports.authorize = async (req, res, next) => {
+  try {
+    if (!req.student) return handleError(res, 400, "Student not authenticated");
+
+    if (!req.student.isRep) return handleError(res, 403, "Unathorize access");
+
+    next();
+  } catch (error) {
+    return handleError(res, 500, "Error authorizing user", error);
   }
 };

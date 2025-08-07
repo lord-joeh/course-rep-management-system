@@ -1,4 +1,4 @@
-const { models } = require("../config/db");
+const  models  = require("../config/models");
 const { sendNotification } = require("../utils/sendEmail");
 require("dotenv").config();
 
@@ -94,8 +94,8 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
   try {
-    // Fetch student data
-    const students = await Promise.all(
+    
+    const students = await Promise.allSettled(
       group.map(async (student) => {
         const s = await models.Student.findOne({
           where: { id: student.id },
@@ -105,8 +105,8 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
       })
     );
     if (!students.length) throw new Error("No students found for group");
-    const leader = students[0]; // first member is leader
-    // Build table rows
+    const leader = students[0]; 
+    
     const tableRows = students
       .map(
         (s, i) => `
@@ -121,8 +121,8 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
     `
       )
       .join("");
-    // Send email to each student
-    await Promise.all(
+    
+    await Promise.allSettled(
       students.map(async (student) => {
         const html = `
           <div style="font-family: Arial, sans-serif; line-height: 1.6;">

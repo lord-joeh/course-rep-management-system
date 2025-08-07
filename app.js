@@ -13,19 +13,20 @@ const notificationRoute = require("./routes/notificationRoute");
 const feedbackRoute = require("./routes/feedbackRoute");
 const attendanceInstanceRoute = require("./routes/attendanceInstanceRoute");
 const googleRoute = require("./routes/googleRoute");
+const slideRoute = require('./routes/slidesRoute')
 const app = express();
 const helmet = require("helmet");
 
-
 app.use(limiter);
-app.use(cors());
+app.use(
+  cors({
+    exposedHeaders: ["Content-Disposition"],
+  })
+);
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(helmet());
 
-
-
-//ROUTES
 app.use("/auth", authRoute);
 app.use("/lecturer", lecturerRoute);
 app.use("/course", courseRoute);
@@ -37,5 +38,6 @@ app.use("/notification", notificationRoute);
 app.use("/feedback", feedbackRoute);
 app.use("/attendance", attendanceInstanceRoute);
 app.use("/google", googleRoute);
+app.use('/slide', slideRoute)
 
 module.exports = app;

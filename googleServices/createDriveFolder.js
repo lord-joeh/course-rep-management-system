@@ -15,7 +15,7 @@ async function createFolder(folderName) {
       fields: "id,name",
     });
     console.log("Folder Id:", file.data.id);
-    return file.data.id;
+    return file.data;
   } catch (err) {
     console.log(err);
     throw new Error(err)
