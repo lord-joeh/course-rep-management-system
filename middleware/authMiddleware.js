@@ -35,7 +35,7 @@ exports.authorize = async (req, res, next) => {
   try {
     if (!req.student) return handleError(res, 400, "Student not authenticated");
 
-    if (!req.student.isRep) return handleError(res, 403, "Unathorize access");
+    if (!req.student.isRep) return handleError(res, 403, "Unauthorize access");
 
     next();
   } catch (error) {
