@@ -1,10 +1,11 @@
-const  models  = require("../config/models");
+const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { sendResetLink } = require("../services/customEmails");
 require("dotenv").config();
+const { Op } = require('sequelize');
 
 exports.login = async (req, res) => {
   try {
@@ -42,6 +43,7 @@ exports.login = async (req, res) => {
       success: true,
       message: "Login successful",
       token: token,
+      refreshToken: token,
       data: student,
     });
   } catch (error) {
@@ -51,12 +53,12 @@ exports.login = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const { studentId, email } = req.body;
-    if (!studentId || !email) {
-      return handleError(res, 409, "Student ID and email required");
+    const { studentId } = req.body;
+    if (!studentId) {
+      return handleError(res, 400, "Student ID required");
     }
     const student = await models.Student.findOne({
-      where: { id: studentId, email },
+      where: { id: studentId },
       include: [{ model: models.Verification, required: false }],
     });
     if (!student) {
@@ -77,7 +79,7 @@ exports.forgotPassword = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Reset link sent if email provided is correct"
+      "Reset link sent. Check your mail and click on the button to reset your password"
     );
   } catch (error) {
     return handleError(res, 500, "Error requesting reset password link", error);
@@ -88,33 +90,69 @@ exports.resetPassword = async (req, res) => {
   try {
     const { newPassword } = req.body;
     const { token } = req.query;
-    if (!newPassword) {
-      return handleError(res, 409, "New password is required");
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return handleError(res, 400, 'New password is required and must be a string');
     }
-    const decoded = jwt.verify(token, process.env.JWT_RESET);
-    const now = new Date();
+    if (!token || typeof token !== 'string') {
+      return handleError(res, 400, 'Password reset token is missing or invalid');
+    }
+    if (newPassword.length < 8) {
+      return handleError(res, 400, 'Password must be at least 8 characters long');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_RESET);
+      if (!decoded.id || !decoded.email) {
+        return handleError(res, 401, 'Invalid token payload');
+      }
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        return handleError(res, 401, 'Password reset token has expired');
+      }
+      return handleError(res, 401, 'Invalid password reset token');
+    }
     const verification = await models.Verification.findOne({
       where: {
         student_id: decoded.id,
         reset_token: token,
-        reset_token_expiration: { [models.Verification.sequelize.Op.gt]: now },
+        reset_token_expiration: { [Op.gt]: new Date() },
       },
     });
+
     if (!verification) {
-      return handleError(
-        res,
-        409,
-        "Invalid or Expired token. Request link again"
-      );
+      return handleError(res, 401, 'Invalid or expired token');
     }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await models.Student.update(
-      { password_hash: hashedPassword },
-      { where: { id: decoded.id, email: decoded.email } }
-    );
-    return handleResponse(res, 200, "Password has successfully been reset");
+
+    const student = await models.Student.findOne({
+      where: {
+        id: decoded.id,
+        email: decoded.email,
+      },
+    });
+
+    if (!student) {
+      return handleError(res, 404, 'User not found');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await Promise.all([
+      models.Student.update(
+        { password_hash: hashedPassword },
+        { where: { id: decoded.id, email: decoded.email } }
+      ),
+      verification.destroy(),
+    ]);
+
+    return handleResponse(res, 200, 'Password has been successfully reset');
   } catch (error) {
-    return handleError(res, 500, "Error resetting password", error);
+    console.error('Password reset error:', {
+      error: error.message,
+      stack: error.stack,
+    });
+    return handleError(res, 500, 'An error occurred while resetting the password');
   }
 };
 
@@ -156,4 +194,3 @@ exports.changePassword = async (req, res) => {
     return handleError(res, 500, "Error changing password", error);
   }
 };
-

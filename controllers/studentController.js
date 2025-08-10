@@ -14,6 +14,12 @@ exports.registerStudent = async (req, res) => {
         "Student Id, name, email, phone, and password are required"
       );
     }
+    let rep;
+    if (!req.body.isRep) {
+      rep = false;
+    } else {
+      rep = req.body.isRep;
+    }
     const existingStudent = await models.Student.findOne({ where: { id } });
     if (existingStudent) {
       return handleError(res, 409, "Student already exist");
@@ -25,6 +31,7 @@ exports.registerStudent = async (req, res) => {
       email,
       phone,
       password_hash: hashedPassword,
+      isRep: rep,
     });
 
     sendRegistrationSuccessMail(
