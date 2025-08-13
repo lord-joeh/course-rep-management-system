@@ -31,16 +31,16 @@ app.use(express.json());
 app.use(helmet());
 
 app.use("/auth", authRoute);
-app.use("/lecturer", lecturerRoute);
-app.use("/course", courseRoute);
-app.use("/group", groupRoute);
-app.use("/student", studentRoute);
-app.use("/event", eventRoute);
-app.use("/assignment", assignmentRoute);
-app.use("/notification", notificationRoute);
-app.use("/feedback", feedbackRoute);
-app.use("/attendance", attendanceInstanceRoute);
-app.use("/google", googleRoute);
-app.use("/slide", slideRoute);
+app.use("/lecturers", lecturerRoute);
+app.use("/courses", courseRoute);
+app.use("/groups", groupRoute);
+app.use("/students", studentRoute);
+app.use("/events", eventRoute);
+app.use("/assignments", assignmentRoute);
+app.use("/notifications", notificationRoute);
+app.use("/feedbacks", feedbackRoute);
+app.use("/attendances", attendanceInstanceRoute);
+app.use("/googles", googleRoute);
+app.use("/slides", slideRoute);
 
 module.exports = app;

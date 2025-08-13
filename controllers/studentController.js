@@ -53,18 +53,41 @@ exports.registerStudent = async (req, res) => {
 
 exports.getAllStudent = async (req, res) => {
   try {
-    const students = await models.Student.findAll({ order: [["name", "ASC"]] });
-    if (!students.length) {
-      return handleError(res, 404, "No student found");
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+
+    const result = await models.Student.findAndCountAll({
+      order: [["name", "ASC"]],
+      limit: limit,
+      offset: offset,
+    });
+
+    const { rows: students, count: totalItems } = result;
+
+    if (students.length === 0) {
+      return handleError(res, 404, "No students found on this page");
     }
-    students.forEach((s) => (s.password_hash = undefined));
-    return handleResponse(
-      res,
-      200,
-      "Students retrieved successfully",
-      students
-    );
+
+    const studentsWithoutPassword = students.map((student) => {
+      const studentData = student.get({ plain: true });
+      delete studentData.password_hash;
+      return studentData;
+    });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return handleResponse(res, 200, "Students retrieved successfully", {
+      students: studentsWithoutPassword,
+      pagination: {
+        totalItems,
+        currentPage: page,
+        totalPages,
+        itemsPerPage: limit,
+      },
+    });
   } catch (error) {
+    console.error("Error retrieving students:", error);
     return handleError(res, 500, "Error retrieving students");
   }
 };
