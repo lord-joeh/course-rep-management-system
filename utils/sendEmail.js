@@ -1,5 +1,5 @@
-require('dotenv').config();
-const nodemailer = require('nodemailer');
+require("dotenv").config();
+const nodemailer = require("nodemailer");
 
 const transporter = nodemailer.createTransport({
   service: process.env.SERVICE,
@@ -16,9 +16,16 @@ exports.sendNotification = async (to, subject, message) => {
     html: message,
   };
 
-   transporter.sendMail(mailOption, (err, info) => {
-    err
-      ? console.log('Email failed: ' + err.message)
-      : console.log('Email sent: ' + info.response);
+  let response = "";
+
+  transporter.sendMail(mailOption, (err, info) => {
+    if (info) {
+      console.log("Email sent: ", info?.response);
+      response = info.response;
+    }
+    if (err) {
+      console.log("Email failed: ", err);
+      response = err.message;
+    }
   });
 };

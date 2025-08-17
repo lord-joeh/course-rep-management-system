@@ -22,9 +22,9 @@ exports.addCourse = async (req, res) => {
       start_time: startTime,
       end_time: endTime,
       semester,
-      slidesFolderID: folderId
+      slidesFolderID: folderId?.id
     });
-    // Add all students to course_student
+
     const students = await models.Student.findAll({ attributes: ['id'] });
     for (const student of students) {
       await models.CourseStudent.create({ courseId: newCourse.id, studentId: student.id });

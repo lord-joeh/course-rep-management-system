@@ -40,7 +40,7 @@ app.use("/assignments", assignmentRoute);
 app.use("/notifications", notificationRoute);
 app.use("/feedbacks", feedbackRoute);
 app.use("/attendances", attendanceInstanceRoute);
-app.use("/googles", googleRoute);
+app.use("/google", googleRoute);
 app.use("/slides", slideRoute);
 
 module.exports = app;

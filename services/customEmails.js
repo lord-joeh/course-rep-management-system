@@ -1,5 +1,6 @@
-const  models  = require("../config/models");
+const models = require("../config/models");
 const { sendNotification } = require("../utils/sendEmail");
+const { handleError } = require("./errorService");
 require("dotenv").config();
 
 //Send password reset link
@@ -94,7 +95,6 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
   try {
-    
     const students = await Promise.allSettled(
       group.map(async (student) => {
         const s = await models.Student.findOne({
@@ -105,8 +105,8 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
       })
     );
     if (!students.length) throw new Error("No students found for group");
-    const leader = students[0]; 
-    
+    const leader = students[0];
+
     const tableRows = students
       .map(
         (s, i) => `
@@ -121,7 +121,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
     `
       )
       .join("");
-    
+
     await Promise.allSettled(
       students.map(async (student) => {
         const html = `
@@ -162,5 +162,23 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
   } catch (err) {
     console.error("Error sending group assignment email:", err.message);
     throw err;
+  }
+};
+
+exports.sendMessageToStudent = async (studentId, message) => {
+  const customEmail = `
+  <div style="font-family: Arial, sans-serif; max-width: 600px;
+   margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
+    <p>Hello,</p>
+    <p>${message}</p>
+
+     <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+   </div>
+  `;
+  try {
+    await sendNotification(studentId, "Urgent!!", customEmail);
+    console.log(`Message sent to ${studentId} wait for confirmation`);
+  } catch (error) {
+    throw error;
   }
 };

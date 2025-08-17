@@ -6,6 +6,7 @@ const {
   notificationById,
   updateNotification,
   deleteNotification,
+  sendNotificationToStudent,
 } = require('../controllers/notificationController');
 
 //Route to add a notification
@@ -22,5 +23,8 @@ router.put('/:id', updateNotification);
 
 //Route to delete notification
 router.delete('/:id', deleteNotification);
+
+//Route to send message to student
+router.post('/send', sendNotificationToStudent)
 
 module.exports = router;

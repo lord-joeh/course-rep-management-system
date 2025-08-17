@@ -102,6 +102,12 @@ exports.getStudentById = async (req, res) => {
           model: models.Group,
           through: { attributes: ["isLeader"] },
           attributes: ["id", "name"],
+          include: [
+            {
+              model: models.Course,
+              attributes: ["id", "name"],
+            },
+          ],
         },
       ],
     });
@@ -118,9 +124,9 @@ exports.getStudentById = async (req, res) => {
 exports.updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone } = req.body;
+    const { name, email, phone, isRep, status } = req.body;
     const [updated] = await models.Student.update(
-      { name, email, phone },
+      { name, email, phone, isRep, status },
       { where: { id }, returning: true }
     );
     if (!updated) {
