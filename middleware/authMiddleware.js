@@ -3,7 +3,9 @@ const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 
 exports.authenticate = async (req, res, next) => {
-  const token = req.header("Authorization");
+  console.log('Cookies:', req.cookies, 'URL:', req.originalUrl);
+  
+  const token = req.header("Authorization")?.replace('Bearer ', '');
 
   if (!token) {
     return handleError(res, 401, "No token provided.");

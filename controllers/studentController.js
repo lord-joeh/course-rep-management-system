@@ -105,7 +105,7 @@ exports.getStudentById = async (req, res) => {
           include: [
             {
               model: models.Course,
-              attributes: ["id", "name"],
+              attributes: ["name"],
             },
           ],
         },

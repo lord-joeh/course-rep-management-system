@@ -20,6 +20,8 @@ async function uploadToFolder(folderId, file) {
     body: bufferStream,
   };
 
+  console.log(bufferStream)
+
   try {
     const file = await service.files.create({
       requestBody: fileMetadata,

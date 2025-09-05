@@ -16,19 +16,21 @@ const googleRoute = require("./routes/googleRoute");
 const slideRoute = require("./routes/slidesRoute");
 const app = express();
 const helmet = require("helmet");
+const cookieParser = require("cookie-parser");
 
-app.use(limiter);
+// app.use(limiter);
 app.use(
   cors({
     exposedHeaders: ["Content-Disposition"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    origin:[ "http://localhost:5173"],
+    origin: ["http://127.0.0.1:5500"],
     credentials: true,
   })
 );
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(helmet());
+app.use(cookieParser());
 
 app.use("/auth", authRoute);
 app.use("/lecturers", lecturerRoute);

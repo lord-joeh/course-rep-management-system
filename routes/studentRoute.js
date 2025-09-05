@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 const {
   registerStudent,
@@ -6,21 +6,24 @@ const {
   getStudentById,
   updateStudent,
   deleteStudent,
-} = require('../controllers/studentController');
+} = require("../controllers/studentController");
+const { authenticate } = require("../middleware/authMiddleware");
+
+router.use(authenticate);
 
 //Route to register a student
-router.post('/', registerStudent);
+router.post("/", registerStudent);
 
 // Route to get all student
-router.get('/', getAllStudent);
+router.get("/", getAllStudent);
 
 //Route to get student by id
-router.get('/:id', getStudentById);
+router.get("/:id", getStudentById);
 
 //Route to update student
-router.put('/:id', updateStudent);
+router.put("/:id", updateStudent);
 
 //Route to delete student
-router.delete('/:id', deleteStudent);
+router.delete("/:id", deleteStudent);
 
 module.exports = router;
