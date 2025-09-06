@@ -23,7 +23,7 @@ app.use(
   cors({
     exposedHeaders: ["Content-Disposition"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    origin: ["http://127.0.0.1:5500"],
+    origin: ["http://127.0.0.1:5500", "http://localhost:5173"],
     credentials: true,
   })
 );

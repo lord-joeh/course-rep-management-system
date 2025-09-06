@@ -3,6 +3,7 @@ const PORT = process.env.PORT || 4000;
 
 const sequelize = require("./config/db");
 const { authorize } = require("./config/google");
+const { connectRedis } = require("./config/redis");
 app.listen(PORT, (error) => {
   error
     ? console.error("Error starting up server: ", error.message)
@@ -16,13 +17,15 @@ app.listen(PORT, (error) => {
   (async () => {
     try {
       await sequelize.authenticate();
-      console.log("Database connection has been established successfully.");
+      console.log("✅ Database connection has been established successfully.");
 
       await sequelize.sync({ alter: true });
-      console.log("Database Tables altered ");
+      console.log("✅ Database Tables altered ");
 
       await authorize();
-      console.log("Google Drive Connected successfully");
+      console.log("✅ Google Drive Connected successfully");
+
+      await connectRedis();
     } catch (err) {
       console.error(err);
     }
