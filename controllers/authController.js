@@ -5,7 +5,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { sendResetLink } = require("../services/customEmails");
 require("dotenv").config();
-const { Op } = require('sequelize');
+const { Op } = require("sequelize");
 
 exports.login = async (req, res) => {
   try {
@@ -29,21 +29,38 @@ exports.login = async (req, res) => {
 
     student.password_hash = undefined;
 
-    const token = jwt.sign(
+    const accessToken = jwt.sign(
       {
         id: student.id,
         email: student.email,
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "5m" }
     );
+
+    const crypto = require("crypto");
+    const refreshTokenValue = crypto.randomBytes(64).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await models.RefreshToken.create({
+      student_id: student.id,
+      token: refreshTokenValue,
+      expires_at: expiresAt,
+    });
+
+    res.cookie("refreshToken", refreshTokenValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
 
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      token: token,
-      refreshToken: token,
+      token: accessToken,
       data: student,
     });
   } catch (error) {
@@ -91,27 +108,39 @@ exports.resetPassword = async (req, res) => {
     const { newPassword } = req.body;
     const { token } = req.query;
 
-    if (!newPassword || typeof newPassword !== 'string') {
-      return handleError(res, 400, 'New password is required and must be a string');
+    if (!newPassword || typeof newPassword !== "string") {
+      return handleError(
+        res,
+        400,
+        "New password is required and must be a string"
+      );
     }
-    if (!token || typeof token !== 'string') {
-      return handleError(res, 400, 'Password reset token is missing or invalid');
+    if (!token || typeof token !== "string") {
+      return handleError(
+        res,
+        400,
+        "Password reset token is missing or invalid"
+      );
     }
     if (newPassword.length < 8) {
-      return handleError(res, 400, 'Password must be at least 8 characters long');
+      return handleError(
+        res,
+        400,
+        "Password must be at least 8 characters long"
+      );
     }
 
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_RESET);
       if (!decoded.id || !decoded.email) {
-        return handleError(res, 401, 'Invalid token payload');
+        return handleError(res, 401, "Invalid token payload");
       }
     } catch (err) {
-      if (err.name === 'TokenExpiredError') {
-        return handleError(res, 401, 'Password reset token has expired');
+      if (err.name === "TokenExpiredError") {
+        return handleError(res, 401, "Password reset token has expired");
       }
-      return handleError(res, 401, 'Invalid password reset token');
+      return handleError(res, 401, "Invalid password reset token");
     }
     const verification = await models.Verification.findOne({
       where: {
@@ -122,7 +151,7 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!verification) {
-      return handleError(res, 401, 'Invalid or expired token');
+      return handleError(res, 401, "Invalid or expired token");
     }
 
     const student = await models.Student.findOne({
@@ -133,7 +162,7 @@ exports.resetPassword = async (req, res) => {
     });
 
     if (!student) {
-      return handleError(res, 404, 'User not found');
+      return handleError(res, 404, "User not found");
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -146,13 +175,14 @@ exports.resetPassword = async (req, res) => {
       verification.destroy(),
     ]);
 
-    return handleResponse(res, 200, 'Password has been successfully reset');
+    return handleResponse(res, 200, "Password has been successfully reset");
   } catch (error) {
-    console.error('Password reset error:', {
-      error: error.message,
-      stack: error.stack,
-    });
-    return handleError(res, 500, 'An error occurred while resetting the password');
+    return handleError(
+      res,
+      500,
+      "An error occurred while resetting the password",
+      error
+    );
   }
 };
 
@@ -192,5 +222,63 @@ exports.changePassword = async (req, res) => {
     return handleResponse(res, 200, "Password successfully changed");
   } catch (error) {
     return handleError(res, 500, "Error changing password", error);
+  }
+};
+
+exports.refreshToken = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      return handleError(res, 400, "Refresh token required");
+    }
+    const tokenDoc = await models.RefreshToken.findOne({
+      where: { token: refreshToken },
+    });
+    if (!tokenDoc || tokenDoc.expires_at < new Date()) {
+      return handleError(res, 401, "Invalid or expired refresh token");
+    }
+    const student = await models.Student.findOne({
+      where: { id: tokenDoc.student_id },
+    });
+    if (!student) {
+      return handleError(res, 404, "Student not found");
+    }
+    const accessToken = jwt.sign(
+      {
+        id: student.id,
+        email: student.email,
+        isRep: student.isRep,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+    return res.status(200).json({
+      success: true,
+      token: accessToken,
+    });
+  } catch (error) {
+    return handleError(res, 500, "Error refreshing token", error);
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      return handleError(res, 400, "Refresh token required");
+    }
+    await models.RefreshToken.destroy({ where: { token: refreshToken } });
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    return handleError(res, 500, "Error logging out", error);
   }
 };

@@ -17,6 +17,7 @@ const SecurityLog = require("../models/SecurityLog")(sequelize);
 const AttendanceLog = require("../models/AttendanceLog")(sequelize);
 const GoogleToken = require("../models/GoogleToken")(sequelize);
 const Slides = require("../models/Slides")(sequelize);
+const RefreshToken = require("../models/RefreshToken")(sequelize);
 
 const models = {
   Student,
@@ -36,6 +37,7 @@ const models = {
   AttendanceLog,
   GoogleToken,
   Slides,
+  RefreshToken,
 };
 
 Object.values(models).forEach((model) => {
