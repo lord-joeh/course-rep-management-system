@@ -9,10 +9,12 @@ const {
 } = require("../controllers/studentController");
 const { authenticate } = require("../middleware/authMiddleware");
 
-router.use(authenticate);
+
 
 //Route to register a student
 router.post("/", registerStudent);
+
+router.use(authenticate);
 
 // Route to get all student
 router.get("/", getAllStudent);

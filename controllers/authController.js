@@ -4,6 +4,7 @@ const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const { sendResetLink } = require("../services/customEmails");
+const crypto = require("crypto");
 require("dotenv").config();
 const { Op } = require("sequelize");
 
@@ -36,13 +37,13 @@ exports.login = async (req, res) => {
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "5m" }
+      { expiresIn: "1m" }
     );
 
-    const crypto = require("crypto");
     const refreshTokenValue = crypto.randomBytes(64).toString("hex");
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    await models.RefreshToken.destroy({ where: { student_id: student.id } });
     await models.RefreshToken.create({
       student_id: student.id,
       token: refreshTokenValue,
@@ -250,7 +251,7 @@ exports.refreshToken = async (req, res) => {
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "5m" }
     );
     return res.status(200).json({
       success: true,

@@ -10,6 +10,12 @@ const {
 } = require("../controllers/authController");
 const router = express.Router();
 
+// Refresh token route
+router.post("/refresh", refreshToken);
+
+// Logout route
+router.post("/logout", logout);
+
 router.use(loginLimiter);
 
 //Login route
@@ -23,11 +29,5 @@ router.post("/reset", resetPassword);
 
 //Route to change password
 router.post("/change", changePassword);
-
-// Refresh token route
-router.post("/refresh", refreshToken);
-
-// Logout route
-router.post("/logout", logout);
 
 module.exports = router;

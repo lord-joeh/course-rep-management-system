@@ -23,7 +23,6 @@ exports.authenticate = async (req, res, next) => {
     req.student = student;
     next();
   } catch (error) {
-    console.error("Authentication Error: ", error);
     if (error instanceof jwt.JsonWebTokenError) {
       return handleError(res, 401, "Invalid token");
     }

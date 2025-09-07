@@ -7,6 +7,9 @@ const {
   updateLecturer,
   deleteLecturer,
 } = require('../controllers/lecturerController');
+const { authenticate } = require("../middleware/authMiddleware");
+
+router.use(authenticate);
 
 //Route to add a new lecturer
 router.post('/', addLecturer);
