@@ -33,6 +33,7 @@ module.exports = (sequelize) => {
     Student.hasMany(models.Feedback, { foreignKey: "studentId" });
     Student.hasMany(models.GroupMember, { foreignKey: "studentId" });
     Student.hasOne(models.Verification, { foreignKey: "student_id" });
+    Student.hasMany(models.CourseStudent, { foreignKey: "studentId" });
   };
 
   return Student;

@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 const {
   addCourse,
@@ -8,28 +8,30 @@ const {
   deleteCourse,
   registerCourse,
   getCourseByStudentId,
-} = require('../controllers/courseController');
-const { route } = require('./lecturerRoute');
+} = require("../controllers/courseController");
+const { authenticate } = require("../middleware/authMiddleware");
+
+// router.use(authenticate);
 
 //Route to add course
-router.post('/', addCourse);
+router.post("/", addCourse);
 
 //Route to register course
-router.post('/register', registerCourse);
+router.post("/register", registerCourse);
 
 //Route to get all course
-router.get('/', getAllCourse);
+router.get("/", getAllCourse);
 
 // Route to get course by id
-router.get('/:id', getCourseById);
+router.get("/:id", getCourseById);
 
 //Route to get course by student id
-router.get('/student/:studentId',  getCourseByStudentId);
+router.get("/student/:studentId", getCourseByStudentId);
 
 //Route to update a course
-router.put('/:id', updateCourse);
+router.put("/:id", updateCourse);
 
 //Route to delete a course
-router.delete('/:id', deleteCourse);
+router.delete("/:id", deleteCourse);
 
 module.exports = router;

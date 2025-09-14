@@ -18,12 +18,12 @@ const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 
-// app.use(limiter);
+app.use(limiter);
 app.use(
   cors({
     exposedHeaders: ["Content-Disposition"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    origin: ["http://127.0.0.1:5500", "http://localhost:5173"],
+    origin: ["http://192.168.6.58:5173", "http://localhost:5173"],
     credentials: true,
   })
 );
