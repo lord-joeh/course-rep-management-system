@@ -11,6 +11,7 @@ const {
   uploadToFolder,
   deleteFile,
 } = require("../controllers/googleController");
+const { authenticate } = require("../middleware/authMiddleware");
 
 // Route for google auth
 router.get("/", googleAuth);
@@ -20,6 +21,8 @@ router.get("/callback", googleCallback);
 
 // Route to revoke google access
 router.post("/revoke", revokeGoogleAccess);
+
+router.use(authenticate);
 
 // Route to download drive files
 router.get("/download", downloadFile);
