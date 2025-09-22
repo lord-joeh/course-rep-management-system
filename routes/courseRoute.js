@@ -11,7 +11,7 @@ const {
 } = require("../controllers/courseController");
 const { authenticate } = require("../middleware/authMiddleware");
 
-// router.use(authenticate);
+router.use(authenticate);
 
 //Route to add course
 router.post("/", addCourse);

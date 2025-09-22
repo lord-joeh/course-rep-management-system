@@ -18,6 +18,7 @@ const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 
+app.use(helmet());
 app.use(limiter);
 app.use(
   cors({
@@ -29,7 +30,7 @@ app.use(
 );
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(helmet());
+
 app.use(cookieParser());
 
 app.use("/auth", authRoute);

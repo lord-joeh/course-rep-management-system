@@ -4,7 +4,7 @@ module.exports = (sequelize) => {
   const Feedback = sequelize.define('Feedback', {
     id: { type: DataTypes.STRING, primaryKey: true },
     studentId: DataTypes.STRING,
-    content: DataTypes.STRING,
+    content: DataTypes.TEXT,
     is_anonymous: DataTypes.BOOLEAN,
   }, {
     tableName: 'feedback',
