@@ -11,32 +11,33 @@ const {
   deleteGroupMember,
 } = require("../controllers/group.Controller");
 
-const { authenticate } = require("../middleware/auth.Middleware");
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
-// router.use(authenticate);
+// Require authentication for all group routes
+router.use(authenticate);
 
-//Route to create a group
-router.post("/", addGroup);
+//Route to create a group (protected)
+router.post("/", authorize, addGroup);
 
-//Route to create custom groups
-router.post("/custom", createCustomGroup);
+//Route to create custom groups (protected)
+router.post("/custom", authorize, createCustomGroup);
 
-//Route to add add a group member
-router.post("/member", addGroupMember);
+//Route to add a group member (protected)
+router.post("/member", authorize, addGroupMember);
 
-//Route to get all group
+//Route to get all groups (public to authenticated users)
 router.get("/", getAllGroups);
 
-//Route to get group
+//Route to get a single group (public to authenticated users)
 router.get("/:id", getGroupById);
 
-//Route to update a course
-router.put("/:id", updateGroup);
+//Route to update a group (protected)
+router.put("/:id", authorize, updateGroup);
 
-//Route to delete a group member
-router.delete("/member/:id", deleteGroupMember);
+//Route to delete a group member (protected)
+router.delete("/member/:id", authorize, deleteGroupMember);
 
-//Route to delete group
-router.delete("/:id", deleteGroup);
+//Route to delete group (protected)
+router.delete("/:id", authorize, deleteGroup);
 
 module.exports = router;

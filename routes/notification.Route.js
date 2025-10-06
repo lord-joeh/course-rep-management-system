@@ -8,6 +8,9 @@ const {
   deleteNotification,
   sendNotificationToStudent,
 } = require('../controllers/notification.Controller');
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
+
+router.use(authenticate)
 
 //Route to add a notification
 router.post('/', addNotification);
@@ -25,6 +28,6 @@ router.put('/:id', updateNotification);
 router.delete('/:id', deleteNotification);
 
 //Route to send message to student
-router.post('/send', sendNotificationToStudent)
+router.post('/send',authorize, sendNotificationToStudent)
 
 module.exports = router;

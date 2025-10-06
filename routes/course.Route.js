@@ -9,12 +9,12 @@ const {
   registerCourse,
   getCourseByStudentId,
 } = require("../controllers/course.Controller");
-const { authenticate } = require("../middleware/auth.Middleware");
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
 router.use(authenticate);
 
 //Route to add course
-router.post("/", addCourse);
+router.post("/", authorize, addCourse);
 
 //Route to register course
 router.post("/register", registerCourse);
@@ -29,9 +29,9 @@ router.get("/:id", getCourseById);
 router.get("/student/:studentId", getCourseByStudentId);
 
 //Route to update a course
-router.put("/:id", updateCourse);
+router.put("/:id", authorize, updateCourse);
 
 //Route to delete a course
-router.delete("/:id", deleteCourse);
+router.delete("/:id", authorize, deleteCourse);
 
 module.exports = router;

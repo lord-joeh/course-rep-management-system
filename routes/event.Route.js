@@ -7,11 +7,11 @@ const {
   updateEvent,
   deleteEvent,
 } = require("../controllers/event.Controller");
-const { authenticate } = require("../middleware/auth.Middleware");
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 router.use(authenticate);
 
 //Route to add event
-router.post("/", addEvent);
+router.post("/", authorize, addEvent);
 
 //Route to get all events
 router.get("/", getAllEvent);
@@ -20,9 +20,9 @@ router.get("/", getAllEvent);
 router.get("/:id", eventById);
 
 //Route to update event
-router.put("/:id", updateEvent);
+router.put("/:id", authorize, updateEvent);
 
 //Route to delete event
-router.delete("/:id", deleteEvent);
+router.delete("/:id", authorize, deleteEvent);
 
 module.exports = router;

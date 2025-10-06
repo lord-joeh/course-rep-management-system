@@ -7,9 +7,7 @@ const {
   updateStudent,
   deleteStudent,
 } = require("../controllers/student.Controller");
-const { authenticate } = require("../middleware/auth.Middleware");
-
-
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
 //Route to register a student
 router.post("/", registerStudent);
@@ -26,6 +24,6 @@ router.get("/:id", getStudentById);
 router.put("/:id", updateStudent);
 
 //Route to delete student
-router.delete("/:id", deleteStudent);
+router.delete("/:id", authorize, deleteStudent);
 
 module.exports = router;

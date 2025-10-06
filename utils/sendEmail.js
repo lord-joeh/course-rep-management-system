@@ -16,16 +16,14 @@ exports.sendNotification = async (to, subject, message) => {
     html: message,
   };
 
-  let response = "";
-
-  transporter.sendMail(mailOption, (err, info) => {
-    if (info) {
-      console.log("Email sent: ", info?.response);
-      response = info.response;
-    }
-    if (err) {
-      console.log("Email failed: ", err);
-      response = err.message;
-    }
+  return new Promise((resolve, reject) => {
+    transporter.sendMail(mailOption, (err, info) => {
+      if (err) {
+        console.error("Email failed:", err);
+        return reject(err);
+      }
+      console.log("Email sent:", info?.response);
+      resolve(info);
+    });
   });
 };

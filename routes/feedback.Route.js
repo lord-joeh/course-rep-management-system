@@ -7,7 +7,7 @@ const {
   deleteFeedback,
 } = require("../controllers/feedback.Controller");
 
-const { authenticate } = require("../middleware/auth.Middleware");
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
 router.use(authenticate);
 
@@ -15,12 +15,12 @@ router.use(authenticate);
 router.post("/", sendFeedback);
 
 //Route to get all feedbacks
-router.get("/", allFeedback);
+router.get("/", authorize, allFeedback);
 
 //Route to get feedback by id
 router.get("/:id", feedbackById);
 
 //Route to delete feedback
-router.delete("/:id", deleteFeedback);
+router.delete("/:id", authorize, deleteFeedback);
 
 module.exports = router;
