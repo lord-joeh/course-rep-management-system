@@ -8,8 +8,8 @@ const {
   deleteCourse,
   registerCourse,
   getCourseByStudentId,
-} = require("../controllers/courseController");
-const { authenticate } = require("../middleware/authMiddleware");
+} = require("../controllers/course.Controller");
+const { authenticate } = require("../middleware/auth.Middleware");
 
 router.use(authenticate);
 

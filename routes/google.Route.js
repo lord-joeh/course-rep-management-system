@@ -10,8 +10,8 @@ const {
   createFolder,
   uploadToFolder,
   deleteFile,
-} = require("../controllers/googleController");
-const { authenticate } = require("../middleware/authMiddleware");
+} = require("../controllers/google.Controller");
+const { authenticate } = require("../middleware/auth.Middleware");
 
 // Route for google auth
 router.get("/", googleAuth);

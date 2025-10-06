@@ -7,7 +7,7 @@ const {
   changePassword,
   refreshToken,
   logout,
-} = require("../controllers/authController");
+} = require("../controllers/auth.Controller");
 const router = express.Router();
 
 // Refresh token route

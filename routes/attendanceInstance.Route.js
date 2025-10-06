@@ -9,7 +9,7 @@ const {
   deleteInstance,
   deleteAttendance,
   autoAttendanceMark,
-} = require('../controllers/attendanceInstanceController');
+} = require('../controllers/attendanceInstance.Controller');
 
 //Route to  initialize attendance
 router.post('/initialize', attendanceInstance);

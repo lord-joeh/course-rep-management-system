@@ -6,8 +6,8 @@ const {
   getStudentById,
   updateStudent,
   deleteStudent,
-} = require("../controllers/studentController");
-const { authenticate } = require("../middleware/authMiddleware");
+} = require("../controllers/student.Controller");
+const { authenticate } = require("../middleware/auth.Middleware");
 
 
 

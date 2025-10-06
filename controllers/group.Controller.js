@@ -8,7 +8,26 @@ exports.addGroup = async (req, res) => {
   try {
     const { name, isGeneral, description, courseId } = req.body;
     if (!name || !description) {
-      return handleError(res, 409, "Name and description are required");
+      return handleError(res, 400, "Name and description are required");
+    }
+    if (!isGeneral) {
+      if (!courseId) {
+        return handleError(
+          res,
+          400,
+          "courseId is required for non-general groups"
+        );
+      }
+      const courseExists = await models.Course.findOne({
+        where: { id: courseId },
+      });
+      if (!courseExists) {
+        return handleError(
+          res,
+          404,
+          "Course with provided courseId does not exist"
+        );
+      }
     }
     const id = await generatedId("GRP");
     const newGroup = await models.Group.create({
@@ -25,14 +44,35 @@ exports.addGroup = async (req, res) => {
 };
 
 exports.getAllGroups = async (req, res) => {
+  const { courseId, page, limit } = req.query;
+  const _page = parseInt(page, 10) || 1;
+  const _limit = parseInt(limit, 10) || 10;
+  const offset = (_page - 1) * _limit;
   try {
-    const groups = await models.Group.findAll({
+    const where = courseId ? { courseId } : {};
+    const result = await models.Group.findAndCountAll({
+      where,
+      limit: _limit,
+      offset: offset,
       include: [{ model: models.Course, attributes: ["name"] }],
     });
-    if (!groups.length) {
-      return handleError(res, 404, "No groups was found");
+
+    const { rows: groups, count: totalItems } = result;
+
+    const totalPages = Math.ceil(totalItems / _limit);
+
+    if (groups.length < 1) {
+      return handleError(res, 404, "No groups were found");
     }
-    return handleResponse(res, 200, "Groups retrieved successfully", groups);
+    return handleResponse(res, 200, "Groups retrieved successfully", {
+      groups: groups,
+      pagination: {
+        totalItems,
+        currentPage: _page,
+        totalPages,
+        itemsPerPage: _limit,
+      },
+    });
   } catch (error) {
     return handleError(res, 500, "Error retrieving groups", error);
   }
@@ -82,6 +122,7 @@ exports.updateGroup = async (req, res) => {
 exports.deleteGroup = async (req, res) => {
   try {
     const { id } = req.params;
+
     const deleted = await models.Group.destroy({ where: { id } });
     if (!deleted) {
       return handleError(res, 404, "Group not found for deletion");
@@ -99,30 +140,37 @@ exports.createCustomGroup = async (req, res) => {
     if (typeof studentsPerGroup !== "number" || studentsPerGroup < 1) {
       return handleError(
         res,
-        409,
+        400,
         "Invalid input. Provide a positive number for group size."
       );
     }
+
     const studentIds = await models.Student.findAll({ attributes: ["id"] });
     const studentIDs = await shuffle(studentIds.map((s) => s.toJSON()));
     if (!studentIDs.length) {
       return handleError(res, 404, "No students found in Database");
     }
+
     let currentGroupNumber = 1;
     let totalGroups = 0;
+
     for (let i = 0; i < studentIDs.length; i += studentsPerGroup) {
       const groupName = `GROUP ${currentGroupNumber}`;
       const groupId = await generatedId("GRP");
+
       await models.Group.create({
         id: groupId,
         name: groupName,
         courseId: isGeneral ? null : courseId,
         description: groupName,
+        isGeneral,
       });
+
       const group = studentIDs.slice(i, i + studentsPerGroup);
+
       await Promise.all(
         group.map(async (student, idx) => {
-          let isLeader = idx === 0;
+          const isLeader = idx === 0;
           await models.GroupMember.create({
             groupId,
             studentId: student.id,
@@ -130,10 +178,21 @@ exports.createCustomGroup = async (req, res) => {
           });
         })
       );
-      await sendGroupAssignmentEmail(groupName, group);
+
+      // attempt to send assignment emails but don't let failures stop creation
+      try {
+        await sendGroupAssignmentEmail(groupName, group);
+      } catch (emailErr) {
+        console.error(
+          `Failed to send assignment emails for ${groupName}:`,
+          emailErr
+        );
+      }
+
       currentGroupNumber += 1;
       totalGroups += 1;
     }
+
     return handleResponse(
       res,
       201,

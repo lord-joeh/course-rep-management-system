@@ -41,6 +41,7 @@ exports.addCourse = async (req, res) => {
       await models.CourseStudent.create({
         courseId: newCourse.id,
         studentId: student.id,
+        is_register: true,
       });
     }
     return handleResponse(res, 201, "Course added successfully", newCourse);

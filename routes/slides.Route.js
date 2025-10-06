@@ -5,7 +5,7 @@ const {
   uploadSlide,
   filesInSlideFolder,
   deleteSlide,
-} = require("../controllers/slidesController");
+} = require("../controllers/slides.Controller");
 
 // Route to upload slide
 router.post("/upload", upload.array("files", 10), uploadSlide);

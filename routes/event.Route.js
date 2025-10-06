@@ -6,8 +6,8 @@ const {
   eventById,
   updateEvent,
   deleteEvent,
-} = require("../controllers/eventController");
-const { authenticate } = require("../middleware/authMiddleware");
+} = require("../controllers/event.Controller");
+const { authenticate } = require("../middleware/auth.Middleware");
 router.use(authenticate);
 
 //Route to add event

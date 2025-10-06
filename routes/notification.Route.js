@@ -7,7 +7,7 @@ const {
   updateNotification,
   deleteNotification,
   sendNotificationToStudent,
-} = require('../controllers/notificationController');
+} = require('../controllers/notification.Controller');
 
 //Route to add a notification
 router.post('/', addNotification);

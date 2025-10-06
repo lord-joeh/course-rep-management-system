@@ -2,24 +2,24 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { limiter } = require("./middleware/rateLimiter");
-const authRoute = require("./routes/authRoute");
-const lecturerRoute = require("./routes/lecturerRoute");
-const courseRoute = require("./routes/courseRoute");
-const groupRoute = require("./routes/groupRoute");
-const studentRoute = require("./routes/studentRoute");
-const eventRoute = require("./routes/eventRoute");
-const assignmentRoute = require("./routes/assignmentRoute");
-const notificationRoute = require("./routes/notificationRoute");
-const feedbackRoute = require("./routes/feedbackRoute");
-const attendanceInstanceRoute = require("./routes/attendanceInstanceRoute");
-const googleRoute = require("./routes/googleRoute");
-const slideRoute = require("./routes/slidesRoute");
+const authRoute = require("./routes/auth.Route");
+const lecturerRoute = require("./routes/lecturer.Route");
+const courseRoute = require("./routes/course.Route");
+const groupRoute = require("./routes/group.Route");
+const studentRoute = require("./routes/student.Route");
+const eventRoute = require("./routes/event.Route");
+const assignmentRoute = require("./routes/assignment.Route");
+const notificationRoute = require("./routes/notification.Route");
+const feedbackRoute = require("./routes/feedback.Route");
+const attendanceInstanceRoute = require("./routes/attendanceInstance.Route");
+const googleRoute = require("./routes/google.Route");
+const slideRoute = require("./routes/slides.Route");
 const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 
 app.use(helmet());
-app.use(limiter);
+// app.use(limiter);
 app.use(
   cors({
     exposedHeaders: ["Content-Disposition"],

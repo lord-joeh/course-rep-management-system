@@ -6,8 +6,8 @@ const {
   getLecturerById,
   updateLecturer,
   deleteLecturer,
-} = require('../controllers/lecturerController');
-const { authenticate } = require("../middleware/authMiddleware");
+} = require('../controllers/lecturer.Controller');
+const { authenticate } = require("../middleware/auth.Middleware");
 
 router.use(authenticate);
 

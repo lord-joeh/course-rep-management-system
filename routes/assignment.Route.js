@@ -7,7 +7,7 @@ const {
   updateAssignment,
   deleteAssignment,
   uploadAssignment,
-} = require("../controllers/assignmentController");
+} = require("../controllers/assignment.Controller");
 const upload = require('../config/multer')
 
 //Route to add assignment

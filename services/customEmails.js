@@ -24,9 +24,8 @@ exports.sendResetLink = async (email, reset_token) => {
   } catch (error) {
     console.log("Error sending password reset link", error);
   }
-};
+  };
 
-//Send success mail after student registration
 exports.sendRegistrationSuccessMail = async (name, email, id) => {
   const content = `
   <div style="font-family: Arial, sans-serif; max-width: 600px;
@@ -95,73 +94,77 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
   try {
-    const students = await Promise.allSettled(
+    // fetch student records in parallel and filter out missing ones
+    const studentsResolved = await Promise.all(
       group.map(async (student) => {
-        const s = await models.Student.findOne({
+        return await models.Student.findOne({
           where: { id: student.id },
           attributes: ["id", "name", "email"],
         });
-        return s;
       })
     );
-    if (!students.length) throw new Error("No students found for group");
+
+    const students = studentsResolved.filter((s) => s && s.email);
+    if (!students.length) {
+      // no students to email; log and return without throwing to avoid aborting group creation
+      console.warn(`No students found for group ${groupName}`);
+      return;
+    }
+
     const leader = students[0];
 
     const tableRows = students
-      .map(
-        (s, i) => `
+      .map((s, i) => `
       <tr>
         <td style="padding:8px;border:1px solid #ddd;">${i + 1}</td>
         <td style="padding:8px;border:1px solid #ddd;">${s.name}</td>
         <td style="padding:8px;border:1px solid #ddd;">${s.id}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${
-          s.id === leader.id ? "Leader" : "Member"
-        }</td>
+        <td style="padding:8px;border:1px solid #ddd;">${s.id === leader.id ? "Leader" : "Member"}</td>
       </tr>
-    `
-      )
+    `)
       .join("");
 
-    await Promise.allSettled(
+    // send emails but don't fail the whole operation if one fails
+    await Promise.all(
       students.map(async (student) => {
-        const html = `
-          <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2 style="color: #007bff;">New Group</h2>
-            <h3>Hello ${student.name},</h3>
+        try {
+          const html = `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2 style="color: #007bff;">New Group</h2>
+              <h3>Hello ${student.name},</h3>
 
-            <p>You have been successfully assigned to <strong>${groupName}</strong>.</p>
-            <p><strong>Group Leader:</strong> ${leader.name}</p>
+              <p>You have been successfully assigned to <strong>${groupName}</strong>.</p>
+              <p><strong>Group Leader:</strong> ${leader.name}</p>
 
-            <h3 style="color: #007bff;">Group Members</h3>
-            <table style="border-collapse: collapse; width: 100%;">
-              <thead>
-                <tr>
-                  <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">#</th>
-                  <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Name</th>
-                  <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Index Number</th>
-                  <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${tableRows}
-              </tbody>
-            </table>
+              <h3 style="color: #007bff;">Group Members</h3>
+              <table style="border-collapse: collapse; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">#</th>
+                    <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Name</th>
+                    <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Index Number</th>
+                    <th style="padding:8px;border:1px solid #ddd;background:#f2f2f2;">Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+              </table>
 
-            <p>Please reach out to your group members and prepare for upcoming tasks.</p>
-            <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
-          </div>
-        `;
-        await sendNotification(
-          student.email,
-          `Your Group Assignment: ${groupName}`,
-          html
-        );
+              <p>Please reach out to your group members and prepare for upcoming tasks.</p>
+              <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+            </div>
+          `;
+          await sendNotification(student.email, `Your Group Assignment: ${groupName}`, html);
+        } catch (e) {
+          console.error(`Failed to send email to student ${student.id}:`, e.message || e);
+        }
       })
     );
-    console.log(`Group assignment email sent to all members of ${groupName}`);
+    console.log(`Group assignment email process completed for ${groupName}`);
   } catch (err) {
-    console.error("Error sending group assignment email:", err.message);
-    throw err;
+    console.error("Error sending group assignment email:", err.message || err);
+    // do not throw here to avoid breaking group creation flow
   }
 };
 

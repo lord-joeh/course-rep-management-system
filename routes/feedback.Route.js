@@ -5,9 +5,9 @@ const {
   allFeedback,
   feedbackById,
   deleteFeedback,
-} = require("../controllers/feedbackController");
+} = require("../controllers/feedback.Controller");
 
-const { authenticate } = require("../middleware/authMiddleware");
+const { authenticate } = require("../middleware/auth.Middleware");
 
 router.use(authenticate);
 
