@@ -35,7 +35,7 @@ router.get("/:id", getGroupById);
 router.put("/:id", authorize, updateGroup);
 
 //Route to delete a group member (protected)
-router.delete("/member/:id", authorize, deleteGroupMember);
+router.delete("/member/:studentId", authorize, deleteGroupMember);
 
 //Route to delete group (protected)
 router.delete("/:id", authorize, deleteGroup);

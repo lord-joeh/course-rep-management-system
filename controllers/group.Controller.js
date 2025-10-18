@@ -229,9 +229,9 @@ exports.addGroupMember = async (req, res) => {
 
 exports.deleteGroupMember = async (req, res) => {
   try {
-    const { id } = req.body;
+    const { studentId } = req.params;
     const deleted = await models.GroupMember.destroy({
-      where: { studentId: id },
+      where: { studentId: studentId },
     });
     if (!deleted) {
       return handleError(res, 404, "Group member not found for deletion");
