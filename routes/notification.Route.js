@@ -9,9 +9,9 @@ const {
   sendNotificationToStudent,
 } = require('../controllers/notification.Controller');
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-
+const { captureSocketId } = require("../middleware/socketTracker");
 router.use(authenticate)
-
+router.use(captureSocketId);
 //Route to add a notification
 router.post('/', addNotification);
 

@@ -1,10 +1,14 @@
+const { createServer } = require("http");
+const { initSocketIO } = require("./middleware/socketIO");
 const app = require("./app");
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 4000;
-
 const sequelize = require("./config/db");
 const { authorize } = require("./config/google");
 const { connectRedis } = require("./config/redis");
-app.listen(PORT, (error) => {
+initSocketIO(httpServer);
+
+httpServer.listen(PORT, (error) => {
   error
     ? console.error("Error starting up server: ", error.message)
     : console.log(`Server running on ${PORT}`);

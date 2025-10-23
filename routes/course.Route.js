@@ -10,9 +10,12 @@ const {
   getCourseByStudentId,
 } = require("../controllers/course.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
+const { captureSocketId } = require("../middleware/socketTracker");
+   
+
 
 router.use(authenticate);
-
+router.use(captureSocketId);
 //Route to add course
 router.post("/", authorize, addCourse);
 

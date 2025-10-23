@@ -12,9 +12,12 @@ const {
 } = require("../controllers/group.Controller");
 
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
+const { captureSocketId } = require("../middleware/socketTracker");
 
-// Require authentication for all group routes
+// Require authentication for all group routes and capture socket ID
 router.use(authenticate);
+router.use(captureSocketId);
+
 
 //Route to create a group (protected)
 router.post("/", authorize, addGroup);

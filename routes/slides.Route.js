@@ -6,7 +6,8 @@ const {
   filesInSlideFolder,
   deleteSlide,
 } = require("../controllers/slides.Controller");
-
+const { captureSocketId } = require("../middleware/socketTracker");
+router.use(captureSocketId);
 // Route to upload slide
 router.post("/upload", upload.array("files", 10), uploadSlide);
 

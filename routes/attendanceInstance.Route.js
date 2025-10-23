@@ -10,7 +10,8 @@ const {
   deleteAttendance,
   autoAttendanceMark,
 } = require('../controllers/attendanceInstance.Controller');
-
+const { captureSocketId } = require("../middleware/socketTracker");
+router.use(captureSocketId);  
 //Route to  initialize attendance
 router.post('/initialize', attendanceInstance);
 

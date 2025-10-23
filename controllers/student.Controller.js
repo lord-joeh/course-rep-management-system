@@ -3,6 +3,7 @@ const bcrypt = require("bcrypt");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
+const { emitToUser, emitToUsers } = require("../middleware/socketTracker");
 
 exports.registerStudent = async (req, res) => {
   try {
@@ -10,7 +11,7 @@ exports.registerStudent = async (req, res) => {
     if (!id || !name || !email || !phone || !password) {
       return handleError(
         res,
-        409,
+        400,
         "Student Id, name, email, phone, and password are required"
       );
     }
@@ -34,11 +35,12 @@ exports.registerStudent = async (req, res) => {
       isRep: rep,
     });
 
-    sendRegistrationSuccessMail(
+    await sendRegistrationSuccessMail(
       newStudent.name,
       newStudent.email,
       newStudent.id
     );
+
     newStudent.password_hash = undefined;
     return handleResponse(
       res,
@@ -134,10 +136,11 @@ exports.updateStudent = async (req, res) => {
     }
     const updatedStudent = await models.Student.findOne({ where: { id } });
     updatedStudent.password_hash = undefined;
+    
     return handleResponse(
       res,
       200,
-      "Student updated successfully",
+      "Your profile has been updated successfully",
       updatedStudent
     );
   } catch (error) {

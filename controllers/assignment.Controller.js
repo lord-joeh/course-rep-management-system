@@ -16,9 +16,7 @@ exports.addAssignment = async (req, res) => {
       );
     }
     const id = await generatedId("ASS");
-    const course = await models.Course.findOne({
-      where: { id: courseId },
-    });
+    const course = await models.Course.findByPk(courseId)
 
     const folderId = await createFolder(
       `${course?.name} ${title} Submission`
@@ -33,7 +31,7 @@ exports.addAssignment = async (req, res) => {
       description,
       courseId,
       deadline: formattedDeadline,
-      driveFolderID: folderId
+      driveFolderID: folderId?.id
     });
     return handleResponse(
       res,

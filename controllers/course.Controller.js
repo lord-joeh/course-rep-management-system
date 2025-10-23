@@ -36,14 +36,6 @@ exports.addCourse = async (req, res) => {
       slidesFolderID: folderId?.id,
     });
 
-    const students = await models.Student.findAll({ attributes: ["id"] });
-    for (const student of students) {
-      await models.CourseStudent.create({
-        courseId: newCourse.id,
-        studentId: student.id,
-        is_register: true,
-      });
-    }
     return handleResponse(res, 201, "Course added successfully", newCourse);
   } catch (error) {
     return handleError(res, 500, "Error adding course", error);

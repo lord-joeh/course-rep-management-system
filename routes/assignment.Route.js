@@ -9,7 +9,8 @@ const {
   uploadAssignment,
 } = require("../controllers/assignment.Controller");
 const upload = require('../config/multer')
-
+const { captureSocketId } = require("../middleware/socketTracker");
+router.use(captureSocketId);  
 //Route to add assignment
 router.post("/", addAssignment);
 

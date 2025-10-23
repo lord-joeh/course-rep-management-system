@@ -16,7 +16,7 @@ exports.login = async (req, res) => {
       return handleError(res, 409, "Student ID and Password are required");
     }
 
-    const student = await models.Student.findOne({ where: { id: studentId } });
+    const student = await models.Student.findByPk(studentId);
 
     if (!student) {
       return handleError(res, 404, "Student does not exist");
@@ -37,7 +37,7 @@ exports.login = async (req, res) => {
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "1m" }
+      { expiresIn: "15m" }
     );
 
     const refreshTokenValue = crypto.randomBytes(64).toString("hex");
@@ -75,8 +75,7 @@ exports.forgotPassword = async (req, res) => {
     if (!studentId) {
       return handleError(res, 400, "Student ID required");
     }
-    const student = await models.Student.findOne({
-      where: { id: studentId },
+    const student = await models.Student.findByPk(studentId,{
       include: [{ model: models.Verification, required: false }],
     });
     if (!student) {

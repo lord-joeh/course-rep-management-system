@@ -14,17 +14,22 @@ const feedbackRoute = require("./routes/feedback.Route");
 const attendanceInstanceRoute = require("./routes/attendanceInstance.Route");
 const googleRoute = require("./routes/google.Route");
 const slideRoute = require("./routes/slides.Route");
+const { captureSocketId } = require("./middleware/socketTracker");
 const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 
-app.use(helmet());
-app.use(limiter);
+if (process.env.NODE_ENV === "production") {
+    app.use(helmet());
+    app.use(limiter);
+}
+
+
 app.use(
   cors({
     exposedHeaders: ["Content-Disposition"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "http://127.0.0.1:5500", "http://192.168.100.6:5173/"],
     credentials: true,
   })
 );
@@ -32,6 +37,9 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 app.use(cookieParser());
+
+// Add socket ID tracking middleware (should be after authentication)
+app.use(captureSocketId);
 
 app.use("/auth", authRoute);
 app.use("/lecturers", lecturerRoute);
