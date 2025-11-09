@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 4000;
 const sequelize = require("./config/db");
 const { authorize } = require("./config/google");
 const { connectRedis } = require("./config/redis");
+const {sendNotification} = require("./utils/sendEmail");
 initSocketIO(httpServer);
 
 httpServer.listen(PORT, (error) => {
@@ -15,7 +16,8 @@ httpServer.listen(PORT, (error) => {
 
   process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err);
-    throw err;
+      process.exit(1);
+      throw err;
   });
 
   (async () => {

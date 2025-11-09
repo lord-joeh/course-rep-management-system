@@ -26,6 +26,26 @@ exports.sendResetLink = async (email, reset_token) => {
   }
   };
 
+//Send password reset confirmation
+exports.sendResetConfirmation = async (email, name) => {
+    const content = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;
+         margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
+        <h2 style="color: #007bff;">Password Reset Successful </h2>
+        <p>Dear ${name},</p>
+        <p>You have successfully reset your password</p>
+        
+        <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+    </div>`;
+
+    try {
+        await sendNotification(email, "Password Reset Confirmation", content);
+        console.log("Password reset confirmation sent successfully");
+    } catch (error) {
+        console.log("Error sending password reset confirmation", error);
+    }
+};
+
 exports.sendRegistrationSuccessMail = async (name, email, id) => {
   const content = `
   <div style="font-family: Arial, sans-serif; max-width: 600px;
@@ -168,7 +188,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
   }
 };
 
-exports.sendMessageToStudent = async (studentId, message) => {
+exports.sendMessageToStudent = async (email, message) => {
   const customEmail = `
   <div style="font-family: Arial, sans-serif; max-width: 600px;
    margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
@@ -179,8 +199,8 @@ exports.sendMessageToStudent = async (studentId, message) => {
    </div>
   `;
   try {
-    await sendNotification(studentId, "Urgent!!", customEmail);
-    console.log(`Message sent to ${studentId} wait for confirmation`);
+    await sendNotification(email, "Urgent!!", customEmail);
+    console.log(`Message sent to ${email} wait for confirmation`);
   } catch (error) {
     throw error;
   }

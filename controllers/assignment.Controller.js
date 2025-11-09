@@ -11,12 +11,16 @@ exports.addAssignment = async (req, res) => {
     if (!title || !description || !courseId || !deadline) {
       return handleError(
         res,
-        409,
-        "Title, description, course ID and dead line are required"
+        400,
+        "Title, description, course ID and deadline are required"
       );
     }
     const id = await generatedId("ASS");
     const course = await models.Course.findByPk(courseId)
+
+      if(!course){
+        return handleError(res, 404, "Course with provided courseId does not exist");
+      }
 
     const folderId = await createFolder(
       `${course?.name} ${title} Submission`
@@ -24,13 +28,12 @@ exports.addAssignment = async (req, res) => {
 
     console.log(folderId)
 
-    const formattedDeadline = formatDate(deadline);
     const newAssignment = await models.Assignment.create({
       id,
       title,
       description,
       courseId,
-      deadline: formattedDeadline,
+      deadline,
       driveFolderID: folderId?.id
     });
     return handleResponse(
@@ -64,10 +67,10 @@ exports.allAssignment = async (req, res) => {
 exports.assignmentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const assignment = await models.Assignment.findOne({
-      where: { id },
-      include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
-    });
+    const assignment = await models.Assignment.findByPk( id,{
+        include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
+    }
+    );
     if (!assignment) {
       return handleError(res, 404, "Assignment not found");
     }
@@ -89,21 +92,18 @@ exports.updateAssignment = async (req, res) => {
     if (!title || !description || !deadline) {
       return handleError(
         res,
-        409,
+        400,
         "Title, description, and deadline are required"
       );
     }
-    const formattedDeadline = await formatDate(deadline);
     const [updated] = await models.Assignment.update(
-      { title, description, deadline: formattedDeadline },
+      { title, description, deadline: deadline },
       { where: { id }, returning: true }
     );
     if (!updated) {
       return handleError(res, 404, "Assignment not found for update");
     }
-    const updatedAssignment = await models.Assignment.findOne({
-      where: { id },
-    });
+    const updatedAssignment = await models.Assignment.findByPk(id);
     return handleResponse(
       res,
       200,

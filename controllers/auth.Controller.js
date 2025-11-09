@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { sendResetLink } = require("../services/customEmails");
+const { sendResetLink, sendResetConfirmation} = require("../services/customEmails");
 const crypto = require("crypto");
 require("dotenv").config();
 const { Op } = require("sequelize");
@@ -165,7 +165,7 @@ exports.resetPassword = async (req, res) => {
       return handleError(res, 404, "User not found");
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await Promise.all([
       models.Student.update(
@@ -174,6 +174,8 @@ exports.resetPassword = async (req, res) => {
       ),
       verification.destroy(),
     ]);
+
+    await sendResetConfirmation(student?.email, student?.name);
 
     return handleResponse(res, 200, "Password has been successfully reset");
   } catch (error) {

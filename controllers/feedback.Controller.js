@@ -11,15 +11,12 @@ exports.sendFeedback = async (req, res) => {
       return handleError(res, 400, "Student ID and content are required");
     }
     const id = await generatedId("FED");
-      console.log(req.body)
     const newFeedback = await models.Feedback.create({
       id,
       studentId,
       content,
       is_anonymous: is_anonymous,
     });
-
-      console.log(newFeedback);
 
       const payload = newFeedback.get ? newFeedback.get({ plain: true }) : { ...newFeedback };
 

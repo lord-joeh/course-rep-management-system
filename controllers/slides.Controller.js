@@ -7,8 +7,11 @@ const searchFilesInFolder = require("../googleServices/searchFolder");
 const deleteFile = require("../googleServices/deleteFile");
 
 exports.uploadSlide = async (req, res) => {
+    console.log("Received uploadSlide request");
   const { folderId, courseId } = req.query;
   const files = req.files;
+  console.log(req.files);
+  
 
   try {
     if (!files || files.length === 0) {
@@ -33,6 +36,7 @@ exports.uploadSlide = async (req, res) => {
       const slide = await models.Slides.create({
         id: await generatedId("SLD"),
         driveFileID: uploadRes.id,
+          fileName: uploadRes.name,
         courseId: courseId,
       });
 
@@ -102,9 +106,7 @@ exports.deleteSlide = async (req, res) => {
       return handleError(res, 400, "No slide ID provided");
     }
 
-    const slideToDelete = await models.Slides.findOne({
-      where: { driveFileID: slideId },
-    });
+    const slideToDelete = await models.Slides.findByPk(slideId);
 
     if (!slideToDelete) {
       return handleError(res, 404, "Slide not found in the database");
@@ -141,5 +143,44 @@ exports.deleteSlide = async (req, res) => {
     }
 
     return handleError(res, 500, "Error deleting slide", error);
+  }
+};
+
+exports.getSlidesByCourse = async (req, res) => {
+  const { courseId, limit, page } = req.query;
+  const _limit = parseInt(limit) || 10;
+  const _page = parseInt(page) || 1;
+  const offset = (_page - 1) * _limit;
+
+  try {
+    if (!courseId) {
+      return handleError(res, 400, "No course ID provided");
+    }
+
+    const results = await models.Slides.findAndCountAll({
+      where: { courseId: courseId },
+        limit: _limit,
+        offset: offset
+    });
+
+    const {rows: slides, count: totalItems } = results;
+    const totalPages = Math.ceil(totalItems / _limit);
+
+    if (!slides || slides.length === 0) {
+      return handleResponse(res, 200, "No slides found for this course", []);
+    }
+
+    return handleResponse(res, 200, "Slides retrieved successfully", {
+        slides: slides,
+    pagination: {
+        totalItems,
+        currentPage: _page,
+        totalPages,
+        itemsPerPage: _limit,
+    }
+    });
+  } catch (error) {
+    console.error("Error retrieving slides by course:", error);
+    return handleError(res, 500, "Error retrieving slides", error);
   }
 };

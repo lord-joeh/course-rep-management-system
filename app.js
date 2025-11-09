@@ -18,40 +18,51 @@ const { captureSocketId } = require("./middleware/socketTracker");
 const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
+const whitelist = [
+    process.env.FRONTEND_URL,
+];
 
-if (process.env.NODE_ENV === "production") {
-    app.use(helmet());
-    app.use(limiter);
+const trustProxy = process.env.TRUST_PROXY ?? "1";
+app.set("trust proxy", trustProxy);
+// In development, also allow localhost
+if (process.env.NODE_ENV !== "production") {
+    whitelist.push("http://localhost:5173");
 }
-
-
-app.use(
-  cors({
-    exposedHeaders: ["Content-Disposition"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    origin: ["http://localhost:5173", "http://127.0.0.1:5500", "http://192.168.100.6:5173/"],
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (whitelist.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true,
-  })
-);
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization", "Cache-Control", "pragma", "X-Socket-ID"],
+    exposedHeaders: ["Content-Disposition"],
+};
+
+
+app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
 app.use(cookieParser());
-
-// Add socket ID tracking middleware (should be after authentication)
 app.use(captureSocketId);
+app.use(limiter);
+app.use(helmet());
 
-app.use("/auth", authRoute);
-app.use("/lecturers", lecturerRoute);
-app.use("/courses", courseRoute);
-app.use("/groups", groupRoute);
-app.use("/students", studentRoute);
-app.use("/events", eventRoute);
-app.use("/assignments", assignmentRoute);
-app.use("/notifications", notificationRoute);
-app.use("/feedbacks", feedbackRoute);
-app.use("/attendances", attendanceInstanceRoute);
+
+app.use("/api/auth", authRoute);
+app.use("/api/lecturers", lecturerRoute);
+app.use("/api/courses", courseRoute);
+app.use("/api/groups", groupRoute);
+app.use("/api/students", studentRoute);
+app.use("/api/events", eventRoute);
+app.use("/api/assignments", assignmentRoute);
+app.use("/api/notifications", notificationRoute);
+app.use("/api/feedbacks", feedbackRoute);
+app.use("/api/attendances", attendanceInstanceRoute);
 app.use("/google", googleRoute);
-app.use("/slides", slideRoute);
+app.use("/api/slides", slideRoute);
 
 module.exports = app;

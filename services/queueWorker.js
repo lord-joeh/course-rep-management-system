@@ -32,7 +32,6 @@ async function initializeWorker() {
         timestamp: new Date().toISOString()
       };
       
-      console.log("📤 Publishing worker event to Redis:", eventData);
       const result = await client.publish("worker-events", JSON.stringify(eventData));
       console.log(`📤 Worker started event published to Redis channel. Result: ${result}`);
       

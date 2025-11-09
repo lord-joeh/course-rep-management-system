@@ -9,6 +9,7 @@ const {
 } = require("./socketTracker");
 let io;
 let emitter;
+const jwt = require("jsonwebtoken");
 
 async function initSocketIO(httpServer) {
   console.log("🚀 Initializing Socket.IO...");
@@ -70,16 +71,24 @@ async function initSocketIO(httpServer) {
   io.on("connection", async (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-    // Handle user authentication via socket
-    socket.on("authenticate", (data) => {
-      console.log(data);
-      if (data.userId) {
-        // Store the mapping when user authenticates via socket
-        userSocketMap.set(data.userId, socket.id);
-        socketUserMap.set(socket.id, data.userId);
-        console.log(`Socket ${socket.id} authenticated as user ${data.userId}`);
+      const token = socket.handshake?.auth?.token;
+      if (token) {
+          try {
+              const payload = jwt.verify(token, process.env.JWT_SECRET);
+              const userId = payload.sub || payload.id;
+              if (userId) {
+                  userSocketMap.set(userId, socket.id);
+                  socketUserMap.set(socket.id, userId);
+
+                  console.log(`Socket ${socket.id} authenticated as user ${userId}`);
+              }
+          } catch (err) {
+              console.log(`Socket auth failed: ${err.message}`);
+              socket.emit("unauthorized", "Invalid token");
+              socket.disconnect(true);
+              return;
+          }
       }
-    });
 
     // Handle socket disconnect inside the connection handler
     socket.on("disconnect", (reason) => {

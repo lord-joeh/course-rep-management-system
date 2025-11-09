@@ -137,16 +137,50 @@ exports.deleteGroup = async (req, res) => {
 exports.createCustomGroup = async (req, res) => {
   try {
     const { studentsPerGroup, isGeneral, courseId } = req.body;
-    if (typeof studentsPerGroup !== "number" || studentsPerGroup < 1) {
+    if (!Number.isInteger(studentsPerGroup) || studentsPerGroup < 1) {
       return handleError(
         res,
         400,
-        "Invalid input. Provide a positive number for group size."
+        "Invalid input. Provide a positive integer for group size."
       );
     }
 
-    const studentIds = await models.Student.findAll({ attributes: ["id"] });
-    const studentIDs = await shuffle(studentIds.map((s) => s.toJSON()));
+    // If this is not a general group, require a courseId
+    if (!isGeneral && !courseId) {
+      return handleError(
+        res,
+        400,
+        "courseId is required for non-general groups"
+      );
+    }
+
+    // If course-specific, verify the course exists
+    if (!isGeneral) {
+      const courseExists = await models.Course.findByPk(courseId);
+      if (!courseExists) {
+        return handleError(res, 404, "Course with provided courseId does not exist");
+      }
+    }
+
+    // Fetch student IDs depending on whether group is general or course-specific
+    let studentList = [];
+    if (isGeneral) {
+      const studentRows = await models.Student.findAll({ attributes: ["id"] });
+      studentList = studentRows.map((s) => ({ id: s?.id }));
+    } else {
+      // Only include students that are enrolled in the provided course
+      const courseStudents = await models.CourseStudent.findAll({
+        where: { courseId },
+        attributes: ["studentId"],
+      });
+      if (!courseStudents.length) {
+        return handleError(res, 404, "No students found for the provided course");
+      }
+      studentList = courseStudents.map((cs) => ({ id: cs?.studentId }));
+    }
+
+    // Shuffle the array of student objects
+    const studentIDs = await shuffle(studentList);
     if (!studentIDs.length) {
       return handleError(res, 404, "No students found in Database");
     }
@@ -209,6 +243,33 @@ exports.addGroupMember = async (req, res) => {
     if (!studentId || !groupId) {
       return handleError(res, 409, "Student ID and Course ID are required");
     }
+
+    // Ensure group exists
+    const group = await models.Group.findByPk(groupId);
+    if (!group) {
+      return handleError(res, 404, "Group not found");
+    }
+
+    // Ensure student exists
+    const student = await models.Student.findByPk(studentId);
+    if (!student) {
+      return handleError(res, 404, "Student not found");
+    }
+
+    // If the group is tied to a course, ensure the student is enrolled in that course
+    if (group.courseId) {
+      const enrolled = await models.CourseStudent.findOne({
+        where: { courseId: group.courseId, studentId },
+      });
+      if (!enrolled) {
+        return handleError(
+          res,
+          409,
+          "Student is not enrolled in the course for this group"
+        );
+      }
+    }
+
     const existingMember = await models.GroupMember.findOne({
       where: { groupId, studentId },
     });
