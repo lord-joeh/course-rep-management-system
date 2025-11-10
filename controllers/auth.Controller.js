@@ -228,39 +228,58 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.refreshToken = async (req, res) => {
-  try {
-    const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken) {
-      return handleError(res, 400, "Refresh token required");
+    try {
+        const refreshToken = req.cookies?.refreshToken;
+        if (!refreshToken) {
+            return handleError(res, 400, "Refresh token required");
+        }
+
+        const tokenDoc = await models.RefreshToken.findOne({
+            where: { token: refreshToken },
+        });
+
+        if (!tokenDoc) {
+            return handleError(res, 401, "Invalid or expired refresh token");
+        }
+
+        const expiresAt = new Date(tokenDoc.expires_at);
+        if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+            // remove expired token and clear cookie
+            await models.RefreshToken.destroy({ where: { token: refreshToken } });
+            res.clearCookie("refreshToken", {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "strict",
+                path: "/",
+            });
+            return handleError(res, 401, "Invalid or expired refresh token");
+        }
+
+        const student = await models.Student.findOne({
+            where: { id: tokenDoc.student_id },
+        });
+
+        if (!student) {
+            return handleError(res, 404, "Student not found");
+        }
+
+        const accessToken = jwt.sign(
+            {
+                id: student.id,
+                email: student.email,
+                isRep: student.isRep,
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "15m" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            token: accessToken,
+        });
+    } catch (error) {
+        return handleError(res, 500, "Error refreshing token", error);
     }
-    const tokenDoc = await models.RefreshToken.findOne({
-      where: { token: refreshToken },
-    });
-    if (!tokenDoc || tokenDoc.expires_at < new Date()) {
-      return handleError(res, 401, "Invalid or expired refresh token");
-    }
-    const student = await models.Student.findOne({
-      where: { id: tokenDoc.student_id },
-    });
-    if (!student) {
-      return handleError(res, 404, "Student not found");
-    }
-    const accessToken = jwt.sign(
-      {
-        id: student.id,
-        email: student.email,
-        isRep: student.isRep,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "5m" }
-    );
-    return res.status(200).json({
-      success: true,
-      token: accessToken,
-    });
-  } catch (error) {
-    return handleError(res, 500, "Error refreshing token", error);
-  }
 };
 
 exports.logout = async (req, res) => {

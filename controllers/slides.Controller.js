@@ -112,11 +112,7 @@ exports.deleteSlide = async (req, res) => {
       return handleError(res, 404, "Slide not found in the database");
     }
 
-    await deleteFile(slideToDelete.driveFileID);
-
-    const deletedCount = await models.Slides.destroy({
-      where: { driveFileID: slideId },
-    });
+    const deletedCount = await slideToDelete.destroy();
 
     if (deletedCount === 0) {
       return handleError(
@@ -125,6 +121,8 @@ exports.deleteSlide = async (req, res) => {
         "Failed to delete slide from database after successful Drive deletion"
       );
     }
+
+    await deleteFile(slideToDelete.driveFileID);
 
     return handleResponse(
       res,

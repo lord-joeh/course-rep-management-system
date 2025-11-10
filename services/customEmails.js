@@ -46,6 +46,7 @@ exports.sendResetConfirmation = async (email, name) => {
     }
 };
 
+// Send registration success mail
 exports.sendRegistrationSuccessMail = async (name, email, id) => {
   const content = `
   <div style="font-family: Arial, sans-serif; max-width: 600px;
@@ -59,7 +60,7 @@ exports.sendRegistrationSuccessMail = async (name, email, id) => {
           and stay updated on important announcements and academic activities.</p>
         <p>We are excited to have you on the platform and look forward to helping you stay
          connected and informed throughout your academic journey.</p>
-        <a href="${process.env.FRONTEND_URL}/login" style="display: inline-block;
+        <a href="${process.env.FRONTEND_URL}" style="display: inline-block;
          padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff;
           text-decoration: none;
           border-radius: 5px;">Click here to login</a>
@@ -188,6 +189,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
   }
 };
 
+// Send custom message to student
 exports.sendMessageToStudent = async (email, message) => {
   const customEmail = `
   <div style="font-family: Arial, sans-serif; max-width: 600px;
