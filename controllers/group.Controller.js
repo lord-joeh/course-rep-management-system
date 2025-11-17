@@ -61,7 +61,7 @@ exports.getAllGroups = async (req, res) => {
 
     const totalPages = Math.ceil(totalItems / _limit);
 
-    if (groups.length < 1) {
+    if (!groups) {
       return handleError(res, 404, "No groups were found");
     }
     return handleResponse(res, 200, "Groups retrieved successfully", {

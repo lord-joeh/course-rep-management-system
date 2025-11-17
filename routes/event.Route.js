@@ -8,9 +8,7 @@ const {
   deleteEvent,
 } = require("../controllers/event.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-const { captureSocketId } = require("../middleware/socketTracker");
 router.use(authenticate);
-router.use(captureSocketId);
 
 //Route to add event
 router.post("/", authorize, addEvent);

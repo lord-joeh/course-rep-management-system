@@ -8,9 +8,7 @@ const {
 } = require("../controllers/feedback.Controller");
 
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-const { captureSocketId } = require("../middleware/socketTracker");
 router.use(authenticate);
-router.use(captureSocketId);
 //Route to send feedback
 router.post("/", sendFeedback);
 

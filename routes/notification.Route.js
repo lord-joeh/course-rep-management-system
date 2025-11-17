@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 const {
   addNotification,
@@ -7,27 +7,26 @@ const {
   updateNotification,
   deleteNotification,
   sendNotificationToStudent,
-} = require('../controllers/notification.Controller');
+} = require("../controllers/notification.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-const { captureSocketId } = require("../middleware/socketTracker");
-router.use(authenticate)
-router.use(captureSocketId);
+router.use(authenticate);
+
 //Route to add a notification
-router.post('/', addNotification);
+router.post("/", addNotification);
 
 //Route to get all notifications
-router.get('/', allNotification);
+router.get("/", allNotification);
 
 //Route to get notification
-router.get('/:id', notificationById);
+router.get("/:id", notificationById);
 
 //Route to update notification
-router.put('/:id', updateNotification);
+router.put("/:id", updateNotification);
 
 //Route to delete notification
-router.delete('/:id', deleteNotification);
+router.delete("/:id", deleteNotification);
 
 //Route to send message to student
-router.post('/send',authorize, sendNotificationToStudent)
+router.post("/send", authorize, sendNotificationToStudent);
 
 module.exports = router;

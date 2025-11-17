@@ -31,9 +31,13 @@ exports.addEvent = async (req, res) => {
     if (studentsToNotify && studentsToNotify.length > 0) {
       try {
         // Extract student IDs from the objects
-        const studentIds = studentsToNotify.map(student => student?.id);
+        const studentIds = studentsToNotify.map((student) => student?.id);
         SocketMessagingService.notifyEventChange(studentIds, null, "created");
-        console.log("📤 Event notification sent to", studentIds.length, "students");
+        console.log(
+          "📤 Event notification sent to",
+          studentIds.length,
+          "students"
+        );
       } catch (error) {
         console.error("❌ Failed to send event notification:", error);
       }
@@ -50,7 +54,6 @@ exports.getAllEvent = async (req, res) => {
     const events = await models.Event.findAll({
       order: [
         ["createdAt", "DESC"],
-        ["time", "DESC"],
       ],
     });
     if (!events.length) {
@@ -65,7 +68,7 @@ exports.getAllEvent = async (req, res) => {
 exports.eventById = async (req, res) => {
   try {
     const { id } = req.params;
-    const event = await models.Event.findByPk( id );
+    const event = await models.Event.findByPk(id);
     if (!event) {
       return handleError(res, 404, "Event not found");
     }
@@ -93,7 +96,7 @@ exports.updateEvent = async (req, res) => {
     if (!updated) {
       return handleError(res, 404, "Event not found for update");
     }
-    const updatedEvent = await models.Event.findByPk( id );
+    const updatedEvent = await models.Event.findByPk(id);
     return handleResponse(res, 200, "Event updated successfully", updatedEvent);
   } catch (error) {
     return handleError(res, 500, "Error updating event", error);

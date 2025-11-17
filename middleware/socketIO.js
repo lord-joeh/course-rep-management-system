@@ -16,8 +16,23 @@ async function initSocketIO(httpServer) {
 
   // mirror express CORS settings so polling transport is allowed from the frontend
   io = new Server(httpServer, {
+    path: "/api/socket.io",
     cors: {
-      origin: ["http://localhost:5173", "http://127.0.0.1:5500"],
+      origin: (origin, callback) => {
+        const whitelist = [process.env.FRONTEND_URL];
+        // Allow ngrok host if provided (useful when frontend is accessed through an ngrok+nginx proxy)
+        if (process.env.NGROK_HOST) {
+          whitelist.push(process.env.NGROK_HOST);
+        }
+        if (process.env.NODE_ENV !== "production") {
+          whitelist.push("http://localhost:5173");
+        }
+        if (whitelist.indexOf(origin) !== -1 || !origin) {
+          callback(null, true);
+        } else {
+          callback(new Error("Not allowed by CORS"));
+        }
+      },
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -71,24 +86,24 @@ async function initSocketIO(httpServer) {
   io.on("connection", async (socket) => {
     console.log(`User connected: ${socket.id}`);
 
-      const token = socket.handshake?.auth?.token;
-      if (token) {
-          try {
-              const payload = jwt.verify(token, process.env.JWT_SECRET);
-              const userId = payload.sub || payload.id;
-              if (userId) {
-                  userSocketMap.set(userId, socket.id);
-                  socketUserMap.set(socket.id, userId);
+    const token = socket.handshake?.auth?.token;
+    if (token) {
+      try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = payload.sub || payload.id;
+        if (userId) {
+          userSocketMap.set(userId, socket.id);
+          socketUserMap.set(socket.id, userId);
 
-                  console.log(`Socket ${socket.id} authenticated as user ${userId}`);
-              }
-          } catch (err) {
-              console.log(`Socket auth failed: ${err.message}`);
-              socket.emit("unauthorized", "Invalid token");
-              socket.disconnect(true);
-              return;
-          }
+          console.log(`Socket ${socket.id} authenticated as user ${userId}`);
+        }
+      } catch (err) {
+        console.log(`Socket auth failed: ${err.message}`);
+        socket.emit("unauthorized", "Invalid token");
+        socket.disconnect(true);
+        return;
       }
+    }
 
     // Handle socket disconnect inside the connection handler
     socket.on("disconnect", (reason) => {

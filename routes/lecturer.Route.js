@@ -8,9 +8,7 @@ const {
   deleteLecturer,
 } = require("../controllers/lecturer.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-const { captureSocketId } = require("../middleware/socketTracker");
 router.use(authenticate);
-router.use(captureSocketId);
 //Route to add a new lecturer
 router.post("/", authorize, addLecturer);
 

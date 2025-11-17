@@ -1,9 +1,10 @@
-const  models  = require("../config/models");
-const { generatedId, formatDate } = require("../services/customServices");
+const models = require("../config/models");
+const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const uploadToFolder = require("../googleServices/uploadToFolder");
 const createFolder = require("../googleServices/createDriveFolder");
+const getCourseAssignmentsFolder = require("../googleServices/getAssignmentsFolder");
 
 exports.addAssignment = async (req, res) => {
   try {
@@ -16,17 +17,32 @@ exports.addAssignment = async (req, res) => {
       );
     }
     const id = await generatedId("ASS");
-    const course = await models.Course.findByPk(courseId)
+    const course = await models.Course.findByPk(courseId);
 
-      if(!course){
-        return handleError(res, 404, "Course with provided courseId does not exist");
-      }
+    if (!course) {
+      return handleError(
+        res,
+        404,
+        "Course with provided courseId does not exist"
+      );
+    }
 
-    const folderId = await createFolder(
-      `${course?.name} ${title} Submission`
-    );
+    const folderId = await createFolder(`${course?.name} ${title} Submission`);
 
-    console.log(folderId)
+    console.log(folderId);
+
+    let fileId = null;
+    let fileName = null;
+
+    // Check if a file is uploaded
+    if (req.file) {
+      // Get or create the course-specific assignments folder
+      const assignmentsFolder = await getCourseAssignmentsFolder(course.name);
+      // Upload the file to the course-specific assignments folder
+      const uploadedFile = await uploadToFolder(assignmentsFolder.id, req.file);
+      fileId = uploadedFile.id;
+      fileName = uploadedFile.name;
+    }
 
     const newAssignment = await models.Assignment.create({
       id,
@@ -34,7 +50,9 @@ exports.addAssignment = async (req, res) => {
       description,
       courseId,
       deadline,
-      driveFolderID: folderId?.id
+      submissionFolderID: folderId?.id,
+      fileId,
+      fileName,
     });
     return handleResponse(
       res,
@@ -49,9 +67,16 @@ exports.addAssignment = async (req, res) => {
 
 exports.allAssignment = async (req, res) => {
   try {
-    const assignments = await models.Assignment.findAll();
-    if (!assignments.length) {
-      return handleError(res, 404, "No assignments found");
+    const { courseId } = req.params;
+    if (!courseId) {
+      return handleError(res, 400, "Course ID is required");
+    }
+    const assignments = await models.Assignment.findAll({
+      where: { courseId },
+      order: ["createdAt", "DESC"]
+    });
+    if (!assignments) {
+      return handleError(res, 404, "No assignments found for this course");
     }
     return handleResponse(
       res,
@@ -67,10 +92,9 @@ exports.allAssignment = async (req, res) => {
 exports.assignmentById = async (req, res) => {
   try {
     const { id } = req.params;
-    const assignment = await models.Assignment.findByPk( id,{
-        include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
-    }
-    );
+    const assignment = await models.Assignment.findByPk(id, {
+      include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
+    });
     if (!assignment) {
       return handleError(res, 404, "Assignment not found");
     }

@@ -45,7 +45,7 @@ exports.addCourse = async (req, res) => {
 exports.getAllCourse = async (req, res) => {
   try {
     const courses = await models.Course.findAll();
-    if (!courses.length) {
+    if (!courses) {
       return handleError(res, 404, "No course was found");
     }
     return handleResponse(res, 200, "Courses retrieved successfully", courses);

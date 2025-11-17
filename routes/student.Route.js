@@ -8,12 +8,11 @@ const {
   deleteStudent,
 } = require("../controllers/student.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
-const { captureSocketId } = require("../middleware/socketTracker");
 //Route to register a student
 router.post("/", registerStudent);
 
 router.use(authenticate);
-router.use(captureSocketId);
+
 // Route to get all student
 router.get("/", getAllStudent);
 

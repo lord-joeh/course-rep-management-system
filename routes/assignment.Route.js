@@ -8,11 +8,11 @@ const {
   deleteAssignment,
   uploadAssignment,
 } = require("../controllers/assignment.Controller");
-const upload = require('../config/multer')
-const { captureSocketId } = require("../middleware/socketTracker");
-router.use(captureSocketId);  
+const upload = require("../config/multer");
+
+
 //Route to add assignment
-router.post("/", addAssignment);
+router.post("/", upload.single("file"), addAssignment);
 
 //Route to upload assignment
 router.post("/upload", upload.single("file"), uploadAssignment);
@@ -28,7 +28,5 @@ router.put("/:id", updateAssignment);
 
 //Route to delete assignment
 router.delete("/:id", deleteAssignment);
-
-
 
 module.exports = router;

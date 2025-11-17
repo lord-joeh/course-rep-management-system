@@ -6,7 +6,7 @@ version: "1.0"
 
 #Specify inspection profile for code analysis
 profile:
-  name: qodana.starter
+  name: qodana.recommended
 
 #Enable inspections
 #include:
@@ -40,4 +40,4 @@ projectJDK: "24" #(Applied in CI/CD pipeline)
 #    total: 50
 
 #Specify Qodana linter for analysis (Applied in CI/CD pipeline)
-linter: jetbrains/qodana-jvm:2025.2
+linter: jetbrains/qodana-js

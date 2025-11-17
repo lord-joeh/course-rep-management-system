@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 const {
   attendanceInstance,
@@ -9,30 +9,28 @@ const {
   deleteInstance,
   deleteAttendance,
   autoAttendanceMark,
-} = require('../controllers/attendanceInstance.Controller');
-const { captureSocketId } = require("../middleware/socketTracker");
-router.use(captureSocketId);  
+} = require("../controllers/attendanceInstance.Controller");
 //Route to  initialize attendance
-router.post('/initialize', attendanceInstance);
+router.post("/initialize", attendanceInstance);
 
 //Route to close attendance
-router.post('/close', closeAttendance);
+router.post("/close", closeAttendance);
 
 //Route to get all instances
-router.get('/', allAttendanceInstance);
+router.get("/", allAttendanceInstance);
 
 //Route to get attendance by query
-router.get('/q', attendanceByQuery);
+router.get("/q", attendanceByQuery);
 
 //Route to manually mark attendance
-router.put('/mark', updateAttendeeStatus);
+router.put("/mark", updateAttendeeStatus);
 
 //Route to automatically mark attendance
-router.post('/auto/mark', autoAttendanceMark);
+router.post("/auto/mark", autoAttendanceMark);
 
 //Route to delete attendance instance
-router.delete('/instance/:instanceId', deleteInstance);
+router.delete("/instance/:instanceId", deleteInstance);
 
 //Route to delete attendance
-router.delete('/:attendanceId', deleteAttendance);
+router.delete("/:attendanceId", deleteAttendance);
 module.exports = router;
