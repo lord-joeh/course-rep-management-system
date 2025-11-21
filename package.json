@@ -20,14 +20,14 @@
     "@google-cloud/local-auth": "^3.0.1",
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
-    "axios": "^1.12.2",
+    "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
-    "bullmq": "^5.61.2",
+    "bullmq": "^5.63.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "express-rate-limit": "^8.1.0",
+    "express-rate-limit": "^8.2.1",
     "geolib": "^3.3.4",
     "googleapis": "^160.0.0",
     "helmet": "^8.1.0",
@@ -43,6 +43,6 @@
     "winston": "^3.18.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.11"
   }
 }

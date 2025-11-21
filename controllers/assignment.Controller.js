@@ -27,9 +27,9 @@ exports.addAssignment = async (req, res) => {
       );
     }
 
-    const folderId = await createFolder(`${course?.name} ${title} Submission`);
+    const folder = await createFolder(`${course?.name} ${title} Submission`);
 
-    console.log(folderId);
+    console.log(folder);
 
     let fileId = null;
     let fileName = null;
@@ -50,7 +50,7 @@ exports.addAssignment = async (req, res) => {
       description,
       courseId,
       deadline,
-      submissionFolderID: folderId?.id,
+      submissionFolderID: folder?.id,
       fileId,
       fileName,
     });
@@ -155,13 +155,27 @@ exports.deleteAssignment = async (req, res) => {
 exports.uploadAssignment = async (req, res) => {
   try {
     if (!req.file) return handleError(res, 400, "No file uploaded");
-    const { folderId } = req.body;
+    const { folderId, assignmentId, studentId } = req.body;
+
+    if (!assignmentId || !studentId) {
+      return handleError(res, 400, "Assignment ID and Student ID are required");
+    }
 
     const uploadedFile = await uploadToFolder(folderId, req.file);
 
     if (!uploadedFile) {
       return handleError(res, 400, "Failed to upload assignment");
     }
+
+    // Create submission record
+    const submissionId = await generatedId("ASUB");
+    await models.AssignmentSubmission.create({
+      id: submissionId,
+      assignmentId,
+      studentId,
+      fileId: uploadedFile.id,
+      fileName: uploadedFile.name,
+    });
 
     return handleResponse(
       res,
@@ -173,3 +187,82 @@ exports.uploadAssignment = async (req, res) => {
     handleError(res, 500, "Error uploading assignment", error);
   }
 };
+
+exports.getStudentSubmittedAssignments = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { limit, page } = req.query;
+    const _limit = parseInt(limit) || 10;
+    const _page = parseInt(page) || 1;
+    const offset = (_page - 1) * _limit;
+
+    if (!studentId) {
+      return handleError(res, 400, "Student ID is required");
+    }
+
+    const results = await models.AssignmentSubmission.findAndCountAll({
+      where: { studentId },
+      include: [
+        {
+          model: models.Assignment,
+          attributes: ["id", "title", "description", "deadline", "courseId"],
+          include: [{ model: models.Course, attributes: ["name"] }],
+        },
+      ],
+      limit: _limit,
+      offset: offset,
+      order: [["submittedAt", "DESC"]],
+    });
+
+    const { rows: submissions, count: totalItems } = results;
+    const totalPages = Math.ceil(totalItems / _limit);
+
+    if (!submissions || submissions.length === 0) {
+      return handleResponse(res, 200, "No assignments submitted by this student", {
+        submissions: [],
+        pagination: {
+          totalItems,
+          currentPage: _page,
+          totalPages,
+          itemsPerPage: _limit,
+        },
+      });
+    }
+
+    return handleResponse(res, 200, "Assignments retrieved successfully", {
+      submissions,
+      pagination: {
+        totalItems,
+        currentPage: _page,
+        totalPages,
+        itemsPerPage: _limit,
+      },
+    });
+  } catch (error) {
+    return handleError(res, 500, "Error retrieving student assignments", error);
+  }
+};
+
+exports.getAssignmentByCourse = async (req, res) => {
+  try {
+    const { courseId } = req.query;
+    if (!courseId) {
+      return handleError(res, 400, "Course ID is required");
+    }
+    const assignments = await models.Assignment.findAll({
+      where: { courseId },
+      order: [["createdAt", "DESC"]],
+    });
+    if (!assignments) {
+      return handleError(res, 404, "No assignments found for this course");
+    }
+    return handleResponse(
+      res,
+      200,
+      "Assignments retrieved successfully",
+      assignments
+    );
+  } catch (error) {
+    return handleError(res, 500, "Error retrieving assignments", error);
+  }
+}
