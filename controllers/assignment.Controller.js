@@ -67,23 +67,37 @@ exports.addAssignment = async (req, res) => {
 
 exports.allAssignment = async (req, res) => {
   try {
-    const { courseId } = req.params;
+    const { limit, page, courseId } = req.query;
+    const _limit = parseInt(limit) || 10;
+    const _page = parseInt(page) || 1;
+    const offset = (_page - 1) * _limit;
+
     if (!courseId) {
       return handleError(res, 400, "Course ID is required");
     }
-    const assignments = await models.Assignment.findAll({
+    const results = await models.Assignment.findAndCountAll({
       where: { courseId },
-      order: ["createdAt", "DESC"]
+      limit: _limit,
+      offset: offset,
+      order: [["deadline", "DESC"]],
     });
+
+    const { rows: assignments, count: totalItems } = results;
+    const totalPages = Math.ceil(totalItems / _limit);
+
     if (!assignments) {
       return handleError(res, 404, "No assignments found for this course");
     }
-    return handleResponse(
-      res,
-      200,
-      "Assignments retrieved successfully",
-      assignments
-    );
+
+    return handleResponse(res, 200, "Assignments retrieved successfully", {
+      assignments: assignments,
+      pagination: {
+        totalItems,
+        currentPage: _page,
+        totalPages,
+        itemsPerPage: _limit,
+      },
+    });
   } catch (error) {
     return handleError(res, 500, "Error retrieving assignments", error);
   }
@@ -93,7 +107,16 @@ exports.assignmentById = async (req, res) => {
   try {
     const { id } = req.params;
     const assignment = await models.Assignment.findByPk(id, {
-      include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
+      include: [
+        { model: models.Course, attributes: ["name"], as: "Course" },
+        {
+          model: models.AssignmentSubmission,
+          as: "submissions",
+          include: [
+            { model: models.Student, attributes: ["id", "name", "email"] },
+          ],
+        },
+      ],
     });
     if (!assignment) {
       return handleError(res, 404, "Assignment not found");
@@ -180,7 +203,7 @@ exports.uploadAssignment = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Assignment uploaded successfully",
+      "Your Assignment has been submitted successfully",
       uploadedFile
     );
   } catch (error) {
@@ -217,16 +240,8 @@ exports.getStudentSubmittedAssignments = async (req, res) => {
     const { rows: submissions, count: totalItems } = results;
     const totalPages = Math.ceil(totalItems / _limit);
 
-    if (!submissions || submissions.length === 0) {
-      return handleResponse(res, 200, "No assignments submitted by this student", {
-        submissions: [],
-        pagination: {
-          totalItems,
-          currentPage: _page,
-          totalPages,
-          itemsPerPage: _limit,
-        },
-      });
+    if (!submissions) {
+      return handleError(res, 404, "No submissions were found");
     }
 
     return handleResponse(res, 200, "Assignments retrieved successfully", {
@@ -242,27 +257,3 @@ exports.getStudentSubmittedAssignments = async (req, res) => {
     return handleError(res, 500, "Error retrieving student assignments", error);
   }
 };
-
-exports.getAssignmentByCourse = async (req, res) => {
-  try {
-    const { courseId } = req.query;
-    if (!courseId) {
-      return handleError(res, 400, "Course ID is required");
-    }
-    const assignments = await models.Assignment.findAll({
-      where: { courseId },
-      order: [["createdAt", "DESC"]],
-    });
-    if (!assignments) {
-      return handleError(res, 404, "No assignments found for this course");
-    }
-    return handleResponse(
-      res,
-      200,
-      "Assignments retrieved successfully",
-      assignments
-    );
-  } catch (error) {
-    return handleError(res, 500, "Error retrieving assignments", error);
-  }
-}

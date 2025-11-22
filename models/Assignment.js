@@ -20,6 +20,7 @@ module.exports = (sequelize) => {
   );
   Assignment.associate = (models) => {
     Assignment.belongsTo(models.Course, { foreignKey: "courseId" });
+    Assignment.hasMany(models.AssignmentSubmission, { foreignKey: "assignmentId", as: "submissions" });
   };
   return Assignment;
 };

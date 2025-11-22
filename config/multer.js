@@ -6,6 +6,12 @@ const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "text/csv",
+  "text/plain",
+  "video/mp4",
+  "application/vnd.ms-excel"
 ];
 
 const upload = multer({
@@ -17,11 +23,11 @@ const upload = multer({
       cb(null, `${Date.now()}-${file.originalname}`);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max file size
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB max file size
   fileFilter: (_req, file, cb) => {
     // allow certain mime types only
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Unsupported file type"), false);
+    else cb(new Error(`Unsupported file type: ${ file.mimetype}`), false);
   },
 });
 

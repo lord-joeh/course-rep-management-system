@@ -7,7 +7,6 @@ const {
   updateAssignment,
   deleteAssignment,
   uploadAssignment,
-  getAssignmentByCourse,
   getStudentSubmittedAssignments,
 } = require("../controllers/assignment.Controller");
 const upload = require("../config/multer");
@@ -33,8 +32,5 @@ router.delete("/:id", deleteAssignment);
 
 //Route to get assignments submitted by a student
 router.get("/student/:studentId", getStudentSubmittedAssignments);
-
-// Route to get assignments by course
-router.get("/course/:courseId", getAssignmentByCourse)
 
 module.exports = router;

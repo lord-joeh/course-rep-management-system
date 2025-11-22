@@ -73,6 +73,9 @@ exports.uploadSlide = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in uploadSlide controller:", error);
+    if (error.message == "Unsupported file type") {
+      return handleError(res, 400, "Unsupported file type", error)
+    }
     return handleError(res, 500, "Error uploading slides", error);
   }
 };
