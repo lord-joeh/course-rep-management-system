@@ -18,7 +18,21 @@ async function authorize() {
 
   auth.setCredentials({
     refresh_token: token.refresh_token,
+    access_token: token.access_token,
+    expiry_date: token.expiry_date,
   });
+
+  // Check if access token is expired or about to expire (within 5 minutes)
+  if (auth.isTokenExpiring()) {
+    const { credentials } = await auth.refreshAccessToken();
+    // Update the database with new tokens
+    await models.GoogleToken.update({
+      access_token: credentials.access_token,
+      expiry_date: credentials.expiry_date,
+    }, { where: { userId } });
+    // Update the auth object with new credentials
+    auth.setCredentials(credentials);
+  }
 
   return auth;
 }

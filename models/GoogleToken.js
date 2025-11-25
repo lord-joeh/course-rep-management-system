@@ -19,6 +19,14 @@ module.exports = (sequelize) => {
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    access_token: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    expiry_date: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+    },
     type: {
       type: DataTypes.STRING,
       allowNull: true,

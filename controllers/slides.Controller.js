@@ -8,7 +8,7 @@ const deleteFile = require("../googleServices/deleteFile");
 
 exports.uploadSlide = async (req, res) => {
     console.log("Received uploadSlide request");
-  const { folderId, courseId } = req.query;
+  const { folderId, courseId } = req.body;
   const files = req.files;
   console.log(req.files);
   

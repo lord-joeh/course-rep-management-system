@@ -106,26 +106,49 @@ exports.allAssignment = async (req, res) => {
 exports.assignmentById = async (req, res) => {
   try {
     const { id } = req.params;
+    const { limit, page } = req.query;
+    const _limit = parseInt(limit) || 10;
+    const _page = parseInt(page) || 1;
+    const offset = (_page - 1) * _limit;
+
     const assignment = await models.Assignment.findByPk(id, {
       include: [
         { model: models.Course, attributes: ["name"], as: "Course" },
-        {
-          model: models.AssignmentSubmission,
-          as: "submissions",
-          include: [
-            { model: models.Student, attributes: ["id", "name", "email"] },
-          ],
-        },
       ],
     });
     if (!assignment) {
       return handleError(res, 404, "Assignment not found");
     }
+
+    const results = await models.AssignmentSubmission.findAndCountAll({
+      where: { assignmentId: id },
+      include: [
+        { model: models.Student, attributes: ["id", "name", "email"] },
+      ],
+      limit: _limit,
+      offset: offset,
+      order: [["submittedAt", "DESC"]],
+    });
+
+    const { rows: submissions, count: totalItems } = results;
+    const totalPages = Math.ceil(totalItems / _limit);
+
     return handleResponse(
       res,
       200,
       "Assignment retrieved successfully",
-      assignment
+      {
+        assignment,
+        submissions: {
+          submissions,
+          pagination: {
+            totalItems,
+            currentPage: _page,
+            totalPages,
+            itemsPerPage: _limit,
+          },
+        },
+      }
     );
   } catch (error) {
     return handleError(res, 500, "Error retrieving assignment", error);

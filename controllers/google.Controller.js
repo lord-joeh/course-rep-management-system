@@ -51,6 +51,8 @@ exports.googleCallback = async (req, res) => {
       client_id: process.env.client_id,
       client_secret: process.env.client_secret,
       refresh_token: tokens.refresh_token,
+      access_token: tokens.access_token,
+      expiry_date: tokens.expiry_date
     });
 
     res.send("✅ Google account connected. You can now close this tab.");
