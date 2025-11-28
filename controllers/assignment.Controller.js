@@ -5,6 +5,8 @@ const { handleResponse } = require("../services/responseService");
 const uploadToFolder = require("../googleServices/uploadToFolder");
 const createFolder = require("../googleServices/createDriveFolder");
 const getCourseAssignmentsFolder = require("../googleServices/getAssignmentsFolder");
+const deleteFile = require("../googleServices/deleteFile");
+const Assignment = require("../models/Assignment");
 
 exports.addAssignment = async (req, res) => {
   try {
@@ -112,9 +114,7 @@ exports.assignmentById = async (req, res) => {
     const offset = (_page - 1) * _limit;
 
     const assignment = await models.Assignment.findByPk(id, {
-      include: [
-        { model: models.Course, attributes: ["name"], as: "Course" },
-      ],
+      include: [{ model: models.Course, attributes: ["name"], as: "Course" }],
     });
     if (!assignment) {
       return handleError(res, 404, "Assignment not found");
@@ -122,9 +122,7 @@ exports.assignmentById = async (req, res) => {
 
     const results = await models.AssignmentSubmission.findAndCountAll({
       where: { assignmentId: id },
-      include: [
-        { model: models.Student, attributes: ["id", "name", "email"] },
-      ],
+      include: [{ model: models.Student, attributes: ["id", "name", "email"] }],
       limit: _limit,
       offset: offset,
       order: [["submittedAt", "DESC"]],
@@ -133,23 +131,18 @@ exports.assignmentById = async (req, res) => {
     const { rows: submissions, count: totalItems } = results;
     const totalPages = Math.ceil(totalItems / _limit);
 
-    return handleResponse(
-      res,
-      200,
-      "Assignment retrieved successfully",
-      {
-        assignment,
-        submissions: {
-          submissions,
-          pagination: {
-            totalItems,
-            currentPage: _page,
-            totalPages,
-            itemsPerPage: _limit,
-          },
+    return handleResponse(res, 200, "Assignment retrieved successfully", {
+      assignment,
+      submissions: {
+        submissions,
+        pagination: {
+          totalItems,
+          currentPage: _page,
+          totalPages,
+          itemsPerPage: _limit,
         },
-      }
-    );
+      },
+    });
   } catch (error) {
     return handleError(res, 500, "Error retrieving assignment", error);
   }
@@ -188,11 +181,41 @@ exports.updateAssignment = async (req, res) => {
 exports.deleteAssignment = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Fetch all submissions for the assignment
+    const submissions = await models.AssignmentSubmission.findAll({
+      where: { assignmentId: id },
+    });
+
+    // Delete files from Google Drive for each submission
+    for (const submission of submissions) {
+      if (submission.fileId) {
+        try {
+          await deleteFile(submission.fileId);
+        } catch (fileError) {
+          console.error(
+            `Failed to delete file ${submission.fileId}:`,
+            fileError
+          );
+          // Continue with other deletions even if one file fails
+        }
+      }
+    }
+
+    // Delete all submissions from the database
+    await models.AssignmentSubmission.destroy({ where: { assignmentId: id } });
+
+    // Delete the assignment
     const deleted = await models.Assignment.destroy({ where: { id } });
     if (!deleted) {
       return handleError(res, 404, "Assignment not found for deletion");
     }
-    return handleResponse(res, 200, "Assignment deleted successfully");
+
+    return handleResponse(
+      res,
+      200,
+      "Assignment and all submissions deleted successfully"
+    );
   } catch (error) {
     return handleError(res, 500, "Error deleting assignment", error);
   }
@@ -206,6 +229,13 @@ exports.uploadAssignment = async (req, res) => {
     if (!assignmentId || !studentId) {
       return handleError(res, 400, "Assignment ID and Student ID are required");
     }
+
+    const assignment = await models.Assignment.findByPk(assignmentId);
+
+    if (!assignment) return handleError(res, 404, "Assignment not found");
+
+    if (new Date() > assignment.deadline)
+      return handleError(res, 400, "Assignment submission closed");
 
     const uploadedFile = await uploadToFolder(folderId, req.file);
 
@@ -278,5 +308,70 @@ exports.getStudentSubmittedAssignments = async (req, res) => {
     });
   } catch (error) {
     return handleError(res, 500, "Error retrieving student assignments", error);
+  }
+};
+
+exports.deleteSubmittedAssignment = async (req, res) => {
+  try {
+    const { studentId, assignmentId, submittedAt } = req.query;
+    const { submissionId } = req.params;
+
+    if (!studentId || !submissionId || !assignmentId || !submittedAt) {
+      return handleError(
+        res,
+        400,
+        "Student ID, Submission ID, Assignment ID, and Submitted At are required"
+      );
+    }
+
+    // Verify assignment exists
+    const assignment = await models.Assignment.findByPk(assignmentId);
+    if (!assignment) {
+      return handleError(res, 404, "Assignment not found");
+    }
+
+    // Verify student exists
+    const student = await models.Student.findByPk(studentId);
+    if (!student) {
+      return handleError(res, 404, "Student not found");
+    }
+
+    // Verify submission exists and matches the provided details
+    const submission = await models.AssignmentSubmission.findOne({
+      where: {
+        id: submissionId,
+        assignmentId,
+        studentId,
+        submittedAt: new Date(submittedAt),
+      },
+    });
+    if (!submission) {
+      return handleError(
+        res,
+        404,
+        "Submission not found or details do not match"
+      );
+    }
+
+    // Delete file from Google Drive if it exists
+    if (submission.fileId) {
+      try {
+        await deleteFile(submission.fileId);
+      } catch (fileError) {
+        console.error(`Failed to delete file ${submission.fileId}:`, fileError);
+        // Continue with database deletion even if file deletion fails
+      }
+    }
+
+    // Delete the submission from the database
+    await models.AssignmentSubmission.destroy({ where: { id: submissionId } });
+
+    return handleResponse(
+      res,
+      200,
+      "Submitted assignment deleted successfully"
+    );
+  } catch (error) {
+    return handleError(res, 500, "Error deleting submitted assignment", error);
   }
 };
