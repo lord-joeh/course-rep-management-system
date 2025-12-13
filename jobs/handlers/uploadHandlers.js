@@ -93,6 +93,7 @@ async function uploadAssignment(job) {
   } = job.data;
 
   const emitter = getEmitter();
+  console.log("Job data:", job.data);
 
   // CASE 1: Student Submission (uploadAssignment)
   if (studentId && assignmentId && !isNewAssignment) {

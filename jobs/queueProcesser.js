@@ -1,4 +1,3 @@
-const { getEmitter } = require("../middleware/socketIO");
 const { processSlides } = require("./handlers/processSlides");
 const { sendEmail } = require("./handlers/sendEmail");
 const { processSMS } = require("./handlers/sendSMS");
@@ -7,7 +6,7 @@ const { uploadSlides, uploadAssignment } = require("./handlers/uploadHandlers");
 
 async function processQueue(job) {
   const { type } = job.data;
-  const emitter = getEmitter();
+  console.log("ProcessQueue: Processing job:", job);
 
   try {
     switch (type) {

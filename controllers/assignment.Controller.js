@@ -10,6 +10,7 @@ const { enqueue } = require("../services/enqueue");
 const Assignment = require("../models/Assignment");
 
 exports.addAssignment = async (req, res) => {
+  console.log("Adding assignment...")
   try {
     const { title, description, courseId, deadline } = req.body;
     if (!title || !description || !courseId || !deadline) {
@@ -30,8 +31,7 @@ exports.addAssignment = async (req, res) => {
       );
     }
 
-
-
+    console.log("Enqueueing assignment creation...")
     // Enqueue the assignment creation and optional file upload
     await enqueue("uploadAssignment", {
         isNewAssignment: true,
@@ -42,6 +42,8 @@ exports.addAssignment = async (req, res) => {
         deadline,
         file: req.file, // This contains path, originalname etc from multer
     });
+
+    console.log("Assignment creation enqueued successfully")
 
     return handleResponse(
       res,
@@ -204,6 +206,7 @@ exports.deleteAssignment = async (req, res) => {
 };
 
 exports.uploadAssignment = async (req, res) => {
+  console.log("Uploading assignment...")
   try {
     if (!req.file) return handleError(res, 400, "No file uploaded");
     const { folderId, assignmentId, studentId } = req.body;
