@@ -67,7 +67,7 @@ exports.getAllStudent = async (req, res) => {
 
     const { rows: students, count: totalItems } = result;
 
-    if (students.length === 0) {
+    if (!students) {
       return handleError(res, 404, "No students found on this page");
     }
 

@@ -40,7 +40,7 @@ exports.getAllLecturer = async (req, res) => {
         },
       ],
     });
-    if (!lecturers.length) {
+    if (!lecturers) {
       return handleError(res, 404, "No lecturer was found");
     }
     return handleResponse(

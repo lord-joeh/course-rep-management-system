@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { sendMessageToStudent } = require("../services/customEmails");
-const sendSMS = require("../utils/sendSMS");
+const { enqueue } = require("../services/enqueue");
 
 exports.addNotification = async (req, res) => {
   try {
@@ -33,7 +33,7 @@ exports.allNotification = async (req, res) => {
     const notifications = await models.Notification.findAll({
       order: [["created_at", "DESC"]],
     });
-    if (!notifications.length) {
+    if (!notifications) {
       return handleError(res, 409, "No notifications found");
     }
     return handleResponse(
@@ -123,16 +123,20 @@ exports.sendNotificationToStudent = async (req, res) => {
     if (!dataValues) return handleError(res, 400, "Student does not exist");
     console.log(dataValues);
     if (messageType === "email") {
-      await sendMessageToStudent(dataValues?.email, message);
-      return handleResponse(res, 200, "Message sent successfully");
+      // Enqueue the email job
+      await enqueue("sendEmail", {
+        to: dataValues?.email,
+        message: message,
+      });
+      return handleResponse(res, 200, "Message queued for sending");
     }
     if (messageType === "SMS") {
-      const sentMessage = await sendSMS(dataValues?.phone, message);
-      if (sentMessage?.code === "ok") {
-        return handleResponse(res, 200, "Message sent successfully");
-      } else {
-        return handleError(res, 400, "Failed sending message");
-      }
+      // Enqueue the SMS job
+      await enqueue("sendSMS", {
+        to: dataValues?.phone,
+        message: message,
+      });
+      return handleResponse(res, 200, "Message queued for sending");
     }
   } catch (error) {
     return handleError(res, 500, "Error sending message", error);

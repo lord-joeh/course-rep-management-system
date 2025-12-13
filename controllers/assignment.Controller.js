@@ -2,10 +2,11 @@ const models = require("../config/models");
 const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
-const uploadToFolder = require("../googleServices/uploadToFolder");
-const createFolder = require("../googleServices/createDriveFolder");
-const getCourseAssignmentsFolder = require("../googleServices/getAssignmentsFolder");
-const deleteFile = require("../googleServices/deleteFile");
+// const uploadToFolder = require("../googleServices/uploadToFolder");
+// const createFolder = require("../googleServices/createDriveFolder");
+// const getCourseAssignmentsFolder = require("../googleServices/getAssignmentsFolder");
+// const deleteFile = require("../googleServices/deleteFile"); // Removed as we use queue now
+const { enqueue } = require("../services/enqueue");
 const Assignment = require("../models/Assignment");
 
 exports.addAssignment = async (req, res) => {
@@ -29,38 +30,24 @@ exports.addAssignment = async (req, res) => {
       );
     }
 
-    const folder = await createFolder(`${course?.name} ${title} Submission`);
 
-    console.log(folder);
 
-    let fileId = null;
-    let fileName = null;
-
-    // Check if a file is uploaded
-    if (req.file) {
-      // Get or create the course-specific assignments folder
-      const assignmentsFolder = await getCourseAssignmentsFolder(course.name);
-      // Upload the file to the course-specific assignments folder
-      const uploadedFile = await uploadToFolder(assignmentsFolder.id, req.file);
-      fileId = uploadedFile.id;
-      fileName = uploadedFile.name;
-    }
-
-    const newAssignment = await models.Assignment.create({
-      id,
-      title,
-      description,
-      courseId,
-      deadline,
-      submissionFolderID: folder?.id,
-      fileId,
-      fileName,
+    // Enqueue the assignment creation and optional file upload
+    await enqueue("uploadAssignment", {
+        isNewAssignment: true,
+        assignmentId: id,
+        title,
+        description,
+        courseId,
+        deadline,
+        file: req.file, // This contains path, originalname etc from multer
     });
+
     return handleResponse(
       res,
-      201,
-      "Successfully added assignment",
-      newAssignment
+      202,
+      "Assignment creation backgrounded",
+      { assignmentId: id }
     );
   } catch (error) {
     return handleError(res, 500, "Error adding assignment", error);
@@ -188,18 +175,13 @@ exports.deleteAssignment = async (req, res) => {
     });
 
     // Delete files from Google Drive for each submission
-    for (const submission of submissions) {
-      if (submission.fileId) {
-        try {
-          await deleteFile(submission.fileId);
-        } catch (fileError) {
-          console.error(
-            `Failed to delete file ${submission.fileId}:`,
-            fileError
-          );
-          // Continue with other deletions even if one file fails
-        }
-      }
+    // Collect file IDs to delete
+    const fileIdsToDelete = submissions
+      .map((s) => s.fileId)
+      .filter((id) => id);
+
+    if (fileIdsToDelete.length > 0) {
+      await enqueue("deleteFiles", { fileIds: fileIdsToDelete });
     }
 
     // Delete all submissions from the database
@@ -237,27 +219,20 @@ exports.uploadAssignment = async (req, res) => {
     if (new Date() > assignment.deadline)
       return handleError(res, 400, "Assignment submission closed");
 
-    const uploadedFile = await uploadToFolder(folderId, req.file);
-
-    if (!uploadedFile) {
-      return handleError(res, 400, "Failed to upload assignment");
-    }
-
-    // Create submission record
-    const submissionId = await generatedId("ASUB");
-    await models.AssignmentSubmission.create({
-      id: submissionId,
-      assignmentId,
-      studentId,
-      fileId: uploadedFile.id,
-      fileName: uploadedFile.name,
+    // Enqueue submission upload
+    await enqueue("uploadAssignment", {
+        isNewAssignment: false,
+        folderId,
+        assignmentId,
+        studentId,
+        file: req.file
     });
 
     return handleResponse(
       res,
-      200,
-      "Your Assignment has been submitted successfully",
-      uploadedFile
+      202,
+      "Your Assignment submission has been queued",
+      { file: req.file.originalname }
     );
   } catch (error) {
     handleError(res, 500, "Error uploading assignment", error);
@@ -354,13 +329,9 @@ exports.deleteSubmittedAssignment = async (req, res) => {
     }
 
     // Delete file from Google Drive if it exists
+    // Delete file from Google Drive if it exists (Background Job)
     if (submission.fileId) {
-      try {
-        await deleteFile(submission.fileId);
-      } catch (fileError) {
-        console.error(`Failed to delete file ${submission.fileId}:`, fileError);
-        // Continue with database deletion even if file deletion fails
-      }
+      await enqueue("deleteFiles", { fileIds: [submission.fileId] });
     }
 
     // Delete the submission from the database

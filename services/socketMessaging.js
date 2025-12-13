@@ -1,10 +1,14 @@
-const { emitToUser, emitToUsers, getConnectedUsers, isUserConnected } = require("../middleware/socketTracker");
+const {
+  emitToUser,
+  emitToUsers,
+  isUserConnected,
+} = require("../middleware/socketTracker");
+const { getSocketIO } = require("../middleware/socketIO");
 
 /**
  * Service for handling socket messaging throughout the application
  */
 class SocketMessagingService {
-  
   /**
    * Send a notification to a specific user
    * @param {string} userId - The user ID to send the message to
@@ -20,7 +24,7 @@ class SocketMessagingService {
       title,
       message,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     return emitToUser(userId, "notification", notificationData);
@@ -41,7 +45,7 @@ class SocketMessagingService {
       title,
       message,
       data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     return emitToUsers(userIds, "notification", notificationData);
@@ -56,8 +60,23 @@ class SocketMessagingService {
    * @returns {number} - Number of users the message was sent to
    */
   static broadcastMessage(type, title, message, data = {}) {
-    const connectedUsers = getConnectedUsers();
-    return this.sendNotificationToUsers(connectedUsers, type, title, message, data);
+    const notificationData = {
+      type,
+      title,
+      message,
+      data,
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const io = getSocketIO();
+      io.emit("notification", notificationData);
+      // Also emit specific type if needed, but the original implementation wrapped it in notification structure
+      return true;
+    } catch (e) {
+      console.error("Broadcast failed:", e);
+      return false;
+    }
   }
 
   /**
@@ -98,7 +117,7 @@ class SocketMessagingService {
     const actionMessages = {
       created: "A new course has been added",
       updated: "A course has been updated",
-      deleted: "A course has been removed"
+      deleted: "A course has been removed",
     };
 
     this.sendNotificationToUsers(
@@ -120,7 +139,7 @@ class SocketMessagingService {
     const actionMessages = {
       created: "A new event has been scheduled",
       updated: "An event has been updated",
-      deleted: "An event has been cancelled"
+      deleted: "An event has been cancelled",
     };
 
     this.sendNotificationToUsers(
@@ -142,7 +161,7 @@ class SocketMessagingService {
     const actionMessages = {
       created: "A new assignment has been posted",
       updated: "An assignment has been updated",
-      deleted: "An assignment has been removed"
+      deleted: "An assignment has been removed",
     };
 
     this.sendNotificationToUsers(
@@ -164,7 +183,7 @@ class SocketMessagingService {
     const actionMessages = {
       created: "You have been added to a new group",
       updated: "A group you belong to has been updated",
-      deleted: "A group you belonged to has been removed"
+      deleted: "A group you belonged to has been removed",
     };
 
     this.sendNotificationToUsers(
@@ -186,7 +205,7 @@ class SocketMessagingService {
     const actionMessages = {
       created: "Attendance has been marked",
       updated: "Attendance record has been updated",
-      deleted: "Attendance record has been removed"
+      deleted: "Attendance record has been removed",
     };
 
     this.sendNotificationToUsers(
@@ -221,13 +240,7 @@ class SocketMessagingService {
    * @param {object} data - Additional error data
    */
   static sendErrorNotification(userId, message, data = {}) {
-    this.sendNotificationToUser(
-      userId,
-      "error",
-      "Error",
-      message,
-      data
-    );
+    this.sendNotificationToUser(userId, "error", "Error", message, data);
   }
 
   /**

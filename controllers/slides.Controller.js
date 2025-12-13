@@ -1,14 +1,17 @@
 const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
-const uploadToFolder = require("../googleServices/uploadToFolder");
-const { generatedId } = require("../services/customServices");
+// const uploadToFolder = require("../googleServices/uploadToFolder");
+// const { generatedId } = require("../services/customServices");
 const searchFilesInFolder = require("../googleServices/searchFolder");
-const deleteFile = require("../googleServices/deleteFile");
+// const deleteFile = require("../googleServices/deleteFile");
+const { enqueue } = require("../services/enqueue");
 
 exports.uploadSlide = async (req, res) => {
     console.log("Received uploadSlide request");
   const { folderId, courseId } = req.body;
+  // Allow the frontend to pass a socket id so the worker can emit targeted progress events
+  const socketId = req.body.socketId || req.headers["x-socket-id"] || null;
   const files = req.files;
   console.log(req.files);
   
@@ -30,46 +33,20 @@ exports.uploadSlide = async (req, res) => {
       return handleError(res, 400, "No folder ID provided for slide upload");
     }
 
-    const uploadPromises = files.map(async (file) => {
-      const uploadRes = await uploadToFolder(folderId, file);
+    // Enqueue the upload job
+    await enqueue(
+      "uploadSlides",
+      {
+        files,
+        folderId,
+        courseId,
+        socketId,
+      },
+      { removeOnComplete: { age: 3600 } }
+    );
 
-      const slide = await models.Slides.create({
-        id: await generatedId("SLD"),
-        driveFileID: uploadRes.id,
-          fileName: uploadRes.name,
-        courseId: courseId,
-      });
-
-      return { uploadRes, slide };
-    });
-
-    const uploadResponses = await Promise.allSettled(uploadPromises);
-
-    const successfulUploads = uploadResponses
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value);
-
-    const failedUploads = uploadResponses
-      .filter((result) => result.status === "rejected")
-      .map((result) => result.reason);
-
-    if (successfulUploads.length === 0) {
-      return handleError(
-        res,
-        400,
-        "Failed to upload any slides",
-        failedUploads
-      );
-    }
-
-    const message =
-      failedUploads.length > 0
-        ? `Successfully uploaded ${successfulUploads.length} slides. Failed to upload ${failedUploads.length} slides.`
-        : "All slides uploaded successfully.";
-
-    return handleResponse(res, 201, message, {
-      successfulUploads,
-      failedUploads,
+    return handleResponse(res, 202, "Slides upload started in background", {
+       count: files.length
     });
   } catch (error) {
     console.error("Error in uploadSlide controller:", error);
@@ -125,7 +102,8 @@ exports.deleteSlide = async (req, res) => {
       );
     }
 
-    await deleteFile(slideToDelete.driveFileID);
+    // await deleteFile(slideToDelete.driveFileID);
+    await enqueue("deleteFiles", { fileIds: [slideToDelete.driveFileID] });
 
     return handleResponse(
       res,

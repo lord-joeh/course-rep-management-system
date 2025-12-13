@@ -3,9 +3,7 @@ const { createAdapter } = require("@socket.io/redis-adapter");
 const { Emitter } = require("@socket.io/redis-emitter");
 const { connectRedis } = require("../config/redis");
 const {
-  removeSocketMapping,
-  userSocketMap,
-  socketUserMap,
+  // socketTracker maps are deprecated for core messaging but kept if imported elsewhere
 } = require("./socketTracker");
 let io;
 let emitter;
@@ -83,33 +81,43 @@ async function initSocketIO(httpServer) {
     emitter = null;
   }
 
-  io.on("connection", async (socket) => {
-    console.log(`User connected: ${socket.id}`);
+  // Middleware for authentication
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) {
+      return next(new Error("Authentication error: No token provided"));
+    }
 
-    const token = socket.handshake?.auth?.token;
-    if (token) {
-      try {
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
-        const userId = payload.sub || payload.id;
-        if (userId) {
-          userSocketMap.set(userId, socket.id);
-          socketUserMap.set(socket.id, userId);
-
-          console.log(`Socket ${socket.id} authenticated as user ${userId}`);
-        }
-      } catch (err) {
-        console.log(`Socket auth failed: ${err.message}`);
-        socket.emit("unauthorized", "Invalid token");
-        socket.disconnect(true);
-        return;
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET);
+      const userId = payload.sub || payload.id;
+      if (!userId) {
+        return next(new Error("Authentication error: Invalid token payload"));
       }
+      socket.userId = userId;
+      next();
+    } catch (err) {
+      return next(new Error("Authentication error: Invalid token"));
+    }
+  });
+
+  io.on("connection", async (socket) => {
+    console.log(`User connected: ${socket.id} (User ID: ${socket.userId})`);
+
+    // Join room named by userId for targeted messaging
+    if (socket.userId) {
+      socket.join(socket.userId);
+      console.log(`Socket ${socket.id} joined room ${socket.userId}`);
+
+      // Only map socketId for "this tab" operations if needed,
+      // but core messaging should use rooms.
+      // We can keep the maps for backward compatibility if needed,
+      // but we are refactoring to remove them.
     }
 
     // Handle socket disconnect inside the connection handler
     socket.on("disconnect", (reason) => {
       console.log(`User disconnected: ${socket.id} (reason: ${reason})`);
-      // Clean up socket mappings when user disconnects
-      removeSocketMapping(socket.id);
     });
   });
 }

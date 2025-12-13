@@ -56,7 +56,7 @@ exports.getAllEvent = async (req, res) => {
         ["createdAt", "DESC"],
       ],
     });
-    if (!events.length) {
+    if (!events) {
       return handleError(res, 404, "No Events found");
     }
     return handleResponse(res, 200, "Events retrieved successfully", events);

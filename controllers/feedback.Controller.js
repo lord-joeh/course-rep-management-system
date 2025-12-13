@@ -54,7 +54,7 @@ exports.allFeedback = async (req, res) => {
 
     const { rows: feedbacks, count: totalItems } = result;
 
-    if (!feedbacks.length) {
+    if (!feedbacks) {
       return handleError(res, 404, "No feedbacks found");
     }
 

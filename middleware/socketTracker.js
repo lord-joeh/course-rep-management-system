@@ -7,19 +7,14 @@ const socketUserMap = new Map();
  * This should be used after authentication middleware
  */
 exports.captureSocketId = (req, res, next) => {
-  const socketId = req.header('X-Socket-ID');
-  
+  const socketId = req.header("X-Socket-ID");
+
   if (socketId && req.student) {
-    // Store the mapping between user ID and socket ID
-    userSocketMap.set(req.student.id, socketId);
-    socketUserMap.set(socketId, req.student.id);
-    
-    // Add socket ID to request object for easy access
+    // Stores socket ID in request for potential "this tab" usage
     req.socketId = socketId;
-    
-    console.log(`Socket ID ${socketId} mapped to user ${req.student.id}`);
+    console.log(`Request from user ${req.student.id} with socket ${socketId}`);
   }
-  
+
   next();
 };
 
@@ -62,23 +57,23 @@ exports.removeSocketMapping = (socketId) => {
  * @returns {boolean} - True if message was sent, false if user not connected
  */
 exports.emitToUser = (userId, event, data) => {
-  const socketId = userSocketMap.get(userId);
-  if (!socketId) {
-    console.log(`User ${userId} is not connected`);
-    return false;
-  }
-
   try {
     // Require socketIO lazily to avoid circular dependency during module init
     const socketModule = require("./socketIO");
-    const io = typeof socketModule.getSocketIO === 'function' ? socketModule.getSocketIO() : null;
+    const io =
+      typeof socketModule.getSocketIO === "function"
+        ? socketModule.getSocketIO()
+        : null;
     if (!io) {
-      console.error(`Socket.IO instance not available when sending to user ${userId}`);
+      console.error(
+        `Socket.IO instance not available when sending to user ${userId}`
+      );
       return false;
     }
 
-    io.to(socketId).emit(event, data);
-    console.log(`Message sent to user ${userId} (socket: ${socketId})`);
+    // Use Room-based emitting
+    io.to(userId).emit(event, data);
+    console.log(`Message sent to room ${userId}`);
     return true;
   } catch (error) {
     console.error(`Error sending message to user ${userId}:`, error);
@@ -95,13 +90,13 @@ exports.emitToUser = (userId, event, data) => {
  */
 exports.emitToUsers = (userIds, event, data) => {
   let sentCount = 0;
-  
-  userIds.forEach(userId => {
+
+  userIds.forEach((userId) => {
     if (exports.emitToUser(userId, event, data)) {
       sentCount++;
     }
   });
-  
+
   return sentCount;
 };
 
@@ -123,14 +118,19 @@ exports.isUserConnected = (userId) => {
 };
 
 module.exports = {
+  // Deprecated/No-op functions kept for API compatibility during refactor
+  getSocketIdByUserId: () => null,
+  getUserIdBySocketId: () => null,
+  removeSocketMapping: () => {},
+  getConnectedUsers: () => [],
+  isUserConnected: () => false,
+
+  // Active functions
   captureSocketId: exports.captureSocketId,
-  getSocketIdByUserId: exports.getSocketIdByUserId,
-  getUserIdBySocketId: exports.getUserIdBySocketId,
-  removeSocketMapping: exports.removeSocketMapping,
   emitToUser: exports.emitToUser,
   emitToUsers: exports.emitToUsers,
-  getConnectedUsers: exports.getConnectedUsers,
-  isUserConnected: exports.isUserConnected,
-  userSocketMap,
-  socketUserMap
+
+  // Empty maps for safety
+  userSocketMap: new Map(),
+  socketUserMap: new Map(),
 };

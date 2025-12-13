@@ -27,7 +27,7 @@ exports.attendanceInstance = async (req, res) => {
     if (classType === "physical" && (!latitude || !longitude)) {
       return handleError(
         res,
-        409,
+        400,
         "Location coordinates are required for physical classes"
       );
     }
@@ -43,32 +43,48 @@ exports.attendanceInstance = async (req, res) => {
     const qrToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
       expiresIn: "15m",
     });
-    const instance = await models.AttendanceInstance.create({
-      id,
-      courseId,
-      date,
-      qr_token: qrToken,
-      expires_at: qrTokenExpiration,
-      latitude: lat,
-      longitude: long,
-      class_type: classType,
-    });
-    // Create attendance records for students
-    const students = await models.CourseStudent.findAll({
-      where: { courseId },
-      include: [{ model: models.Student, where: { status: "active" } }],
-    });
-    for (const cs of students) {
-      const attendanceId = await generatedId("ATT");
-      await models.Attendance.create({
-        id: attendanceId,
+
+    // Use transaction for atomicity
+    const result = await models.sequelize.transaction(async (transaction) => {
+      const instance = await models.AttendanceInstance.create({
+        id,
+        courseId,
+        date,
+        qr_token: qrToken,
+        expires_at: qrTokenExpiration,
+        latitude: lat,
+        longitude: long,
+        class_type: classType,
+      }, { transaction });
+
+      // Fetch students
+      const students = await models.CourseStudent.findAll({
+        where: { courseId },
+        include: [{ model: models.Student, where: { status: "active" } }],
+        transaction,
+      });
+
+      // Generate all attendance IDs in parallel
+      const attendanceIds = await Promise.all(
+        students.map(() => generatedId("ATT"))
+      );
+
+      // Prepare bulk insert data
+      const attendanceRecords = students.map((cs, index) => ({
+        id: attendanceIds[index],
         instanceId: id,
         courseId,
         date,
         studentId: cs.studentId,
         status: "absent",
-      });
-    }
+      }));
+
+      // Bulk create attendance records
+      await models.Attendance.bulkCreate(attendanceRecords, { transaction });
+
+      return instance;
+    });
+
     const attendanceUrl = `${process.env.FRONTEND_URL}/mark?instanceId=${id}&token=${qrToken}`;
     const qrImage = await generateQR(attendanceUrl);
     res.status(201).json({
@@ -76,7 +92,7 @@ exports.attendanceInstance = async (req, res) => {
       message: "Attendance initialized successfully",
       classType,
       qrCode: qrImage,
-      data: instance,
+      data: result,
     });
   } catch (error) {
     handleError(res, 500, "Error initializing attendance", error);
@@ -107,15 +123,34 @@ exports.closeAttendance = async (req, res) => {
 
 exports.allAttendanceInstance = async (req, res) => {
   try {
-    const instances = await models.AttendanceInstance.findAll();
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const { count, rows: instances } = await models.AttendanceInstance.findAndCountAll({
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      order: [['createdAt', 'DESC']],
+    });
+
     if (!instances.length) {
       return handleError(res, 400, "No instance was found");
     }
+
+    const totalPages = Math.ceil(count / limit);
+
     return handleResponse(
       res,
       200,
       "Instances successfully retrieved",
-      instances
+      {
+        instances,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalItems: count,
+          itemsPerPage: parseInt(limit),
+        },
+      }
     );
   } catch (error) {
     return handleError(
@@ -282,37 +317,41 @@ exports.autoAttendanceMark = async (req, res) => {
 
       return handleError(res, 403, locationMessage);
     }
-    // Check existing attendance status
-    const attendance = await models.Attendance.findOne({
-      where: { instanceId: decoded.instanceId, studentId },
-    });
-
-    if (attendance?.status === "present") {
-      return handleError(res, 409, "Attendance already marked");
-    }
-
-    if (attendance) {
-      attendance.status = "present";
-      await attendance.save();
-    } else {
-      const id = await generatedId("ATT");
-
-      await models.Attendance.create({
-        id,
-        instanceId: decoded.instanceId,
-        courseId: decoded.courseId,
-        date: new Date(),
-        studentId,
-        status: "present",
+    // Use transaction for attendance marking operations
+    await models.sequelize.transaction(async (transaction) => {
+      // Check existing attendance status
+      const attendance = await models.Attendance.findOne({
+        where: { instanceId: decoded.instanceId, studentId },
+        transaction,
       });
-    }
 
-    await models.AttendanceLog.create({
-      student_id: studentId,
-      instance_id: instance.id,
-      location_checked: locationRequired,
-      location_valid: locationValid,
-      details: locationMessage,
+      if (attendance?.status === "present") {
+        throw new Error("Attendance already marked");
+      }
+
+      if (attendance) {
+        attendance.status = "present";
+        await attendance.save({ transaction });
+      } else {
+        const id = await generatedId("ATT");
+
+        await models.Attendance.create({
+          id,
+          instanceId: decoded.instanceId,
+          courseId: decoded.courseId,
+          date: new Date(),
+          studentId,
+          status: "present",
+        }, { transaction });
+      }
+
+      await models.AttendanceLog.create({
+        student_id: studentId,
+        instance_id: instance.id,
+        location_checked: locationRequired,
+        location_valid: locationValid,
+        details: locationMessage,
+      }, { transaction });
     });
 
     return handleResponse(
