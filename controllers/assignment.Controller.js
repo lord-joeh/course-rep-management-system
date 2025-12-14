@@ -2,15 +2,11 @@ const models = require("../config/models");
 const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
-// const uploadToFolder = require("../googleServices/uploadToFolder");
-// const createFolder = require("../googleServices/createDriveFolder");
-// const getCourseAssignmentsFolder = require("../googleServices/getAssignmentsFolder");
-// const deleteFile = require("../googleServices/deleteFile"); // Removed as we use queue now
 const { enqueue } = require("../services/enqueue");
 const Assignment = require("../models/Assignment");
 
 exports.addAssignment = async (req, res) => {
-  console.log("Adding assignment...")
+  console.log("Adding assignment...");
   try {
     const { title, description, courseId, deadline } = req.body;
     if (!title || !description || !courseId || !deadline) {
@@ -31,26 +27,23 @@ exports.addAssignment = async (req, res) => {
       );
     }
 
-    console.log("Enqueueing assignment creation...")
+    console.log("Enqueueing assignment creation...");
     // Enqueue the assignment creation and optional file upload
     await enqueue("uploadAssignment", {
-        isNewAssignment: true,
-        assignmentId: id,
-        title,
-        description,
-        courseId,
-        deadline,
-        file: req.file, // This contains path, originalname etc from multer
+      isNewAssignment: true,
+      assignmentId: id,
+      title,
+      description,
+      courseId,
+      deadline,
+      file: req.file, // This contains path, originalname etc from multer
     });
 
-    console.log("Assignment creation enqueued successfully")
+    console.log("Assignment creation enqueued successfully");
 
-    return handleResponse(
-      res,
-      202,
-      "Assignment creation backgrounded",
-      { assignmentId: id }
-    );
+    return handleResponse(res, 202, "Assignment creation backgrounded", {
+      assignmentId: id,
+    });
   } catch (error) {
     return handleError(res, 500, "Error adding assignment", error);
   }
@@ -178,9 +171,7 @@ exports.deleteAssignment = async (req, res) => {
 
     // Delete files from Google Drive for each submission
     // Collect file IDs to delete
-    const fileIdsToDelete = submissions
-      .map((s) => s.fileId)
-      .filter((id) => id);
+    const fileIdsToDelete = submissions.map((s) => s.fileId).filter((id) => id);
 
     if (fileIdsToDelete.length > 0) {
       await enqueue("deleteFiles", { fileIds: fileIdsToDelete });
@@ -206,7 +197,7 @@ exports.deleteAssignment = async (req, res) => {
 };
 
 exports.uploadAssignment = async (req, res) => {
-  console.log("Uploading assignment...")
+  console.log("Uploading assignment...");
   try {
     if (!req.file) return handleError(res, 400, "No file uploaded");
     const { folderId, assignmentId, studentId } = req.body;
@@ -224,11 +215,11 @@ exports.uploadAssignment = async (req, res) => {
 
     // Enqueue submission upload
     await enqueue("uploadAssignment", {
-        isNewAssignment: false,
-        folderId,
-        assignmentId,
-        studentId,
-        file: req.file
+      isNewAssignment: false,
+      folderId,
+      assignmentId,
+      studentId,
+      file: req.file,
     });
 
     return handleResponse(

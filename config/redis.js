@@ -1,24 +1,24 @@
-const { createClient } = require("redis");
+const Redis = require("ioredis");
 require("dotenv").config();
 
-const client = createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379',
-  socket: {
-    tls: false,
-    rejectUnauthorized: false,
-    connectTimeout: 5000,
-    lazyConnect: true,
-  },
-});
+const redisConfig = {
+  host: process.env.REDIS_HOST || "localhost",
+  port: process.env.REDIS_PORT || 6379,
+  maxRetriesPerRequest: null, // Critical for BullMQ
+};
 
-client.on("error", (err) => console.error("Redis Error:", err));
+// Create a general shared instance
+const client = new Redis(redisConfig);
 
+client.on("error", (err) => console.error("❌ Redis Error:", err));
+client.on("connect", () => console.log("✅ Redis connected"));
+
+// Helper to ensure connection (ioredis connects automatically, but keeping for compatibility)
 async function connectRedis() {
-  if (!client.isOpen) {
+  if (client.status === "wait") {
     await client.connect();
-    console.log("✅ Redis Cloud connected successfully");
   }
   return client;
 }
 
-module.exports = { client, connectRedis };
+module.exports = { client, connectRedis, redisConfig };

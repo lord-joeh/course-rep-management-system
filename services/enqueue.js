@@ -11,7 +11,6 @@ async function enqueue(type, payload = {}, opts = {}) {
   };
 
   const job = await queue.add(type, data, { ...defaultOpts, ...opts });
-  console.log("Job added successfully", job);
   return job;
 }
 

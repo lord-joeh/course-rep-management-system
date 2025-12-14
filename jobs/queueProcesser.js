@@ -6,7 +6,6 @@ const { uploadSlides, uploadAssignment } = require("./handlers/uploadHandlers");
 
 async function processQueue(job) {
   const { type } = job.data;
-  console.log("ProcessQueue: Processing job:", job);
 
   try {
     switch (type) {

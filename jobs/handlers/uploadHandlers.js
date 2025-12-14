@@ -1,20 +1,21 @@
-const { getEmitter } = require("../../middleware/socketIO");
+const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const uploadToFolder = require("../../googleServices/uploadToFolder");
 const models = require("../../config/models");
 const { generatedId } = require("../../services/customServices");
 const { enqueue } = require("../../services/enqueue");
 const getCourseAssignmentsFolder = require("../../googleServices/getAssignmentsFolder");
+const deleteFile = require("../../googleServices/deleteFile"); // Import needed for cleanup
 
 async function uploadSlides(job) {
   const { files, folderId, courseId, socketId } = job.data;
-  const emitter = getEmitter();
 
   const successfulUploads = [];
   const failedUploads = [];
 
   // Notify start
   if (socketId)
-    emitter.emit("uploadProgress", {
+    await emitWorkerEvent("uploadProgress", {
+      jobType: "uploadSlides",
       status: "start",
       total: files.length,
       socketId,
@@ -23,9 +24,6 @@ async function uploadSlides(job) {
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     try {
-      // file object here is likely a plain object from job data, so it has .path
-      // uploadToFolder requires { path: '...', originalname: '...' } etc
-
       const uploadRes = await uploadToFolder(folderId, file);
 
       const slide = await models.Slides.create({
@@ -41,6 +39,7 @@ async function uploadSlides(job) {
       await enqueue(
         "processSlides",
         {
+          jobType: "uploadSlides",
           slideId: slide.id,
           driveFileID: uploadRes.id,
           courseId,
@@ -50,7 +49,8 @@ async function uploadSlides(job) {
       );
 
       if (socketId) {
-        emitter.emit("uploadProgress", {
+        await emitWorkerEvent("uploadProgress", {
+          jobType: "uploadSlides",
           status: "progress",
           current: i + 1,
           total: files.length,
@@ -66,7 +66,8 @@ async function uploadSlides(job) {
 
   // Notify completion
   if (socketId) {
-    emitter.emit("uploadComplete", {
+    await emitWorkerEvent("uploadComplete", {
+      jobType: "uploadSlides",
       successful: successfulUploads.length,
       failed: failedUploads.length,
       failedItems: failedUploads,
@@ -78,7 +79,6 @@ async function uploadSlides(job) {
 }
 
 async function uploadAssignment(job) {
-  // This handles the 'uploadAssignment' (submission) route and possibly 'addAssignment' if tailored
   const {
     file,
     folderId,
@@ -89,24 +89,29 @@ async function uploadAssignment(job) {
     description,
     deadline,
     courseId,
-    socketId, // Ensure we extract socketId
+    socketId,
   } = job.data;
 
-  const emitter = getEmitter();
-  console.log("Job data:", job.data);
+  // Track created resources for rollback
+  let createdFolderId = null;
 
-  // CASE 1: Student Submission (uploadAssignment)
   if (studentId && assignmentId && !isNewAssignment) {
     try {
       if (socketId)
-        emitter.emit("uploadProgress", { status: "start", total: 1, socketId });
+        await emitWorkerEvent("uploadProgress", {
+          jobType: "uploadAssignment",
+          status: "start",
+          total: 1,
+          socketId,
+        });
 
       const uploadedFile = await uploadToFolder(folderId, file);
       if (!uploadedFile)
         throw new Error("Failed to upload assignment to Drive");
 
       if (socketId)
-        emitter.emit("uploadProgress", {
+        await emitWorkerEvent("uploadProgress", {
+          jobType: "uploadAssignment",
           status: "progress",
           current: 1,
           total: 1,
@@ -123,21 +128,29 @@ async function uploadAssignment(job) {
       });
 
       if (socketId)
-        emitter.emit("uploadComplete", { successful: 1, failed: 0, socketId });
+        await emitWorkerEvent("uploadComplete", {
+          jobType: "uploadAssignment",
+          successful: 1,
+          failed: 0,
+          socketId,
+        });
 
       return { success: true, submissionId, type: "submission" };
     } catch (error) {
       console.error("Error in uploadAssignment job:", error);
       if (socketId)
-        emitter.emit("jobFailed", { error: error.message, socketId });
+        await emitWorkerEvent("jobFailed", { error: error.message, socketId });
       throw error;
     }
-  }
-  // CASE 2: Rep adding assignment with file (addAssignment)
-  else if (isNewAssignment) {
+  } else if (isNewAssignment) {
     try {
       if (socketId && file)
-        emitter.emit("uploadProgress", { status: "start", total: 1, socketId });
+        await emitWorkerEvent("uploadProgress", {
+          jobType: "uploadAssignment",
+          status: "start",
+          total: 1,
+          socketId,
+        });
 
       const id = await generatedId("ASS");
 
@@ -146,6 +159,7 @@ async function uploadAssignment(job) {
       if (!course) throw new Error("Course not found");
 
       const folder = await createFolder(`${course.name} ${title} Submission`);
+      createdFolderId = folder?.id; // Store for potential cleanup
 
       let fileId = null;
       let fileName = null;
@@ -156,7 +170,8 @@ async function uploadAssignment(job) {
         fileId = uploadedFile.id;
         fileName = uploadedFile.name;
         if (socketId)
-          emitter.emit("uploadProgress", {
+          await emitWorkerEvent("uploadProgress", {
+            jobType: "uploadAssignment",
             status: "progress",
             current: 1,
             total: 1,
@@ -176,13 +191,37 @@ async function uploadAssignment(job) {
       });
 
       if (socketId)
-        emitter.emit("uploadComplete", { successful: 1, failed: 0, socketId });
+        await emitWorkerEvent("uploadComplete", {
+          jobType: "uploadAssignment",
+          successful: 1,
+          failed: 0,
+          socketId,
+        });
 
       return { success: true, assignmentId: id, type: "creation" };
     } catch (error) {
       console.error("Error in addAssignment job:", error);
+
+      // FIX: Rollback - delete created folder if exists
+      if (createdFolderId) {
+        console.log(`Cleaning up orphan folder: ${createdFolderId}`);
+        try {
+          await deleteFile(createdFolderId);
+          console.log("Orphan folder deleted successfully.");
+        } catch (cleanupError) {
+          console.error(
+            "Failed to delete orphan folder during cleanup:",
+            cleanupError
+          );
+        }
+      }
+
       if (socketId)
-        emitter.emit("jobFailed", { error: error.message, socketId });
+        await emitWorkerEvent("jobFailed", {
+          jobType: "uploadAssignment",
+          error: error.message,
+          socketId,
+        });
       throw error;
     }
   }

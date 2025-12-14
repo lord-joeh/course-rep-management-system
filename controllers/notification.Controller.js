@@ -2,7 +2,6 @@ const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
-const { sendMessageToStudent } = require("../services/customEmails");
 const { enqueue } = require("../services/enqueue");
 
 exports.addNotification = async (req, res) => {
@@ -105,6 +104,7 @@ exports.deleteNotification = async (req, res) => {
 
 exports.sendNotificationToStudent = async (req, res) => {
   const { message, studentId, messageType } = req.body;
+  const socketId = req.body.socketId || req.headers["x-socket-id"] || null;
   try {
     if (!studentId)
       return handleError(res, 400, "Student ID is required to send message");
@@ -127,6 +127,8 @@ exports.sendNotificationToStudent = async (req, res) => {
       await enqueue("sendEmail", {
         to: dataValues?.email,
         message: message,
+        socketId,
+        studentId,
       });
       return handleResponse(res, 200, "Message queued for sending");
     }
@@ -135,6 +137,8 @@ exports.sendNotificationToStudent = async (req, res) => {
       await enqueue("sendSMS", {
         to: dataValues?.phone,
         message: message,
+        socketId,
+        studentId,
       });
       return handleResponse(res, 200, "Message queued for sending");
     }

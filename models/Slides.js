@@ -6,8 +6,9 @@ module.exports = (sequelize) => {
     {
       id: { type: DataTypes.STRING, primaryKey: true },
       driveFileID: { type: DataTypes.STRING, primaryKey: true },
-        fileName: DataTypes.STRING,
-      courseId: DataTypes.STRING
+      fileName: DataTypes.STRING,
+      courseId: DataTypes.STRING,
+      hash: DataTypes.STRING,
     },
     {
       tableName: "slides",

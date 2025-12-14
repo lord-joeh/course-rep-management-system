@@ -108,7 +108,7 @@ exports.deleteSlide = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Slide and database record deleted successfully"
+      "Slide deletion queued successfully"
     );
   } catch (error) {
     console.error("Error deleting slide:", error);

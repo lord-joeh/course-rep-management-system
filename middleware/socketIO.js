@@ -1,10 +1,9 @@
 const { Server } = require("socket.io");
 const { createAdapter } = require("@socket.io/redis-adapter");
 const { Emitter } = require("@socket.io/redis-emitter");
-const { connectRedis } = require("../config/redis");
-const {
-  // socketTracker maps are deprecated for core messaging but kept if imported elsewhere
-} = require("./socketTracker");
+const { redisConfig } = require("../config/redis");
+const Redis = require("ioredis");
+
 let io;
 let emitter;
 const jwt = require("jsonwebtoken");
@@ -39,9 +38,8 @@ async function initSocketIO(httpServer) {
   console.log("✅ Socket.IO server created");
 
   try {
-    const pubClient = await connectRedis();
-    const subClient = pubClient.duplicate();
-    await subClient.connect();
+    const pubClient = new Redis(redisConfig);
+    const subClient = new Redis(redisConfig);
 
     console.log("✅ Redis clients connected");
 
@@ -50,7 +48,11 @@ async function initSocketIO(httpServer) {
     console.log("✅ Socket.IO Redis adapter enabled");
 
     // Subscribe to worker events from Redis
-    await subClient.subscribe("worker-events", (message, channel) => {
+    await subClient.subscribe("worker-events");
+    console.log("✅ Subscribed to worker-events channel");
+
+    // Listen for messages on the subscribed channel
+    subClient.on("message", (channel, message) => {
       console.log(`📨 Received message on channel: ${channel}`);
       if (channel === "worker-events") {
         try {
@@ -67,7 +69,6 @@ async function initSocketIO(httpServer) {
         }
       }
     });
-    console.log("✅ Subscribed to worker-events channel");
 
     subClient.on("error", (error) => {
       console.error("❌ Redis subscriber error:", error);
@@ -108,11 +109,6 @@ async function initSocketIO(httpServer) {
     if (socket.userId) {
       socket.join(socket.userId);
       console.log(`Socket ${socket.id} joined room ${socket.userId}`);
-
-      // Only map socketId for "this tab" operations if needed,
-      // but core messaging should use rooms.
-      // We can keep the maps for backward compatibility if needed,
-      // but we are refactoring to remove them.
     }
 
     // Handle socket disconnect inside the connection handler
@@ -131,16 +127,32 @@ function getSocketIO() {
 
 function getEmitter() {
   if (!emitter) {
-    console.log("⚠️  Redis emitter not available, returning mock emitter");
-    return {
-      emit: (event, data) => {
-        console.log(`Mock emitter: ${event}`, data);
-        // Try to emit via Socket.IO directly if available
-        if (io) {
+    // If IO is initialized (Main Server) but emitter is missing, it failed to load.
+    if (io) {
+      console.log("⚠️  Redis emitter not available, returning mock emitter");
+      return {
+        emit: (event, data) => {
+          console.log(`Mock emitter: ${event}`, data);
           io.emit(event, data);
-        }
-      },
-    };
+        },
+      };
+    }
+
+    // If IO is NOT initialized, we are likely in a Worker process.
+    // Initialize a standalone emitter.
+    try {
+      console.log("🔄 Initializing standalone Redis Emitter for Worker...");
+      const redisClient = new Redis(redisConfig);
+      emitter = new Emitter(redisClient);
+      console.log("✅ Worker Emitter initialized");
+      return emitter;
+    } catch (err) {
+      console.error("Failed to initialize worker emitter:", err);
+      return {
+        emit: (event, data) =>
+          console.log(`[Mock Worker Emitter] ${event}`, data),
+      };
+    }
   }
   return emitter;
 }

@@ -1,51 +1,34 @@
 const { Worker } = require("bullmq");
-const { connectRedis, client } = require("../config/redis");
+const { redisConfig } = require("../config/redis");
 const processQueue = require("../jobs/queueProcesser");
 require("dotenv").config();
+const { emitWorkerEvent } = require("../utils/emitWorkerEvent");
 
-// Initialize Redis connection and worker
 async function initializeWorker() {
   try {
-    // Connect to Redis first
-    await connectRedis();
-    
+    // BullMQ will create its OWN blocking connection using this config
     const generalWorker = new Worker("queueProcessing", processQueue, {
-      connection: client,
+      connection: redisConfig,
       concurrency: 5,
     });
 
-    generalWorker.on("completed", (job) => console.log(`Job ${job.id} completed`));
-
+    generalWorker.on("completed", (job) =>
+      console.log(`Job ${job.id} completed`)
+    );
     generalWorker.on("failed", (job, err) =>
       console.error(`Job ${job.id} failed:`, err)
     );
 
     console.log("Queue processing worker started.");
-    
-    
-    // Publish worker started event to Redis channel
-    // The main server will subscribe to this channel and emit to Socket.IO clients
-    try {
-      const eventData = {
-        type: "workerStarted",
-        message: "Queue processing worker started.",
-        timestamp: new Date().toISOString()
-      };
-      
-      const result = await client.publish("worker-events", JSON.stringify(eventData));
-      console.log(`📤 Worker started event published to Redis channel. Result: ${result}`);
-      
-      // Test Redis connection
-      const pingResult = await client.ping();
-      console.log(`📤 Redis ping result: ${pingResult}`);
-      
-    } catch (error) {
-      console.error("❌ Failed to publish worker started event:", error.message);
-    }
+
+    await emitWorkerEvent("workerStarted", {
+      message: "Queue processing worker started.",
+      timestamp: new Date().toISOString(),
+    });
+
   } catch (error) {
     console.error("Failed to initialize queue worker:", error.message);
   }
 }
 
-// Initialize the worker
-initializeWorker().catch(err => console.log(err));
+initializeWorker().catch((err) => console.log(err));
