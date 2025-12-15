@@ -3,6 +3,8 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { generatedId } = require("../services/customServices");
+const { client } = require("../config/redis");
+let redisKey = `lecturers-page=${1}-limit=${10}`;
 
 exports.addLecturer = async (req, res) => {
   try {
@@ -24,6 +26,7 @@ exports.addLecturer = async (req, res) => {
       email,
       phone,
     });
+    await client.del(redisKey);
     return handleResponse(res, 201, "Lecturer added successfully", newLecturer);
   } catch (error) {
     return handleError(res, 500, "Error adding lecturer", error);
@@ -32,6 +35,17 @@ exports.addLecturer = async (req, res) => {
 
 exports.getAllLecturer = async (req, res) => {
   try {
+    const cachedLecturers = await client.get(redisKey);
+    if (cachedLecturers) {
+      console.log("Cache hit");
+      return handleResponse(
+        res,
+        200,
+        "Lecturers retrieved successfully",
+        JSON.parse(cachedLecturers)
+      );
+    }
+
     const lecturers = await models.Lecturer.findAll({
       include: [
         {
@@ -43,6 +57,8 @@ exports.getAllLecturer = async (req, res) => {
     if (!lecturers) {
       return handleError(res, 404, "No lecturer was found");
     }
+
+    await client.set(redisKey, JSON.stringify(lecturers), "EX", 3600);
     return handleResponse(
       res,
       200,
@@ -102,6 +118,7 @@ exports.updateLecturer = async (req, res) => {
       return handleError(res, 404, "Lecturer not found");
     }
     const updatedLecturer = await models.Lecturer.findOne({ where: { id } });
+    await client.del(redisKey);
     return handleResponse(
       res,
       202,
@@ -120,6 +137,7 @@ exports.deleteLecturer = async (req, res) => {
     if (!deleted) {
       return handleError(res, 404, "Lecturer not found for deletion");
     }
+    await client.del(redisKey);
     return handleResponse(res, 200, "Lecturer deleted successfully");
   } catch (error) {
     return handleError(res, 500, "Error deleting lecturer", error);

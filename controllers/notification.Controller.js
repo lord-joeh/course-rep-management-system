@@ -123,12 +123,12 @@ exports.sendNotificationToStudent = async (req, res) => {
     if (!dataValues) return handleError(res, 400, "Student does not exist");
     console.log(dataValues);
     if (messageType === "email") {
-      // Enqueue the email job
-      await enqueue("sendEmail", {
+      const subject = "Urgent!";
+      await sendEmail({
         to: dataValues?.email,
-        message: message,
-        socketId,
-        studentId,
+        subject,
+        message,
+
       });
       return handleResponse(res, 200, "Message queued for sending");
     }
@@ -136,7 +136,7 @@ exports.sendNotificationToStudent = async (req, res) => {
       // Enqueue the SMS job
       await enqueue("sendSMS", {
         to: dataValues?.phone,
-        message: message,
+        message,
         socketId,
         studentId,
       });

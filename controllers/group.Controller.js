@@ -3,6 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { sendGroupAssignmentEmail } = require("../services/customEmails");
+const { enqueue } = require("../services/enqueue");
 
 exports.addGroup = async (req, res) => {
   try {
@@ -154,84 +155,15 @@ exports.createCustomGroup = async (req, res) => {
       );
     }
 
-    // If course-specific, verify the course exists
-    if (!isGeneral) {
-      const courseExists = await models.Course.findByPk(courseId);
-      if (!courseExists) {
-        return handleError(res, 404, "Course with provided courseId does not exist");
-      }
-    }
+    await enqueue("processCustomGroups", {
+      studentsPerGroup,
+      isGeneral,
+      courseId,
+      socketId: req?.socketId,
+      userId: req?.user?.id,
+    });
 
-    // Fetch student IDs depending on whether group is general or course-specific
-    let studentList = [];
-    if (isGeneral) {
-      const studentRows = await models.Student.findAll({ attributes: ["id"] });
-      studentList = studentRows.map((s) => ({ id: s?.id }));
-    } else {
-      // Only include students that are enrolled in the provided course
-      const courseStudents = await models.CourseStudent.findAll({
-        where: { courseId },
-        attributes: ["studentId"],
-      });
-      if (!courseStudents.length) {
-        return handleError(res, 404, "No students found for the provided course");
-      }
-      studentList = courseStudents.map((cs) => ({ id: cs?.studentId }));
-    }
-
-    // Shuffle the array of student objects
-    const studentIDs = await shuffle(studentList);
-    if (!studentIDs.length) {
-      return handleError(res, 404, "No students found in Database");
-    }
-
-    let currentGroupNumber = 1;
-    let totalGroups = 0;
-
-    for (let i = 0; i < studentIDs.length; i += studentsPerGroup) {
-      const groupName = `GROUP ${currentGroupNumber}`;
-      const groupId = await generatedId("GRP");
-
-      await models.Group.create({
-        id: groupId,
-        name: groupName,
-        courseId: isGeneral ? null : courseId,
-        description: groupName,
-        isGeneral,
-      });
-
-      const group = studentIDs.slice(i, i + studentsPerGroup);
-
-      await Promise.all(
-        group.map(async (student, idx) => {
-          const isLeader = idx === 0;
-          await models.GroupMember.create({
-            groupId,
-            studentId: student.id,
-            isLeader,
-          });
-        })
-      );
-
-      // attempt to send assignment emails but don't let failures stop creation
-      try {
-        await sendGroupAssignmentEmail(groupName, group);
-      } catch (emailErr) {
-        console.error(
-          `Failed to send assignment emails for ${groupName}:`,
-          emailErr
-        );
-      }
-
-      currentGroupNumber += 1;
-      totalGroups += 1;
-    }
-
-    return handleResponse(
-      res,
-      201,
-      `Successfully created ${totalGroups} groups with ${studentIDs.length} students`
-    );
+    return handleResponse(res, 201, `Group creation job enqueued successfully`);
   } catch (error) {
     return handleError(res, 500, "Error creating groups", error);
   }

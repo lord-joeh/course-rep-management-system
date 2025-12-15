@@ -1,30 +1,72 @@
-const { sendNotification } = require("../../utils/sendEmail");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
+const customEmails = require("../../services/customEmails");
 
 async function sendEmail(job) {
-  const { to, subject, html, socketId, userId } = job.data;
+  const { socketId, userId, jobType, to } = job.data;
 
   try {
     // Emit job started event
     if (socketId || userId) {
       await emitWorkerEvent("jobStarted", {
         jobType: "sendEmail",
-        to,
         socketId,
         userId,
+        to,
       });
     }
 
-    await sendNotification(to, subject, html);
+    // await sendNotification(to, subject, html);
+    switch (jobType) {
+      case "sendRegistrationSuccessMail":
+        await customEmails.sendRegistrationSuccessMail(
+          job?.data?.name,
+          to,
+          job?.data?.id
+        );
+        break;
+      case "sendResetConfirmation":
+        await customEmails.sendResetConfirmation(
+        to,
+        job?.data?.name,
+        );
+        break;
+      case "sendGroupAssignmentEmail":
+        await customEmails.sendGroupAssignmentEmail(
+          job?.data?.groupName,
+          job?.data?.group,
+          job?.data?.courseId
+        );
+        break;
+      case "sendResetLink":
+        await customEmails.sendResetLink(
+            job?.data?.email,
+            job?.data?.reset_token
+        )
+            break;
+      case "sendFeedbackReceived":
+        await customEmails.sendFeedbackReceived(
+            job?.data?.is_anonymous,
+            job?.data?.id
+        )
+            break;
+      case "sendMessageToStudent":
+        await customEmails.sendMessageToStudent(
+            job?.data?.email,
+            job?.data?.message
+        )
+        break;
+      default:
+        break;
+    }
 
     // Emit success event
     if (socketId || userId) {
       await emitWorkerEvent("emailSent", {
         jobType: "sendEmail",
-        to,
         success: true,
         socketId,
         userId,
+        to,
       });
     }
 
@@ -37,9 +79,9 @@ async function sendEmail(job) {
       await emitWorkerEvent("jobFailed", {
         jobType: "sendEmail",
         error: error.message,
-        to,
         socketId,
         userId,
+        to,
       });
     }
 

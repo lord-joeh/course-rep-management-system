@@ -28,11 +28,11 @@ exports.sendResetLink = async (email, reset_token) => {
   } catch (error) {
     console.log("Error sending password reset link", error);
   }
-  };
+};
 
 //Send password reset confirmation
 exports.sendResetConfirmation = async (email, name) => {
-    const content = `
+  const content = `
         <div style="font-family: Arial, sans-serif; max-width: 600px;
          margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
         <h2 style="color: #007bff;">Password Reset Successful </h2>
@@ -42,16 +42,16 @@ exports.sendResetConfirmation = async (email, name) => {
         <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
     </div>`;
 
-    try {
-        await enqueue("sendEmail", {
-            to: email,
-            subject: "Password Reset Confirmation",
-            html: content,
-        });
-        console.log("Password reset confirmation sent successfully");
-    } catch (error) {
-        console.log("Error sending password reset confirmation", error);
-    }
+  try {
+    await enqueue("sendEmail", {
+      to: email,
+      subject: "Password Reset Confirmation",
+      html: content,
+    });
+    console.log("Password reset confirmation sent successfully");
+  } catch (error) {
+    console.log("Error sending password reset confirmation", error);
+  }
 };
 
 // Send registration success mail
@@ -123,7 +123,8 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
   try {
-    // fetch student records in parallel and filter out missing ones
+    const { sendNotification } = require("../utils/sendEmail");
+
     const studentsResolved = await Promise.all(
       group.map(async (student) => {
         return await models.Student.findOne({
@@ -135,7 +136,6 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
 
     const students = studentsResolved.filter((s) => s && s.email);
     if (!students.length) {
-      // no students to email; log and return without throwing to avoid aborting group creation
       console.warn(`No students found for group ${groupName}`);
       return;
     }
@@ -143,17 +143,20 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
     const leader = students[0];
 
     const tableRows = students
-      .map((s, i) => `
+      .map(
+        (s, i) => `
       <tr>
         <td style="padding:8px;border:1px solid #ddd;">${i + 1}</td>
         <td style="padding:8px;border:1px solid #ddd;">${s.name}</td>
         <td style="padding:8px;border:1px solid #ddd;">${s.id}</td>
-        <td style="padding:8px;border:1px solid #ddd;">${s.id === leader.id ? "Leader" : "Member"}</td>
+        <td style="padding:8px;border:1px solid #ddd;">${
+          s.id === leader.id ? "Leader" : "Member"
+        }</td>
       </tr>
-    `)
+    `
+      )
       .join("");
 
-    // send emails but don't fail the whole operation if one fails
     await Promise.all(
       students.map(async (student) => {
         try {
@@ -184,17 +187,22 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
               <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
             </div>
           `;
-          await enqueue("sendEmail", {
-            to: student.email,
-            subject: `Your Group Assignment: ${groupName}`,
-            html: html,
-          });
+
+          // Send directly without queueing
+          await sendNotification(
+            student?.email,
+            `Your Group Assignment: ${groupName}`,
+            html
+          );
         } catch (e) {
-          console.error(`Failed to send email to student ${student.id}:`, e.message || e);
+          console.error(
+            `Failed to send email to student ${student.id}:`,
+            e.message || e
+          );
         }
       })
     );
-    console.log(`Group assignment email process completed for ${groupName}`);
+    console.log(`Group assignment emails sent for ${groupName}`);
   } catch (err) {
     console.error("Error sending group assignment email:", err.message || err);
     // do not throw here to avoid breaking group creation flow

@@ -9,6 +9,7 @@ exports.addAssignment = async (req, res) => {
   console.log("Adding assignment...");
   try {
     const { title, description, courseId, deadline } = req.body;
+    const socketId = req?.socketId;
     if (!title || !description || !courseId || !deadline) {
       return handleError(
         res,
@@ -37,6 +38,7 @@ exports.addAssignment = async (req, res) => {
       courseId,
       deadline,
       file: req.file, // This contains path, originalname etc from multer
+      socketId,
     });
 
     console.log("Assignment creation enqueued successfully");
@@ -201,6 +203,7 @@ exports.uploadAssignment = async (req, res) => {
   try {
     if (!req.file) return handleError(res, 400, "No file uploaded");
     const { folderId, assignmentId, studentId } = req.body;
+    const socketId = req?.socketId;
 
     if (!assignmentId || !studentId) {
       return handleError(res, 400, "Assignment ID and Student ID are required");
@@ -220,6 +223,7 @@ exports.uploadAssignment = async (req, res) => {
       assignmentId,
       studentId,
       file: req.file,
+      socketId,
     });
 
     return handleResponse(

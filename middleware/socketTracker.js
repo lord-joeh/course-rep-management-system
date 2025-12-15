@@ -1,10 +1,15 @@
 exports.captureSocketId = (req, res, next) => {
   const socketId = req.header("X-Socket-ID");
 
-  if (socketId && req.student) {
-    // Stores socket ID in request for potential "this tab" usage
+  if (socketId) {
     req.socketId = socketId;
-    console.log(`Request from user ${req.student.id} with socket ${socketId}`);
+    if (req.student) {
+      console.log(
+        `Request from user ${req.student.id} with socket ${socketId}`
+      );
+    } else {
+      console.log(`Request with socket ${socketId} (no student in request)`);
+    }
   }
 
   next();

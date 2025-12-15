@@ -40,6 +40,8 @@ async function initSocketIO(httpServer) {
   try {
     const pubClient = new Redis(redisConfig);
     const subClient = new Redis(redisConfig);
+    // Dedicated client for worker events subscription (separate from adapter's subClient)
+    const workerSubClient = new Redis(redisConfig);
 
     console.log("✅ Redis clients connected");
 
@@ -47,12 +49,12 @@ async function initSocketIO(httpServer) {
     emitter = new Emitter(pubClient);
     console.log("✅ Socket.IO Redis adapter enabled");
 
-    // Subscribe to worker events from Redis
-    await subClient.subscribe("worker-events");
+    // Subscribe to worker events from Redis using dedicated subscriber
+    await workerSubClient.subscribe("worker-events");
     console.log("✅ Subscribed to worker-events channel");
 
     // Listen for messages on the subscribed channel
-    subClient.on("message", (channel, message) => {
+    workerSubClient.on("message", (channel, message) => {
       console.log(`📨 Received message on channel: ${channel}`);
       if (channel === "worker-events") {
         try {
@@ -70,7 +72,7 @@ async function initSocketIO(httpServer) {
       }
     });
 
-    subClient.on("error", (error) => {
+    workerSubClient.on("error", (error) => {
       console.error("❌ Redis subscriber error:", error);
     });
   } catch (error) {

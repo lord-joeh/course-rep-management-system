@@ -1,20 +1,14 @@
 const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
-// const uploadToFolder = require("../googleServices/uploadToFolder");
-// const { generatedId } = require("../services/customServices");
 const searchFilesInFolder = require("../googleServices/searchFolder");
-// const deleteFile = require("../googleServices/deleteFile");
 const { enqueue } = require("../services/enqueue");
 
 exports.uploadSlide = async (req, res) => {
-    console.log("Received uploadSlide request");
+  console.log("Received uploadSlide request");
   const { folderId, courseId } = req.body;
-  // Allow the frontend to pass a socket id so the worker can emit targeted progress events
   const socketId = req.body.socketId || req.headers["x-socket-id"] || null;
   const files = req.files;
-  console.log(req.files);
-  
 
   try {
     if (!files || files.length === 0) {
@@ -46,12 +40,12 @@ exports.uploadSlide = async (req, res) => {
     );
 
     return handleResponse(res, 202, "Slides upload started in background", {
-       count: files.length
+      count: files.length,
     });
   } catch (error) {
     console.error("Error in uploadSlide controller:", error);
     if (error.message == "Unsupported file type") {
-      return handleError(res, 400, "Unsupported file type", error)
+      return handleError(res, 400, "Unsupported file type", error);
     }
     return handleError(res, 500, "Error uploading slides", error);
   }
@@ -102,13 +96,12 @@ exports.deleteSlide = async (req, res) => {
       );
     }
 
-    // await deleteFile(slideToDelete.driveFileID);
     await enqueue("deleteFiles", { fileIds: [slideToDelete.driveFileID] });
 
     return handleResponse(
       res,
       200,
-      "Slide deletion queued successfully"
+      "Slide and database record deleted successfully"
     );
   } catch (error) {
     console.error("Error deleting slide:", error);
@@ -138,11 +131,11 @@ exports.getSlidesByCourse = async (req, res) => {
 
     const results = await models.Slides.findAndCountAll({
       where: { courseId: courseId },
-        limit: _limit,
-        offset: offset
+      limit: _limit,
+      offset: offset,
     });
 
-    const {rows: slides, count: totalItems } = results;
+    const { rows: slides, count: totalItems } = results;
     const totalPages = Math.ceil(totalItems / _limit);
 
     if (!slides || slides.length === 0) {
@@ -150,13 +143,13 @@ exports.getSlidesByCourse = async (req, res) => {
     }
 
     return handleResponse(res, 200, "Slides retrieved successfully", {
-        slides: slides,
-    pagination: {
+      slides: slides,
+      pagination: {
         totalItems,
         currentPage: _page,
         totalPages,
         itemsPerPage: _limit,
-    }
+      },
     });
   } catch (error) {
     console.error("Error retrieving slides by course:", error);

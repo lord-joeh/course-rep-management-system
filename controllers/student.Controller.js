@@ -2,8 +2,10 @@ const models = require("../config/models");
 const bcrypt = require("bcrypt");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
+const { client } = require("../config/redis");
+const { enqueue } = require("../services/enqueue");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
-const { emitToUser, emitToUsers } = require("../middleware/socketTracker");
+let redisKey = `students-page=${1}-limit=${10}`;
 
 exports.registerStudent = async (req, res) => {
   try {
@@ -41,6 +43,8 @@ exports.registerStudent = async (req, res) => {
       newStudent.id
     );
 
+    await client.del(redisKey);
+
     newStudent.password_hash = undefined;
     return handleResponse(
       res,
@@ -58,6 +62,18 @@ exports.getAllStudent = async (req, res) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
+    redisKey = `students-page=${page}-limit=${limit}`;
+
+    const cachedStudents = await client.get(redisKey);
+    if (cachedStudents) {
+      console.log("Cache hit");
+      return handleResponse(
+        res,
+        200,
+        "Students retrieved successfully",
+        JSON.parse(cachedStudents)
+      );
+    }
 
     const result = await models.Student.findAndCountAll({
       order: [["name", "ASC"]],
@@ -78,6 +94,20 @@ exports.getAllStudent = async (req, res) => {
     });
 
     const totalPages = Math.ceil(totalItems / limit);
+    await client.set(
+      redisKey,
+      JSON.stringify({
+        students: studentsWithoutPassword,
+        pagination: {
+          totalItems,
+          currentPage: page,
+          totalPages,
+          itemsPerPage: limit,
+        },
+      }),
+      "EX",
+      3600
+    );
 
     return handleResponse(res, 200, "Students retrieved successfully", {
       students: studentsWithoutPassword,
@@ -136,7 +166,9 @@ exports.updateStudent = async (req, res) => {
     }
     const updatedStudent = await models.Student.findOne({ where: { id } });
     updatedStudent.password_hash = undefined;
-    
+
+    await client.del(redisKey);
+
     return handleResponse(
       res,
       200,
@@ -155,6 +187,7 @@ exports.deleteStudent = async (req, res) => {
     if (!deleted) {
       return handleError(res, 404, "Student not found for deletion");
     }
+    await client.del(redisKey);
     return handleResponse(res, 200, "Student deleted successfully");
   } catch (error) {
     return handleError(res, 500, "Error deleting student", error);
