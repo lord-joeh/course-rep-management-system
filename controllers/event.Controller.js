@@ -24,25 +24,6 @@ exports.addEvent = async (req, res) => {
       venue,
     });
 
-    const studentsToNotify = await models.Student.findAll({
-      attributes: ["id"],
-    });
-
-    if (studentsToNotify && studentsToNotify.length > 0) {
-      try {
-        // Extract student IDs from the objects
-        const studentIds = studentsToNotify.map((student) => student?.id);
-        SocketMessagingService.notifyEventChange(studentIds, null, "created");
-        console.log(
-          "📤 Event notification sent to",
-          studentIds.length,
-          "students"
-        );
-      } catch (error) {
-        console.error("❌ Failed to send event notification:", error);
-      }
-    }
-
     return handleResponse(res, 201, "Event added successfully", newEvent);
   } catch (error) {
     return handleError(res, 500, "Error adding event", error);

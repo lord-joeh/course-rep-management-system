@@ -1,9 +1,10 @@
-const { generatedId, shuffle } = require("../services/customServices");
+const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
-const { sendGroupAssignmentEmail } = require("../services/customEmails");
 const { enqueue } = require("../services/enqueue");
+const { client } = require("../config/redis")
+let redisKey = `groups-course=${1}-page=${1}-limit=${10}`
 
 exports.addGroup = async (req, res) => {
   try {
@@ -38,6 +39,8 @@ exports.addGroup = async (req, res) => {
       isGeneral,
       description,
     });
+
+    await client.del(redisKey)
     return handleResponse(res, 201, "Group created successfully", newGroup);
   } catch (error) {
     return handleError(res, 500, "Error adding group", error);
@@ -49,13 +52,23 @@ exports.getAllGroups = async (req, res) => {
   const _page = parseInt(page, 10) || 1;
   const _limit = parseInt(limit, 10) || 10;
   const offset = (_page - 1) * _limit;
+  redisKey =  `groups-course=${courseId}-page=${_page}-limit=${_limit}`
+
   try {
+    const cachedGroups = await client.get(redisKey)
+    if(cachedGroups){
+      return handleResponse(res, 200, "Groups retrieved successfully", JSON.parse(cachedGroups))
+    }
+
     const where = courseId ? { courseId } : {};
     const result = await models.Group.findAndCountAll({
       where,
       limit: _limit,
       offset: offset,
       include: [{ model: models.Course, attributes: ["name"] }],
+      order: [
+        ["createdAt", "ASC"],
+      ]
     });
 
     const { rows: groups, count: totalItems } = result;
@@ -65,6 +78,17 @@ exports.getAllGroups = async (req, res) => {
     if (!groups) {
       return handleError(res, 404, "No groups were found");
     }
+
+    await client.set(redisKey, JSON.stringify({
+      groups: groups,
+      pagination: {
+        totalItems,
+        currentPage: _page,
+        totalPages,
+        itemsPerPage: _limit,
+      },
+    }), "EX", 3600)
+
     return handleResponse(res, 200, "Groups retrieved successfully", {
       groups: groups,
       pagination: {
@@ -114,6 +138,8 @@ exports.updateGroup = async (req, res) => {
       return handleError(res, 404, "Group not found for update");
     }
     const updatedGroup = await models.Group.findOne({ where: { id } });
+
+    await client.del(redisKey)
     return handleResponse(res, 200, "Group updated successfully", updatedGroup);
   } catch (error) {
     return handleError(res, 500, "Error updating group", error);
@@ -129,6 +155,9 @@ exports.deleteGroup = async (req, res) => {
       return handleError(res, 404, "Group not found for deletion");
     }
     await models.GroupMember.destroy({ where: { groupId: id } });
+
+    await client.del(redisKey)
+
     return handleResponse(res, 200, "Group deleted successfully");
   } catch (error) {
     return handleError(res, 500, "Error deleting group", error);
@@ -162,6 +191,8 @@ exports.createCustomGroup = async (req, res) => {
       socketId: req?.socketId,
       userId: req?.user?.id,
     });
+
+    await client.del(redisKey)
 
     return handleResponse(res, 201, `Group creation job enqueued successfully`);
   } catch (error) {
@@ -209,6 +240,9 @@ exports.addGroupMember = async (req, res) => {
       return handleError(res, 409, "Student already exist in group");
     }
     const newMember = await models.GroupMember.create({ groupId, studentId });
+
+    await client.del(redisKey)
+
     return handleResponse(
       res,
       201,
@@ -229,6 +263,9 @@ exports.deleteGroupMember = async (req, res) => {
     if (!deleted) {
       return handleError(res, 404, "Group member not found for deletion");
     }
+
+    await client.del(redisKey)
+
     return handleResponse(res, 200, "Successfully deleted group member");
   } catch (error) {
     return handleError(res, 500, "Error deleting group member", error);

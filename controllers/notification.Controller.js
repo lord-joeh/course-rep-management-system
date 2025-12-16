@@ -8,7 +8,7 @@ exports.addNotification = async (req, res) => {
   try {
     const { title, message } = req.body;
     if (!title || !message) {
-      return handleError(res, 409, "Title and message are required");
+      return handleError(res, 400, "Title and message are required");
     }
     const id = await generatedId("NTF");
     const newNotification = await models.Notification.create({

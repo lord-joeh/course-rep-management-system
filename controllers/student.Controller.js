@@ -7,6 +7,7 @@ const { enqueue } = require("../services/enqueue");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
 let redisKey = `students-page=${1}-limit=${10}`;
 
+
 exports.registerStudent = async (req, res) => {
   try {
     const { id, name, email, phone, password } = req.body;

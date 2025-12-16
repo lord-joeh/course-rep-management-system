@@ -4,6 +4,8 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const { getDistance } = require("geolib");
+const { client } = require("../config/redis")
+let instanceRedisKey = `attendance-instance-page=${1}-limit=${10}`
 
 exports.attendanceInstance = async (req, res) => {
   try {
@@ -75,7 +77,7 @@ exports.attendanceInstance = async (req, res) => {
         instanceId: id,
         courseId,
         date,
-        studentId: cs.studentId,
+        studentId: cs?.studentId,
         status: "absent",
       }));
 
@@ -87,6 +89,8 @@ exports.attendanceInstance = async (req, res) => {
 
     const attendanceUrl = `${process.env.FRONTEND_URL}/mark?instanceId=${id}&token=${qrToken}`;
     const qrImage = await generateQR(attendanceUrl);
+
+    await client.del(instanceRedisKey)
     res.status(201).json({
       success: true,
       message: "Attendance initialized successfully",
@@ -103,18 +107,20 @@ exports.closeAttendance = async (req, res) => {
   try {
     const { instanceId } = req.query;
     if (!instanceId) {
-      return handleError(res, 409, "Instance ID required");
+      return handleError(res, 400, "Instance ID required");
     }
     const instance = await models.AttendanceInstance.findByPk(instanceId);
     if (!instance) {
       return handleError(res, 404, "Attendance not found");
     }
     if (instance.is_close) {
-      return handleError(res, 401, "Attendance already closed");
+      return handleError(res, 400, "Attendance already closed");
     }
     instance.is_close = true;
     instance.qr_token = "";
     await instance.save();
+
+    await client.del(attendanceRedisKey)
     return handleResponse(res, 200, "Attendance successfully closed");
   } catch (error) {
     return handleError(res, 500, "Error closing attendance", error);
@@ -125,10 +131,16 @@ exports.allAttendanceInstance = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
+    instanceRedisKey = `attendance-instance-page=${page}-limit=${limit}`
+
+    const cachedInstance = await client.get(instanceRedisKey)
+    if(cachedInstance){
+      return handleResponse(res, 200, "Instances successfully retrieved", JSON.parse(cachedInstance))
+    }
 
     const { count, rows: instances } = await models.AttendanceInstance.findAndCountAll({
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: Number (limit),
+      offset: Number (offset),
       order: [['createdAt', 'DESC']],
     });
 
@@ -138,6 +150,16 @@ exports.allAttendanceInstance = async (req, res) => {
 
     const totalPages = Math.ceil(count / limit);
 
+    await client.set(instanceRedisKey, JSON.stringify({
+      instances,
+      pagination: {
+        currentPage: Number (page),
+        totalPages,
+        totalItems: count,
+        itemsPerPage: Number (limit),
+      },
+    }), "EX", 3600)
+
     return handleResponse(
       res,
       200,
@@ -145,10 +167,10 @@ exports.allAttendanceInstance = async (req, res) => {
       {
         instances,
         pagination: {
-          currentPage: parseInt(page),
+          currentPage: Number (page),
           totalPages,
           totalItems: count,
-          itemsPerPage: parseInt(limit),
+          itemsPerPage: Number (limit),
         },
       }
     );
@@ -172,6 +194,8 @@ exports.deleteInstance = async (req, res) => {
       return handleError(res, 404, "Instance not found for deletion");
     }
     await models.Attendance.destroy({ where: { instanceId } });
+
+    await client.del(instanceRedisKey)
     return handleResponse(
       res,
       200,
@@ -183,21 +207,40 @@ exports.deleteInstance = async (req, res) => {
 };
 
 exports.attendanceByQuery = async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const offset = (page - 1) * limit;
+
   try {
     const { date, studentId, courseId } = req.query;
     const where = {};
     if (date) where.date = date;
     if (studentId) where.studentId = studentId;
     if (courseId) where.courseId = courseId;
-    const attendances = await models.Attendance.findAll({
+
+    const { count, rows: attendances } = await models.Attendance.findAndCountAll({
       where,
-      order: [["date", "DESC"]],
+      limit: Number (limit),
+      offset: Number (offset),
+      order: [['date', 'DESC']],
     });
+
+    const totalPages = Math.ceil(count / limit);
+
     return handleResponse(
       res,
       200,
-      "Attendance fetched successfully",
-      attendances
+      "Attendance fetched successfully",{
+        attendance: attendances,
+          pagination: {
+            currentPage: Number (page),
+            totalPages,
+            totalItems: count,
+            itemsPerPage: Number (limit),
+          },
+
+        }
+
+
     );
   } catch (error) {
     return handleError(res, 500, "Error retrieving attendance", error);
@@ -245,7 +288,7 @@ exports.autoAttendanceMark = async (req, res) => {
     const { token } = req.query;
 
     if (!studentId || !token) {
-      return handleError(res, 409, "Student ID and token are required");
+      return handleError(res, 400, "Student ID and token are required");
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -282,7 +325,7 @@ exports.autoAttendanceMark = async (req, res) => {
       locationRequired = true;
 
       if (!req.body.latitude || !req.body.longitude) {
-        return handleError(res, 409, "Location coordinates are required");
+        return handleError(res, 400, "Location coordinates are required");
       }
 
       const distance = getDistance(
@@ -296,17 +339,9 @@ exports.autoAttendanceMark = async (req, res) => {
         ? "Location verified"
         : `You must be within 50m of the classroom (${distance}m away)`;
     } else if (instance.class_type === "online") {
-      if (Math.random() < 0.2) {
-        locationRequired = true;
-
-        if (!req.body.latitude || !req.body.longitude) {
-          return handleError(res, 409, "Random location check required");
-        }
-
-        locationValid = true;
-        locationMessage = "Random location check completed";
-      }
+        locationRequired = false;
     }
+
     if (locationRequired && !locationValid) {
       await models.SecurityLog.create({
         student_id: studentId,
@@ -317,6 +352,7 @@ exports.autoAttendanceMark = async (req, res) => {
 
       return handleError(res, 403, locationMessage);
     }
+
     // Use transaction for attendance marking operations
     await models.sequelize.transaction(async (transaction) => {
       // Check existing attendance status

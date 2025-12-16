@@ -3,7 +3,8 @@ const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const createFolder = require("../googleServices/createDriveFolder");
 const deleteFile = require("../googleServices/deleteFile");
-const { error } = require("winston");
+const { client } = require("../config/redis")
+let redisKey = `courses`
 
 exports.addCourse = async (req, res) => {
   try {
@@ -36,6 +37,9 @@ exports.addCourse = async (req, res) => {
       slidesFolderID: folderId?.id,
     });
 
+    await client.del(redisKey)
+
+
     return handleResponse(res, 201, "Course added successfully", newCourse);
   } catch (error) {
     return handleError(res, 500, "Error adding course", error);
@@ -44,10 +48,17 @@ exports.addCourse = async (req, res) => {
 
 exports.getAllCourse = async (req, res) => {
   try {
+    const cachedCourses = await client.get(redisKey)
+    if(cachedCourses){
+      return handleResponse(res, 200, "Courses retrieved successfully", JSON.parse(cachedCourses))
+    }
+
     const courses = await models.Course.findAll();
     if (!courses) {
       return handleError(res, 404, "No course was found");
     }
+
+    await client.set(redisKey, JSON.stringify(courses), "EX", 3600)
     return handleResponse(res, 200, "Courses retrieved successfully", courses);
   } catch (error) {
     return handleError(res, 500, "Error retrieving courses", error);
@@ -95,6 +106,8 @@ exports.updateCourse = async (req, res) => {
       return handleError(res, 404, "Course not found for update");
     }
     const updatedCourse = await models.Course.findOne({ where: { id } });
+
+    await client.del(redisKey)
     return handleResponse(
       res,
       200,
@@ -110,15 +123,16 @@ exports.deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
     const foundCourse = await models.Course.findOne({ where: { id } });
+
     const deleted = await models.Course.destroy({ where: { id } });
     if (!deleted) {
       return handleError(res, 404, "Course not found for deletion");
     }
+
     if (foundCourse) {
       await deleteFile(foundCourse?.slidesFolderID);
-    } else {
-      throw error;
     }
+    await client.del(redisKey)
 
     return handleResponse(
       res,
@@ -143,6 +157,9 @@ exports.registerCourse = async (req, res) => {
     const registeredCourse = await models.CourseStudent.findOne({
       where: { courseId, studentId },
     });
+
+    await client.del(redisKey)
+
     if (!registeredCourse) {
       await models.CourseStudent.create({
         courseId,
