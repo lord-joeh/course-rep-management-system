@@ -1,4 +1,4 @@
-const { getQueue } = require("./queue");
+const { getQueue } = require("../config/queue");
 
 async function enqueue(type, payload = {}, opts = {}) {
   const queue = await getQueue();

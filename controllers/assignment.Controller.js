@@ -29,7 +29,7 @@ exports.addAssignment = async (req, res) => {
     }
 
     console.log("Enqueueing assignment creation...");
-    // Enqueue the assignment creation and optional file upload
+
     await enqueue("uploadAssignment", {
       isNewAssignment: true,
       assignmentId: id,
@@ -37,13 +37,13 @@ exports.addAssignment = async (req, res) => {
       description,
       courseId,
       deadline,
-      file: req.file, // This contains path, originalname etc from multer
+      file: req.file,
       socketId,
     });
 
     console.log("Assignment creation enqueued successfully");
 
-    return handleResponse(res, 202, "Assignment creation backgrounded", {
+    return handleResponse(res, 202, "Assignment creation queued", {
       assignmentId: id,
     });
   } catch (error) {
@@ -166,23 +166,18 @@ exports.deleteAssignment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Fetch all submissions for the assignment
     const submissions = await models.AssignmentSubmission.findAll({
       where: { assignmentId: id },
     });
 
-    // Delete files from Google Drive for each submission
-    // Collect file IDs to delete
     const fileIdsToDelete = submissions.map((s) => s.fileId).filter((id) => id);
 
     if (fileIdsToDelete.length > 0) {
       await enqueue("deleteFiles", { fileIds: fileIdsToDelete });
     }
 
-    // Delete all submissions from the database
     await models.AssignmentSubmission.destroy({ where: { assignmentId: id } });
 
-    // Delete the assignment
     const deleted = await models.Assignment.destroy({ where: { id } });
     if (!deleted) {
       return handleError(res, 404, "Assignment not found for deletion");

@@ -6,7 +6,6 @@ const { emitWorkerEvent } = require("../utils/emitWorkerEvent");
 
 async function initializeWorker() {
   try {
-    // BullMQ will create its OWN blocking connection using this config
     const generalWorker = new Worker("queueProcessing", processQueue, {
       connection: redisConfig,
       concurrency: 5,
@@ -15,6 +14,7 @@ async function initializeWorker() {
     generalWorker.on("completed", (job) =>
       console.log(`Job ${job.id} completed`)
     );
+    
     generalWorker.on("failed", (job, err) =>
       console.error(`Job ${job.id} failed:`, err)
     );

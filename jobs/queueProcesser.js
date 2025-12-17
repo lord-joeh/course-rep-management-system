@@ -4,6 +4,10 @@ const { sendEmail } = require("./handlers/sendEmail");
 const { processSMS } = require("./handlers/sendSMS");
 const { deleteFiles } = require("./handlers/deleteFiles");
 const { uploadSlides, uploadAssignment } = require("./handlers/uploadHandlers");
+const {
+  processAttendanceCreation,
+  processAttendanceMarking,
+} = require("./handlers/attendanceHandler");
 
 async function processQueue(job) {
   const { type } = job.data;
@@ -23,6 +27,10 @@ async function processQueue(job) {
         return await uploadSlides(job);
       case "uploadAssignment":
         return await uploadAssignment(job);
+      case "processAttendanceCreation":
+        return await processAttendanceCreation(job);
+      case "processAttendanceMarking":
+        return await processAttendanceMarking(job);
       default:
         throw new Error(`Unknown job type: ${type}`);
     }

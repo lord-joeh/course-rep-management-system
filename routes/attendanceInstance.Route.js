@@ -4,12 +4,13 @@ const {
   attendanceInstance,
   closeAttendance,
   allAttendanceInstance,
-  attendanceByQuery,
+  attendanceByInstance,
   updateAttendeeStatus,
   deleteInstance,
   deleteAttendance,
   autoAttendanceMark,
 } = require("../controllers/attendanceInstance.Controller");
+
 //Route to  initialize attendance
 router.post("/initialize", attendanceInstance);
 
@@ -19,8 +20,8 @@ router.post("/close", closeAttendance);
 //Route to get all instances
 router.get("/", allAttendanceInstance);
 
-//Route to get attendance by query
-router.get("/q", attendanceByQuery);
+//Route to get attendance by Instance ID
+router.get("/:instanceId", attendanceByInstance);
 
 //Route to manually mark attendance
 router.put("/mark", updateAttendeeStatus);

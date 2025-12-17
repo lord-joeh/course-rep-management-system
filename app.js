@@ -63,7 +63,7 @@ app.use("/api/events", eventRoute);
 app.use("/api/assignments", assignmentRoute);
 app.use("/api/notifications", notificationRoute);
 app.use("/api/feedbacks", feedbackRoute);
-app.use("/api/attendances", attendanceInstanceRoute);
+app.use("/api/attendance", attendanceInstanceRoute);
 app.use("/api/google", googleRoute);
 app.use("/api/slides", slideRoute);
 

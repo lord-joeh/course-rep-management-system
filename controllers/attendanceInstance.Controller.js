@@ -1,15 +1,15 @@
-const  models  = require("../config/models");
-const { generatedId, generateQR } = require("../services/customServices");
+const models = require("../config/models");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
-const { getDistance } = require("geolib");
-const { client } = require("../config/redis")
-let instanceRedisKey = `attendance-instance-page=${1}-limit=${10}`
+const { client } = require("../config/redis");
+let redisKey = `attendance-instance-page=${1}-limit=${10}`;
+const { enqueue } = require("../services/enqueue");
 
 exports.attendanceInstance = async (req, res) => {
   try {
     const { courseId, date, classType, latitude, longitude } = req.body;
+    const socketId = req.socketId;
     if (!courseId || !date || !classType) {
       return handleError(
         res,
@@ -17,86 +17,32 @@ exports.attendanceInstance = async (req, res) => {
         "Course ID, date, and class type are required"
       );
     }
-    if (!["physical", "online"].includes(classType)) {
+
+    if (!["in-person", "online"].includes(classType)) {
       return handleError(
         res,
         400,
-        'Invalid class type. Must be "physical" or "online"'
+        'Invalid class type. Must be "in-person" or "online"'
       );
     }
-    let lat = latitude || 0;
-    let long = longitude || 0;
-    if (classType === "physical" && (!latitude || !longitude)) {
+
+    if (classType === "in-person" && (!latitude || !longitude)) {
       return handleError(
         res,
         400,
-        "Location coordinates are required for physical classes"
+        "Location coordinates are required for in-person classes"
       );
     }
-    const id = await generatedId("ATT_INT");
-    const qrTokenExpiration = new Date(Date.now() + 15 * 60 * 1000);
-    const tokenPayload = {
-      courseId,
-      instanceId: id,
-      classType,
-      latitude: lat,
-      longitude: long,
-    };
-    const qrToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "15m",
+
+    enqueue("processAttendanceCreation", {
+      ...req.body,
+      socketId,
     });
 
-    // Use transaction for atomicity
-    const result = await models.sequelize.transaction(async (transaction) => {
-      const instance = await models.AttendanceInstance.create({
-        id,
-        courseId,
-        date,
-        qr_token: qrToken,
-        expires_at: qrTokenExpiration,
-        latitude: lat,
-        longitude: long,
-        class_type: classType,
-      }, { transaction });
-
-      // Fetch students
-      const students = await models.CourseStudent.findAll({
-        where: { courseId },
-        include: [{ model: models.Student, where: { status: "active" } }],
-        transaction,
-      });
-
-      // Generate all attendance IDs in parallel
-      const attendanceIds = await Promise.all(
-        students.map(() => generatedId("ATT"))
-      );
-
-      // Prepare bulk insert data
-      const attendanceRecords = students.map((cs, index) => ({
-        id: attendanceIds[index],
-        instanceId: id,
-        courseId,
-        date,
-        studentId: cs?.studentId,
-        status: "absent",
-      }));
-
-      // Bulk create attendance records
-      await models.Attendance.bulkCreate(attendanceRecords, { transaction });
-
-      return instance;
-    });
-
-    const attendanceUrl = `${process.env.FRONTEND_URL}/mark?instanceId=${id}&token=${qrToken}`;
-    const qrImage = await generateQR(attendanceUrl);
-
-    await client.del(instanceRedisKey)
-    res.status(201).json({
+    await client.del(redisKey);
+    res.status(200).json({
       success: true,
-      message: "Attendance initialized successfully",
-      classType,
-      qrCode: qrImage,
-      data: result,
+      message: "Attendance initialization queued",
     });
   } catch (error) {
     handleError(res, 500, "Error initializing attendance", error);
@@ -120,7 +66,7 @@ exports.closeAttendance = async (req, res) => {
     instance.qr_token = "";
     await instance.save();
 
-    await client.del(attendanceRedisKey)
+    await client.del(attendanceRedisKey);
     return handleResponse(res, 200, "Attendance successfully closed");
   } catch (error) {
     return handleError(res, 500, "Error closing attendance", error);
@@ -131,49 +77,55 @@ exports.allAttendanceInstance = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
-    instanceRedisKey = `attendance-instance-page=${page}-limit=${limit}`
+    redisKey = `attendance-instance-page=${page}-limit=${limit}`;
 
-    const cachedInstance = await client.get(instanceRedisKey)
-    if(cachedInstance){
-      return handleResponse(res, 200, "Instances successfully retrieved", JSON.parse(cachedInstance))
+    const cachedInstance = await client.get(redisKey);
+    if (cachedInstance) {
+      return handleResponse(
+        res,
+        200,
+        "Instances successfully retrieved",
+        JSON.parse(cachedInstance)
+      );
     }
 
-    const { count, rows: instances } = await models.AttendanceInstance.findAndCountAll({
-      limit: Number (limit),
-      offset: Number (offset),
-      order: [['createdAt', 'DESC']],
-    });
+    const { count, rows: instances } =
+      await models.AttendanceInstance.findAndCountAll({
+        limit: Number(limit),
+        offset: Number(offset),
+        order: [["createdAt", "DESC"]],
+      });
 
-    if (!instances.length) {
+    if (!instances) {
       return handleError(res, 400, "No instance was found");
     }
 
     const totalPages = Math.ceil(count / limit);
 
-    await client.set(instanceRedisKey, JSON.stringify({
-      instances,
-      pagination: {
-        currentPage: Number (page),
-        totalPages,
-        totalItems: count,
-        itemsPerPage: Number (limit),
-      },
-    }), "EX", 3600)
-
-    return handleResponse(
-      res,
-      200,
-      "Instances successfully retrieved",
-      {
-        instances,
+    await client.set(
+      redisKey,
+      JSON.stringify({
+        instance: instances,
         pagination: {
-          currentPage: Number (page),
+          currentPage: Number(page),
           totalPages,
           totalItems: count,
-          itemsPerPage: Number (limit),
+          itemsPerPage: Number(limit),
         },
-      }
+      }),
+      "EX",
+      3600
     );
+
+    return handleResponse(res, 200, "Instances successfully retrieved", {
+      instance: instances,
+      pagination: {
+        currentPage: Number(page),
+        totalPages,
+        totalItems: count,
+        itemsPerPage: Number(limit),
+      },
+    });
   } catch (error) {
     return handleError(
       res,
@@ -181,6 +133,34 @@ exports.allAttendanceInstance = async (req, res) => {
       "Error retrieving attendance instances",
       error
     );
+  }
+};
+
+exports.instanceByQuery = async (req, res) => {
+  const { courseId, date, classType } = req.query;
+
+  try {
+    let where = {};
+
+    if (courseId) where.courseId = courseId;
+    if (date) where.date = date;
+    if (classType) where.classType = classType;
+
+    const attendanceInstance = await models.AttendanceInstance.findOne({
+      where,
+    });
+
+    if (!attendanceInstance)
+      return handleError(res, 404, "No such attendance instance found");
+
+    return handleResponse(
+      res,
+      200,
+      "Instance retrieved successfully",
+      attendanceInstance
+    );
+  } catch (error) {
+    return handleError(res, 500, "Failed retrieving instance", error);
   }
 };
 
@@ -195,7 +175,7 @@ exports.deleteInstance = async (req, res) => {
     }
     await models.Attendance.destroy({ where: { instanceId } });
 
-    await client.del(instanceRedisKey)
+    await client.del(redisKey);
     return handleResponse(
       res,
       200,
@@ -206,42 +186,32 @@ exports.deleteInstance = async (req, res) => {
   }
 };
 
-exports.attendanceByQuery = async (req, res) => {
+exports.attendanceByInstance = async (req, res) => {
   const { page = 1, limit = 10 } = req.query;
   const offset = (page - 1) * limit;
 
   try {
-    const { date, studentId, courseId } = req.query;
-    const where = {};
-    if (date) where.date = date;
-    if (studentId) where.studentId = studentId;
-    if (courseId) where.courseId = courseId;
+    const { instanceId } = req.params;
 
-    const { count, rows: attendances } = await models.Attendance.findAndCountAll({
-      where,
-      limit: Number (limit),
-      offset: Number (offset),
-      order: [['date', 'DESC']],
-    });
+    const { count, rows: attendances } =
+      await models.Attendance.findAndCountAll({
+        where: { instanceId },
+        limit: Number(limit),
+        offset: Number(offset),
+        order: [["date", "DESC"]],
+      });
 
     const totalPages = Math.ceil(count / limit);
 
-    return handleResponse(
-      res,
-      200,
-      "Attendance fetched successfully",{
-        attendance: attendances,
-          pagination: {
-            currentPage: Number (page),
-            totalPages,
-            totalItems: count,
-            itemsPerPage: Number (limit),
-          },
-
-        }
-
-
-    );
+    return handleResponse(res, 200, "Attendance fetched successfully", {
+      attendance: attendances,
+      pagination: {
+        currentPage: Number(page),
+        totalPages,
+        totalItems: count,
+        itemsPerPage: Number(limit),
+      },
+    });
   } catch (error) {
     return handleError(res, 500, "Error retrieving attendance", error);
   }
@@ -286,6 +256,7 @@ exports.autoAttendanceMark = async (req, res) => {
   try {
     const { studentId } = req.body;
     const { token } = req.query;
+    const socketId = req.socketId;
 
     if (!studentId || !token) {
       return handleError(res, 400, "Student ID and token are required");
@@ -316,86 +287,27 @@ exports.autoAttendanceMark = async (req, res) => {
       return handleError(res, 401, "Invalid attendance token");
     }
 
-    // Location verification logic
-    let locationRequired = false;
-    let locationValid = false;
-    let locationMessage = "";
-
-    if (instance.class_type === "physical") {
-      locationRequired = true;
-
-      if (!req.body.latitude || !req.body.longitude) {
-        return handleError(res, 400, "Location coordinates are required");
-      }
-
-      const distance = getDistance(
-        { latitude: instance.latitude, longitude: instance.longitude },
-        { latitude: req.body.latitude, longitude: req.body.longitude }
-      );
-
-      locationValid = distance <= 50;
-
-      locationMessage = locationValid
-        ? "Location verified"
-        : `You must be within 50m of the classroom (${distance}m away)`;
-    } else if (instance.class_type === "online") {
-        locationRequired = false;
-    }
-
-    if (locationRequired && !locationValid) {
-      await models.SecurityLog.create({
-        student_id: studentId,
-        instance_id: instance.id,
-        event_type: "location_verification_failed",
-        details: locationMessage,
-      });
-
-      return handleError(res, 403, locationMessage);
-    }
-
-    // Use transaction for attendance marking operations
-    await models.sequelize.transaction(async (transaction) => {
-      // Check existing attendance status
-      const attendance = await models.Attendance.findOne({
-        where: { instanceId: decoded.instanceId, studentId },
-        transaction,
-      });
-
-      if (attendance?.status === "present") {
-        throw new Error("Attendance already marked");
-      }
-
-      if (attendance) {
-        attendance.status = "present";
-        await attendance.save({ transaction });
-      } else {
-        const id = await generatedId("ATT");
-
-        await models.Attendance.create({
-          id,
-          instanceId: decoded.instanceId,
-          courseId: decoded.courseId,
-          date: new Date(),
-          studentId,
-          status: "present",
-        }, { transaction });
-      }
-
-      await models.AttendanceLog.create({
-        student_id: studentId,
-        instance_id: instance.id,
-        location_checked: locationRequired,
-        location_valid: locationValid,
-        details: locationMessage,
-      }, { transaction });
+    enqueue("processAttendanceMarking", {
+      ...req.body,
+      studentId,
+      instance,
+      socketId,
     });
 
     return handleResponse(
       res,
       200,
-      `Attendance marked successfully. ${locationMessage}`
+      `Attendance queued successfully for making. `
     );
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return handleError(res, 401, "Attendance token has expired");
+    }
+
+    if (error.name === "JsonWebTokenError") {
+      return handleError(res, 401, "Invalid attendance token");
+    }
+
     return handleError(res, 500, "Error marking attendance", error);
   }
 };

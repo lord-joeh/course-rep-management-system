@@ -13,7 +13,7 @@ module.exports = {
     },
     {
       name: 'queue-processing-worker',
-      script: './services/queueWorker.js',
+      script: './workers/queueWorker.js',
       exec_mode: 'fork',
       instances: 1,
       watch: false,
