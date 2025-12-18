@@ -8,6 +8,7 @@ const { enqueue } = require("../services/enqueue");
 
 exports.attendanceInstance = async (req, res) => {
   try {
+    console.log(req.body);
     const { courseId, date, classType, latitude, longitude } = req.body;
     const socketId = req.socketId;
     if (!courseId || !date || !classType) {
@@ -33,6 +34,8 @@ exports.attendanceInstance = async (req, res) => {
         "Location coordinates are required for in-person classes"
       );
     }
+
+    console.log("Passed to queue");
 
     enqueue("processAttendanceCreation", {
       ...req.body,
@@ -75,7 +78,7 @@ exports.closeAttendance = async (req, res) => {
 
 exports.allAttendanceInstance = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 5, courseId, date, classType } = req.query;
     const offset = (page - 1) * limit;
     redisKey = `attendance-instance-page=${page}-limit=${limit}`;
 
@@ -89,8 +92,21 @@ exports.allAttendanceInstance = async (req, res) => {
       );
     }
 
+    let where = {};
+    if (courseId) {
+      where.courseId = courseId;
+    }
+    if (date) {
+      where.date = date;
+    }
+    if (classType) {
+      where.class_type = classType;
+    }
+
+    
     const { count, rows: instances } =
       await models.AttendanceInstance.findAndCountAll({
+        where,
         limit: Number(limit),
         offset: Number(offset),
         order: [["createdAt", "DESC"]],
@@ -136,34 +152,6 @@ exports.allAttendanceInstance = async (req, res) => {
   }
 };
 
-exports.instanceByQuery = async (req, res) => {
-  const { courseId, date, classType } = req.query;
-
-  try {
-    let where = {};
-
-    if (courseId) where.courseId = courseId;
-    if (date) where.date = date;
-    if (classType) where.classType = classType;
-
-    const attendanceInstance = await models.AttendanceInstance.findOne({
-      where,
-    });
-
-    if (!attendanceInstance)
-      return handleError(res, 404, "No such attendance instance found");
-
-    return handleResponse(
-      res,
-      200,
-      "Instance retrieved successfully",
-      attendanceInstance
-    );
-  } catch (error) {
-    return handleError(res, 500, "Failed retrieving instance", error);
-  }
-};
-
 exports.deleteInstance = async (req, res) => {
   try {
     const { instanceId } = req.params;
@@ -187,10 +175,9 @@ exports.deleteInstance = async (req, res) => {
 };
 
 exports.attendanceByInstance = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
-  const offset = (page - 1) * limit;
-
   try {
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
     const { instanceId } = req.params;
 
     const { count, rows: attendances } =

@@ -6,15 +6,16 @@ const sequelize = require("../../config/db");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 
 exports.processAttendanceCreation = async (job) => {
-  await emitWorkerEvent("jobStarted", {
-    jobType: "processAttendanceCreation",
-    message: "Initializing Attendance Instance...",
-    socketId,
-  });
-
   try {
     const { courseId, date, classType, latitude, longitude, socketId } =
       job.data;
+      
+    await emitWorkerEvent("jobStarted", {
+      jobType: "processAttendanceCreation",
+      message: "Initializing Attendance Instance...",
+      socketId,
+    });
+
     let lat = latitude || 0;
     let long = longitude || 0;
 
@@ -123,7 +124,6 @@ exports.processAttendanceCreation = async (job) => {
     await emitWorkerEvent("jobComplete", {
       jobType: "processAttendanceCreation",
       message: "Attendance created successfully",
-      result,
       socketId,
     });
   } catch (error) {

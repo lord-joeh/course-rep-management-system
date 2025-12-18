@@ -3,10 +3,8 @@ const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { enqueue } = require("../services/enqueue");
-const Assignment = require("../models/Assignment");
 
 exports.addAssignment = async (req, res) => {
-  console.log("Adding assignment...");
   try {
     const { title, description, courseId, deadline } = req.body;
     const socketId = req?.socketId;
@@ -304,7 +302,6 @@ exports.deleteSubmittedAssignment = async (req, res) => {
       return handleError(res, 404, "Student not found");
     }
 
-    // Verify submission exists and matches the provided details
     const submission = await models.AssignmentSubmission.findOne({
       where: {
         id: submissionId,
@@ -321,13 +318,11 @@ exports.deleteSubmittedAssignment = async (req, res) => {
       );
     }
 
-    // Delete file from Google Drive if it exists
-    // Delete file from Google Drive if it exists (Background Job)
+
     if (submission.fileId) {
       await enqueue("deleteFiles", { fileIds: [submission.fileId] });
     }
 
-    // Delete the submission from the database
     await models.AssignmentSubmission.destroy({ where: { id: submissionId } });
 
     return handleResponse(
