@@ -1,0 +1,2 @@
+overrides:
+  systeminformation@<5.27.14: '>=5.27.14'
