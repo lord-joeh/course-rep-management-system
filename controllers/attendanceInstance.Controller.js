@@ -177,22 +177,37 @@ exports.deleteInstance = async (req, res) => {
 
 exports.attendanceByInstance = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, studentId } = req.query;
     const offset = (page - 1) * limit;
     const { instanceId } = req.params;
 
+    let where = {
+      instanceId,
+    };
+    if (studentId) where.studentId = studentId;
+
     const { count, rows: attendances } =
       await models.Attendance.findAndCountAll({
-        where: { instanceId },
+        where,
+        include: [{ model: models.Student, attributes: ["name"] }],
         limit: Number(limit),
         offset: Number(offset),
         order: [["date", "DESC"]],
+        includes: [],
       });
+
+    const presentCount = await models.Attendance.count({
+      where: {
+        instanceId,
+        status: "present",
+      },
+    });
 
     const totalPages = Math.ceil(count / limit);
 
     return handleResponse(res, 200, "Attendance fetched successfully", {
       attendance: attendances,
+      presentCount,
       pagination: {
         currentPage: Number(page),
         totalPages,
