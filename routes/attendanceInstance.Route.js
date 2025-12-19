@@ -8,15 +8,17 @@ const {
   deleteInstance,
   deleteAttendance,
   autoAttendanceMark,
+  attendanceByInstance,
 } = require("../controllers/attendanceInstance.Controller");
-const {authenticate, authorize }= require("../middleware/auth.Middleware")
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
-router.use(authenticate)
+router.use(authenticate);
 
 //Route to automatically mark attendance
 router.post("/auto/mark", autoAttendanceMark);
 
-router.use(authorize)
+router.use(authorize);
+
 //Route to  initialize attendance
 router.post("/initialize", attendanceInstance);
 
@@ -25,6 +27,9 @@ router.post("/close", closeAttendance);
 
 //Route to get all instances
 router.get("/", allAttendanceInstance);
+
+//Router to get attendance
+router.get("/:instanceId", attendanceByInstance);
 
 //Route to manually mark attendance
 router.put("/mark", updateAttendeeStatus);

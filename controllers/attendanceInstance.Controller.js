@@ -69,7 +69,7 @@ exports.closeAttendance = async (req, res) => {
     instance.qr_token = "";
     await instance.save();
 
-    await client.del(attendanceRedisKey);
+    await client.del(redisKey);
     return handleResponse(res, 200, "Attendance successfully closed");
   } catch (error) {
     return handleError(res, 500, "Error closing attendance", error);
@@ -103,7 +103,6 @@ exports.allAttendanceInstance = async (req, res) => {
       where.class_type = classType;
     }
 
-    
     const { count, rows: instances } =
       await models.AttendanceInstance.findAndCountAll({
         where,
@@ -158,9 +157,11 @@ exports.deleteInstance = async (req, res) => {
     const deleted = await models.AttendanceInstance.destroy({
       where: { id: instanceId },
     });
+
     if (!deleted) {
       return handleError(res, 404, "Instance not found for deletion");
     }
+
     await models.Attendance.destroy({ where: { instanceId } });
 
     await client.del(redisKey);
@@ -208,7 +209,7 @@ exports.updateAttendeeStatus = async (req, res) => {
   try {
     const { attendanceId, studentId } = req.query;
     if (!attendanceId || !studentId) {
-      return handleError(res, 409, "Missing data to update attendee status");
+      return handleError(res, 400, "Missing data to update attendee status");
     }
     const attendance = await models.Attendance.findOne({
       where: { id: attendanceId, studentId },
