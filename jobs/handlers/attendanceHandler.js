@@ -1,129 +1,78 @@
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const models = require("../../config/models");
 const { generatedId, generateQR } = require("../../services/customServices");
 const jwt = require("jsonwebtoken");
 const { getDistance } = require("geolib");
 const sequelize = require("../../config/db");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
+const { UnrecoverableError } = require("bullmq");
 
 exports.processAttendanceCreation = async (job) => {
+  const { courseId, date, classType, latitude, longitude, socketId } = job.data;
+
   try {
-    const { courseId, date, classType, latitude, longitude, socketId } =
-      job.data;
-      
     await emitWorkerEvent("jobStarted", {
       jobType: "processAttendanceCreation",
-      message: "Initializing Attendance Instance...",
+      message: "Initializing...",
       socketId,
     });
 
-    let lat = latitude || 0;
-    let long = longitude || 0;
+    const instanceId = await generatedId("ATT_INT");
 
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceCreation",
-      progress: 15,
-      message: "Creating token payload...",
-      socketId,
+    const qrTokenExpiration = new Date(Date.now() + 60 * 60 * 1000); // Token valid for 1 hour
+
+    const qrToken = jwt.sign(
+      { courseId, instanceId, classType, latitude, longitude },
+      process.env.JWT_SECRET,
+      { expiresIn: "1hr" }
+    );
+
+    const qrImage = await generateQR(
+      `${process.env.FRONTEND_URL}/mark?instanceId=${instanceId}&token=${qrToken}`
+    );
+
+    const students = await models.CourseStudent.findAll({
+      where: { courseId },
+      include: [{ model: models.Student, where: { status: "active" } }],
+      raw: true,
     });
 
-    const id = await generatedId("ATT_INT");
-    const qrTokenExpiration = new Date(Date.now() + 60 * 60 * 1000);
-    const tokenPayload = {
-      courseId,
-      instanceId: id,
-      classType,
-      latitude: lat,
-      longitude: long,
-    };
+    const attendanceRecords = await Promise.all(
+      students.map(async (cs) => ({
+        id: await generatedId("ATT"),
+        instanceId,
+        courseId,
+        date,
+        studentId: cs.studentId || cs["Student.id"],
+        status: "absent",
+      }))
+    );
 
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceCreation",
-      progress: 35,
-      message: "Signing token payload...",
-      socketId,
-    });
-
-    const qrToken = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "1hr",
-    });
-
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceCreation",
-      progress: 50,
-      message: "Generating QR CODE...",
-      socketId,
-    });
-
-    const attendanceUrl = `${process.env.FRONTEND_URL}/mark?instanceId=${id}&token=${qrToken}`;
-    const qrImage = await generateQR(attendanceUrl);
-
-    const result = await sequelize.transaction(async (transaction) => {
-      const instance = await models.AttendanceInstance.create(
+    await sequelize.transaction(async (transaction) => {
+      await models.AttendanceInstance.create(
         {
-          id,
+          id: instanceId,
           courseId,
           date,
           qr_token: qrToken,
           qr_image: qrImage,
           expires_at: qrTokenExpiration,
-          latitude: lat,
-          longitude: long,
+          latitude: latitude || 0,
+          longitude: longitude || 0,
           class_type: classType,
         },
         { transaction }
       );
 
-      await emitWorkerEvent("jobProgress", {
-        jobType: "processAttendanceCreation",
-        progress: 75,
-        message: "Fetching students...",
-        socketId,
-      });
-
-      // Fetch students
-      const students = await models.CourseStudent.findAll({
-        where: { courseId },
-        include: [{ model: models.Student, where: { status: "active" } }],
+      await models.Attendance.bulkCreate(attendanceRecords, {
         transaction,
       });
-
-      // Generate all attendance IDs in parallel
-      const attendanceIds = await Promise.all(
-        students.map(() => generatedId("ATT"))
-      );
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "processAttendanceCreation",
-        progress: 85,
-        message: "Writing data...",
-        socketId,
-      });
-
-      // Prepare bulk insert data
-      const attendanceRecords = students.map((cs, index) => ({
-        id: attendanceIds[index],
-        instanceId: id,
-        courseId,
-        date,
-        studentId: cs?.studentId,
-        status: "absent",
-      }));
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "processAttendanceCreation",
-        progress: 85,
-        message: "Creating record...",
-        socketId,
-      });
-
-      await models.Attendance.bulkCreate(attendanceRecords, { transaction });
-
-      return instance;
     });
 
     await emitWorkerEvent("jobComplete", {
       jobType: "processAttendanceCreation",
-      message: "Attendance created successfully",
+      message: "Attendance session is live!",
       socketId,
     });
   } catch (error) {
@@ -138,95 +87,74 @@ exports.processAttendanceCreation = async (job) => {
 };
 
 exports.processAttendanceMarking = async (job) => {
-  try {
-    const { studentId, instance, latitude, longitude, socketId } = job.data;
+  const { studentId, instance, latitude, longitude, socketId } = job.data;
 
+  try {
     await emitWorkerEvent("jobStarted", {
       jobType: "processAttendanceMarking",
-      message: "Marking Attendance...",
+      message: "Verifying details...",
       socketId,
     });
 
-    // Location verification logic
-    let locationRequired = false;
-    let locationValid = false;
-    let locationMessage = "";
-
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceMarking",
-      progress: 25,
-      message: "Verifying Location...",
-      socketId,
-    });
+    let locationValid = true;
+    let locationMessage = "Verified";
 
     if (instance.class_type === "in-person") {
-      locationRequired = true;
-
-      if (!req.body.latitude || !req.body.longitude) {
-        Error("Location coordinates are required");
-      }
+      if (!latitude || !longitude)
+        throw new UnrecoverableError("Location access is required");
 
       const distance = getDistance(
         { latitude: instance.latitude, longitude: instance.longitude },
-        { latitude: latitude, longitude: longitude }
+        { latitude, longitude }
       );
 
-      locationValid = distance <= 50;
-
-      locationMessage = locationValid
-        ? "Location verified"
-        : `You must be within 50m of the classroom (${distance}m away)`;
-    } else if (instance.class_type === "online") {
-      locationRequired = false;
+      if (distance > 50) {
+        locationValid = false;
+        locationMessage = `Too far from classroom. You are ${distance}m away.`;
+      }
     }
 
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceMarking",
-      progress: 45,
-      message: "Processing Logs...",
-      socketId,
-    });
-
-    if (locationRequired && !locationValid) {
+    if (!locationValid) {
       await models.SecurityLog.create({
         student_id: studentId,
         instance_id: instance.id,
         event_type: "location_verification_failed",
         details: locationMessage,
       });
-
-      throw new Error(locationMessage);
+      throw new UnrecoverableError(locationMessage);
     }
 
-    await emitWorkerEvent("jobProgress", {
-      jobType: "processAttendanceMarking",
-      progress: 65,
-      message: "Final Marking in progress...",
-      socketId,
-    });
-
     await sequelize.transaction(async (transaction) => {
-      const attendance = await models.Attendance.findOne({
-        where: { instanceId: decoded.instanceId, studentId },
-        transaction,
-      });
+      const [updatedRows] = await models.Attendance.update(
+        {
+          status: "present",
+          updatedAt: new Date(),
+        },
+        {
+          where: {
+            instanceId: instance.id,
+            studentId,
+            status: "absent",
+          },
+          transaction,
+        }
+      );
 
-      if (attendance?.status === "present") {
-        throw new Error("Attendance already marked");
-      }
+      if (updatedRows === 0) {
+        const exists = await models.Attendance.findOne({
+          where: { instanceId: instance.id, studentId },
+          transaction,
+        });
 
-      if (attendance) {
-        attendance.status = "present";
-        await attendance.save({ transaction });
-      } else {
-        const id = await generatedId("ATT");
+        if (exists) throw new UnrecoverableError("Attendance already marked");
 
+        const newId = await generatedId("ATT");
         await models.Attendance.create(
           {
-            id,
-            instanceId: decoded.instanceId,
-            courseId: decoded.courseId,
-            date: new Date(),
+            id: newId,
+            instanceId: instance.id,
+            courseId: instance.courseId,
+            date: instance.date,
             studentId,
             status: "present",
           },
@@ -234,35 +162,30 @@ exports.processAttendanceMarking = async (job) => {
         );
       }
 
-      await emitWorkerEvent("jobProgress", {
-        jobType: "processAttendanceMarking",
-        progress: 85,
-        message: "Writing Logs...",
-        socketId,
-      });
-
       await models.AttendanceLog.create(
         {
           student_id: studentId,
           instance_id: instance.id,
-          location_checked: locationRequired,
+          location_checked: instance.class_type === "in-person",
           location_valid: locationValid,
           details: locationMessage,
         },
         { transaction }
       );
     });
+
     await emitWorkerEvent("jobComplete", {
       jobType: "processAttendanceMarking",
-      message: "Attendance Marked SuccessFully..",
+      message: "Attendance Marked Successfully",
       socketId,
     });
   } catch (error) {
     await emitWorkerEvent("jobFailed", {
       jobType: "processAttendanceMarking",
-      message: error.message,
-      socketId,
+      message: error.message || "Unknown Error",
+      socketId: socketId || job.data.socketId,
     });
-    throw Error(error.message);
+
+    throw error;
   }
 };

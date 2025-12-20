@@ -8,6 +8,7 @@ const {
   processAttendanceCreation,
   processAttendanceMarking,
 } = require("./handlers/attendanceHandler");
+const { processCustomGroups } = require("./handlers/processCustomGroups");
 
 async function processQueue(job) {
   const { type } = job.data;
@@ -31,6 +32,9 @@ async function processQueue(job) {
         return await processAttendanceCreation(job);
       case "processAttendanceMarking":
         return await processAttendanceMarking(job);
+      case "processCustomGroups":
+        return await processCustomGroups(job);
+
       default:
         throw new Error(`Unknown job type: ${type}`);
     }

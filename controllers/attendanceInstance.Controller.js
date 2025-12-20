@@ -8,7 +8,6 @@ const { enqueue } = require("../services/enqueue");
 
 exports.attendanceInstance = async (req, res) => {
   try {
-    console.log(req.body);
     const { courseId, date, classType, latitude, longitude } = req.body;
     const socketId = req.socketId;
     if (!courseId || !date || !classType) {
@@ -82,15 +81,15 @@ exports.allAttendanceInstance = async (req, res) => {
     const offset = (page - 1) * limit;
     redisKey = `attendance-instance-page=${page}-limit=${limit}`;
 
-    const cachedInstance = await client.get(redisKey);
-    if (cachedInstance) {
-      return handleResponse(
-        res,
-        200,
-        "Instances successfully retrieved",
-        JSON.parse(cachedInstance)
-      );
-    }
+    // const cachedInstance = await client.get(redisKey);
+    // if (cachedInstance) {
+    //   return handleResponse(
+    //     res,
+    //     200,
+    //     "Instances successfully retrieved",
+    //     JSON.parse(cachedInstance)
+    //   );
+    // }
 
     let where = {};
     if (courseId) {
@@ -257,9 +256,9 @@ exports.deleteAttendance = async (req, res) => {
 
 exports.autoAttendanceMark = async (req, res) => {
   try {
-    const { studentId } = req.body;
-    const { token } = req.query;
-    const socketId = req.socketId;
+    console.log(req.body);
+    const { token, studentId } = req.query;
+    const socketId = req?.socketId ?? "";
 
     if (!studentId || !token) {
       return handleError(res, 400, "Student ID and token are required");
@@ -300,7 +299,7 @@ exports.autoAttendanceMark = async (req, res) => {
     return handleResponse(
       res,
       200,
-      `Attendance queued successfully for making. `
+      `Attendance queued successfully for marking. `
     );
   } catch (error) {
     if (error.name === "TokenExpiredError") {

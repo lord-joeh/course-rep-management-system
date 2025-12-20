@@ -1,8 +1,10 @@
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const { Worker } = require("bullmq");
 const { redisConfig } = require("../config/redis");
 const processQueue = require("../jobs/queueProcesser");
-require("dotenv").config();
 const { emitWorkerEvent } = require("../utils/emitWorkerEvent");
+const logger = require("../config/logger");
 
 async function initializeWorker() {
   try {
@@ -14,7 +16,7 @@ async function initializeWorker() {
     generalWorker.on("completed", (job) =>
       console.log(`Job ${job.id} completed`)
     );
-    
+
     generalWorker.on("failed", (job, err) =>
       console.error(`Job ${job.id} failed:`, err)
     );
@@ -25,10 +27,15 @@ async function initializeWorker() {
       message: "Queue processing worker started.",
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error("Failed to initialize queue worker:", error.message);
   }
 }
 
-initializeWorker().catch((err) => console.log(err));
+initializeWorker().catch((error) => {
+  logger.error({
+    error: error.message,
+    stack: error.stack,
+    statusCode: statusCode,
+  });
+});
