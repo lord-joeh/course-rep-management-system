@@ -16,13 +16,14 @@ async function initSocketIO(httpServer) {
     path: "/api/socket.io",
     cors: {
       origin: (origin, callback) => {
-        const whitelist = [process.env.FRONTEND_URL];
+        const whitelist = [process.env.FRONTEND_URL, process.env.NGINX_SERVER];
         // Allow ngrok host if provided (useful when frontend is accessed through an ngrok+nginx proxy)
         if (process.env.NGROK_HOST) {
           whitelist.push(process.env.NGROK_HOST);
         }
         if (process.env.NODE_ENV !== "production") {
           whitelist.push("http://localhost:5173");
+          whitelist.push("http://localhost:4173");
         }
         if (whitelist.indexOf(origin) !== -1 || !origin) {
           callback(null, true);
