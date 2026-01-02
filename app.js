@@ -22,7 +22,6 @@ const whitelist = [process.env.FRONTEND_URL, process.env.NGINX_SERVER];
 
 const trustProxy = process.env.TRUST_PROXY ?? "1";
 app.set("trust proxy", trustProxy);
-// In development, also allow localhost
 if (process.env.NODE_ENV !== "production") {
   whitelist.push("http://localhost:5173");
   whitelist.push("http://localhost:4173");

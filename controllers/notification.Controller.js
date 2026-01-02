@@ -104,7 +104,7 @@ exports.deleteNotification = async (req, res) => {
 
 exports.sendNotificationToStudent = async (req, res) => {
   const { message, studentId, messageType } = req.body;
-  const socketId = req.body.socketId || req.headers["x-socket-id"] || null;
+  const socketId = req.socketId;
   try {
     if (!studentId)
       return handleError(res, 400, "Student ID is required to send message");

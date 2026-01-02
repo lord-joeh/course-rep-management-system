@@ -3,7 +3,10 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const { sendResetLink, sendResetConfirmation} = require("../services/customEmails");
+const {
+  sendResetLink,
+  sendResetConfirmation,
+} = require("../services/customEmails");
 const crypto = require("crypto");
 require("dotenv").config();
 const { Op } = require("sequelize");
@@ -75,7 +78,7 @@ exports.forgotPassword = async (req, res) => {
     if (!studentId) {
       return handleError(res, 400, "Student ID required");
     }
-    const student = await models.Student.findByPk(studentId,{
+    const student = await models.Student.findByPk(studentId, {
       include: [{ model: models.Verification, required: false }],
     });
     if (!student) {
@@ -108,14 +111,10 @@ exports.resetPassword = async (req, res) => {
     const { newPassword } = req.body;
     const { token } = req.query;
 
-    if (!newPassword || typeof newPassword !== "string") {
-      return handleError(
-        res,
-        400,
-        "New password is required and must be a string"
-      );
+    if (!newPassword) {
+      return handleError(res, 400, "New password is required");
     }
-    if (!token || typeof token !== "string") {
+    if (!token) {
       return handleError(
         res,
         400,
@@ -182,7 +181,7 @@ exports.resetPassword = async (req, res) => {
     return handleError(
       res,
       500,
-      "An error occurred while resetting the password",
+      "An error occurred while resetting your password",
       error
     );
   }
@@ -197,7 +196,7 @@ exports.changePassword = async (req, res) => {
       return handleError(res, 409, "Current and new password required");
     }
 
-    const student = await models.Student.findOne({ where: { id: student_id } });
+    const student = await models.Student.findOne({ where: { student_id } });
     if (!student) {
       return handleError(
         res,
@@ -218,7 +217,7 @@ exports.changePassword = async (req, res) => {
 
     await models.Student.update(
       { password_hash: hashedPassword },
-      { where: { id: student_id } }
+      { where: { student_id } }
     );
 
     return handleResponse(res, 200, "Password successfully changed");
@@ -228,58 +227,58 @@ exports.changePassword = async (req, res) => {
 };
 
 exports.refreshToken = async (req, res) => {
-    try {
-        const refreshToken = req.cookies?.refreshToken;
-        if (!refreshToken) {
-            return handleError(res, 400, "Refresh token required");
-        }
-
-        const tokenDoc = await models.RefreshToken.findOne({
-            where: { token: refreshToken },
-        });
-
-        if (!tokenDoc) {
-            return handleError(res, 401, "Invalid or expired refresh token");
-        }
-
-        const expiresAt = new Date(tokenDoc.expires_at);
-        if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
-            // remove expired token and clear cookie
-            await models.RefreshToken.destroy({ where: { token: refreshToken } });
-            res.clearCookie("refreshToken", {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "strict",
-                path: "/",
-            });
-            return handleError(res, 401, "Invalid or expired refresh token");
-        }
-
-        const student = await models.Student.findOne({
-            where: { id: tokenDoc.student_id },
-        });
-
-        if (!student) {
-            return handleError(res, 404, "Student not found");
-        }
-
-        const accessToken = jwt.sign(
-            {
-                id: student.id,
-                email: student.email,
-                isRep: student.isRep,
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "15m" }
-        );
-
-        return res.status(200).json({
-            success: true,
-            token: accessToken,
-        });
-    } catch (error) {
-        return handleError(res, 500, "Error refreshing token", error);
+  try {
+    const refreshToken = req.cookies?.refreshToken;
+    if (!refreshToken) {
+      return handleError(res, 400, "Refresh token required");
     }
+
+    const tokenDoc = await models.RefreshToken.findOne({
+      where: { token: refreshToken },
+    });
+
+    if (!tokenDoc) {
+      return handleError(res, 401, "Invalid or expired refresh token");
+    }
+
+    const expiresAt = new Date(tokenDoc.expires_at);
+    if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+      // remove expired token and clear cookie
+      await models.RefreshToken.destroy({ where: { token: refreshToken } });
+      res.clearCookie("refreshToken", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+      });
+      return handleError(res, 401, "Invalid or expired refresh token");
+    }
+
+    const student = await models.Student.findOne({
+      where: { id: tokenDoc.student_id },
+    });
+
+    if (!student) {
+      return handleError(res, 404, "Student not found");
+    }
+
+    const accessToken = jwt.sign(
+      {
+        id: student.id,
+        email: student.email,
+        isRep: student.isRep,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    return res.status(200).json({
+      success: true,
+      token: accessToken,
+    });
+  } catch (error) {
+    return handleError(res, 500, "Error refreshing token", error);
+  }
 };
 
 exports.logout = async (req, res) => {
