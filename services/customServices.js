@@ -1,4 +1,4 @@
-const { randomInt } = require("crypto");
+const { v4 } = require("uuid");
 const qrCode = require("qrcode");
 
 //Algorithm for array shuffle
@@ -12,11 +12,10 @@ exports.shuffle = (array) => {
 
 //Function generate ids
 exports.generatedId = async (short) => {
-  return `${short}${randomInt(100000, 999999)}`;
+  return v4();
 };
 
 //Function to generate qr code
 exports.generateQR = async (url) => {
   return await qrCode.toDataURL(url);
 };
-

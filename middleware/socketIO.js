@@ -7,6 +7,7 @@ const Redis = require("ioredis");
 let io;
 let emitter;
 const jwt = require("jsonwebtoken");
+const { corsOptions } = require("../config/corsOptions");
 
 async function initSocketIO(httpServer) {
   console.log("🚀 Initializing Socket.IO...");
@@ -14,26 +15,7 @@ async function initSocketIO(httpServer) {
   // mirror express CORS settings so polling transport is allowed from the frontend
   io = new Server(httpServer, {
     path: "/api/socket.io",
-    cors: {
-      origin: (origin, callback) => {
-        const whitelist = [process.env.FRONTEND_URL, process.env.NGINX_SERVER];
-        // Allow ngrok host if provided (useful when frontend is accessed through an ngrok+nginx proxy)
-        if (process.env.NGROK_HOST) {
-          whitelist.push(process.env.NGROK_HOST);
-        }
-        if (process.env.NODE_ENV !== "production") {
-          whitelist.push("http://localhost:5173");
-          whitelist.push("http://localhost:4173");
-        }
-        if (whitelist.indexOf(origin) !== -1 || !origin) {
-          callback(null, true);
-        } else {
-          callback(new Error("Not allowed by CORS"));
-        }
-      },
-      methods: ["GET", "POST"],
-      credentials: true,
-    },
+    cors: corsOptions,
   });
 
   console.log("✅ Socket.IO server created");
@@ -101,7 +83,7 @@ async function initSocketIO(httpServer) {
       socket.userId = userId;
       next();
     } catch (err) {
-      return next(new Error("Authentication error: Invalid token"));
+      return next(new Error("Authentication error: Invalid token", err));
     }
   });
 
@@ -110,8 +92,8 @@ async function initSocketIO(httpServer) {
 
     // Join room named by userId for targeted messaging
     if (socket.userId) {
-      socket.join(socket.userId);
-      console.log(`Socket ${socket.id} joined room ${socket.userId}`);
+      socket.join(socket?.userId);
+      console.log(`Socket ${socket?.id} joined room ${socket?.userId}`);
     }
 
     // Handle socket disconnect inside the connection handler

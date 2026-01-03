@@ -49,8 +49,8 @@ exports.addGroup = async (req, res) => {
 
 exports.getAllGroups = async (req, res) => {
   const { courseId, page, limit } = req.query;
-  const _page = parseInt(page, 10) || 1;
-  const _limit = parseInt(limit, 10) || 10;
+  const _page = Number.parseInt(page, 10) || 1;
+  const _limit = Number.parseInt(limit, 10) || 10;
   const offset = (_page - 1) * _limit;
   redisKey =  `groups-course=${courseId}-page=${_page}-limit=${_limit}`
 

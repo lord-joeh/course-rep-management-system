@@ -1,4 +1,4 @@
-const { createServer } = require("http");
+const { createServer } = require("node:http");
 const { initSocketIO } = require("./middleware/socketIO");
 const app = require("./app");
 const httpServer = createServer(app);
@@ -15,16 +15,13 @@ httpServer.listen(PORT, (error) => {
 
   process.on("uncaughtException", (err) => {
     console.error("Uncaught Exception:", err);
-      process.exit(1);
+    process.exit(1);
   });
 
   (async () => {
     try {
       await sequelize.authenticate();
       console.log("✅ Database connection has been established successfully.");
-
-      // await sequelize.sync({ alter: true });
-      // console.log("✅ Database Tables altered ");
 
       await authorize();
       console.log("✅ Google Drive Connected successfully");

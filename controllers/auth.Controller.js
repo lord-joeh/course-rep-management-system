@@ -7,7 +7,7 @@ const {
   sendResetLink,
   sendResetConfirmation,
 } = require("../services/customEmails");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 require("dotenv").config();
 const { Op } = require("sequelize");
 
@@ -242,7 +242,7 @@ exports.refreshToken = async (req, res) => {
     }
 
     const expiresAt = new Date(tokenDoc.expires_at);
-    if (isNaN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
+    if (Number.isNAN(expiresAt.getTime()) || expiresAt.getTime() < Date.now()) {
       // remove expired token and clear cookie
       await models.RefreshToken.destroy({ where: { token: refreshToken } });
       res.clearCookie("refreshToken", {

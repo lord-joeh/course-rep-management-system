@@ -1,7 +1,6 @@
 const { authorize } = require("../config/google");
 const { google } = require("googleapis");
-const stream = require("stream");
-const fs = require("fs");
+const fs = require("node:fs");
 
 async function uploadToFolder(folderId, fileObj) {
   const client = await authorize();
@@ -13,19 +12,17 @@ async function uploadToFolder(folderId, fileObj) {
     parents: [folderId],
   };
 
-  // Enforce disk-backed files: prefer fileObj.path and fs.createReadStream
-  if (!fileObj || !fileObj.path) {
-    // Fail fast: require disk-backed file (multer.diskStorage)
+  if (!fileObj || !fileObj?.path) {
     throw new Error(
       "uploadToFolder requires a disk-backed file with a 'path' property. Configure multer with diskStorage."
     );
   }
 
   if (typeof fs.createReadStream !== "function") {
-    throw new Error("fs.createReadStream is not available in this environment");
+    throw new TypeError("fs.createReadStream is not available in this environment");
   }
 
-  const bodyStream = fs.createReadStream(fileObj.path);
+  const bodyStream = fs.createReadStream(fileObj?.path);
 
   const media = {
     mimeType: fileObj?.mimetype || "application/octet-stream",

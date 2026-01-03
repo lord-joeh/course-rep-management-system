@@ -18,33 +18,10 @@ const { captureSocketId } = require("./middleware/socketTracker");
 const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
-const whitelist = [process.env.FRONTEND_URL, process.env.NGINX_SERVER];
+const { corsOptions } = require("./config/corsOptions");
 
 const trustProxy = process.env.TRUST_PROXY ?? "1";
 app.set("trust proxy", trustProxy);
-if (process.env.NODE_ENV !== "production") {
-  whitelist.push("http://localhost:5173");
-  whitelist.push("http://localhost:4173");
-}
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (whitelist.indexOf(origin) !== -1 || !origin) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "Cache-Control",
-    "pragma",
-    "X-Socket-ID",
-  ],
-  exposedHeaders: ["Content-Disposition"],
-};
 
 app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: false }));

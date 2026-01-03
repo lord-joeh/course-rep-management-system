@@ -1,4 +1,4 @@
-const path = require("path");
+const path = require("node:path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const models = require("../../config/models");
 const { generatedId, generateQR } = require("../../services/customServices");

@@ -1,7 +1,7 @@
 const downloadFile = require("../../googleServices/downloadFile");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const models = require("../../config/models");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
 const { enqueue } = require("../../services/enqueue");
 
 async function processSlides(job) {

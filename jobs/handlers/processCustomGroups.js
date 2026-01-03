@@ -5,7 +5,7 @@ const { shuffle, generatedId } = require("../../services/customServices");
 const { sendGroupAssignmentEmail } = require("../../services/customEmails");
 
 async function processCustomGroups(job) {
-  const { studentsPerGroup, isGeneral, courseId, socketId, userId } = job.data;
+  const { studentsPerGroup, isGeneral, courseId, socketId } = job.data;
 
   try {
     if (!studentsPerGroup || studentsPerGroup < 1) {

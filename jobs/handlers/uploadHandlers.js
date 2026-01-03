@@ -3,7 +3,8 @@ const uploadToFolder = require("../../googleServices/uploadToFolder");
 const models = require("../../config/models");
 const { generatedId } = require("../../services/customServices");
 const { enqueue } = require("../../services/enqueue");
-const getCourseAssignmentsFolder = require("../../googleServices/getAssignmentsFolder");require("../../googleServices/deleteFile");
+const getCourseAssignmentsFolder = require("../../googleServices/getAssignmentsFolder");
+require("../../googleServices/deleteFile");
 
 async function uploadSlides(job) {
   const { files, folderId, courseId, socketId } = job.data;
@@ -86,7 +87,6 @@ async function uploadAssignment(job) {
     socketId,
   } = job.data;
 
-
   await emitWorkerEvent("jobStarted", {
     jobType: "uploadAssignment",
     message: "Uploading Assignment...",
@@ -145,7 +145,6 @@ async function uploadAssignment(job) {
     }
   } else if (isNewAssignment) {
     try {
-
       if (file)
         await emitWorkerEvent("jobProgress", {
           jobType: "uploadAssignment",
@@ -191,7 +190,7 @@ async function uploadAssignment(job) {
         });
       }
 
-      const newAssignment = await models.Assignment.create({
+      await models.Assignment.create({
         id,
         title,
         description,

@@ -1,13 +1,13 @@
 const axios = require("axios");
 const { models } = require("../config/db");
 
-const userId = "admin-rep";
+const userId = process.env.USER_ID;
 
 async function revokeGoogleAccess() {
   try {
     const record = await models.GoogleToken.findOne({ where: { userId } });
 
-    if (!record || !record.refresh_token) {
+    if (!record || !record?.refresh_token) {
       console.log("⚠️ No token found to revoke.");
       return;
     }

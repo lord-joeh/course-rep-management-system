@@ -1,4 +1,4 @@
-const path = require("path");
+const path = require("node:path");
 require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
 const { Worker } = require("bullmq");
 const { redisConfig } = require("../config/redis");
@@ -29,13 +29,12 @@ async function initializeWorker() {
     });
   } catch (error) {
     console.error("Failed to initialize queue worker:", error.message);
+    logger.error({
+      error: error.message,
+      stack: error.stack,
+      statusCode: statusCode,
+    });
   }
 }
 
-initializeWorker().catch((error) => {
-  logger.error({
-    error: error.message,
-    stack: error.stack,
-    statusCode: statusCode,
-  });
-});
+initializeWorker();

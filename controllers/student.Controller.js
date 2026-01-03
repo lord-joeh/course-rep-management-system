@@ -7,7 +7,6 @@ const { enqueue } = require("../services/enqueue");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
 let redisKey = `students-page=${1}-limit=${10}`;
 
-
 exports.registerStudent = async (req, res) => {
   try {
     const { id, name, email, phone, password } = req.body;
@@ -18,12 +17,11 @@ exports.registerStudent = async (req, res) => {
         "Student Id, name, email, phone, and password are required"
       );
     }
-    let rep;
-    if (!req.body.isRep) {
-      rep = false;
-    } else {
-      rep = req.body.isRep;
+
+    if (req.body?.isRep){
+      return handleError(res, 400, "Not allowed to be a Rep")
     }
+
     const existingStudent = await models.Student.findOne({ where: { id } });
     if (existingStudent) {
       return handleError(res, 409, "Student already exist");
@@ -35,7 +33,7 @@ exports.registerStudent = async (req, res) => {
       email,
       phone,
       password_hash: hashedPassword,
-      isRep: rep,
+      isRep: false,
     });
 
     await sendRegistrationSuccessMail(
@@ -60,8 +58,8 @@ exports.registerStudent = async (req, res) => {
 
 exports.getAllStudent = async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
     redisKey = `students-page=${page}-limit=${limit}`;
 

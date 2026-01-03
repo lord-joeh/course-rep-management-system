@@ -1,6 +1,5 @@
 const models = require("../config/models");
 const { enqueue } = require("./enqueue");
-const { handleError } = require("./errorService");
 require("dotenv").config();
 
 //Send password reset link
@@ -82,7 +81,7 @@ exports.sendRegistrationSuccessMail = async (name, email, id) => {
     });
     console.log("Registration mail sent successfully");
   } catch (error) {
-    console.log("Error sending registration success mail");
+    console.log("Error sending registration success mail", error);
   }
 };
 
@@ -134,7 +133,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
       })
     );
 
-    const students = studentsResolved.filter((s) => s && s.email);
+    const students = studentsResolved.filter((s) => s && s?.email);
     if (!students.length) {
       console.warn(`No students found for group ${groupName}`);
       return;
@@ -194,10 +193,10 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
             `Your Group Assignment: ${groupName}`,
             html
           );
-        } catch (e) {
+        } catch (error) {
           console.error(
             `Failed to send email to student ${student.id}:`,
-            e.message || e
+            error
           );
         }
       })
@@ -228,6 +227,7 @@ exports.sendMessageToStudent = async (email, message) => {
     });
     console.log(`Message sent to ${email} wait for confirmation`);
   } catch (error) {
+    console.error(error)
     throw error;
   }
 };

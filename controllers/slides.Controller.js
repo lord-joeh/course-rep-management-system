@@ -124,8 +124,8 @@ exports.deleteSlide = async (req, res) => {
 
 exports.getSlidesByCourse = async (req, res) => {
   const { courseId, limit, page } = req.query;
-  const _limit = parseInt(limit) || 10;
-  const _page = parseInt(page) || 1;
+  const _limit = Number.parseInt(limit) || 10;
+  const _page = Number.parseInt(page) || 1;
   const offset = (_page - 1) * _limit;
   redisKey = `slides-course=${courseId}-page=${_page}-limit=${_limit}`
 

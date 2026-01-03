@@ -81,15 +81,15 @@ exports.allAttendanceInstance = async (req, res) => {
     const offset = (page - 1) * limit;
     redisKey = `attendance-instance-page=${page}-limit=${limit}`;
 
-    // const cachedInstance = await client.get(redisKey);
-    // if (cachedInstance) {
-    //   return handleResponse(
-    //     res,
-    //     200,
-    //     "Instances successfully retrieved",
-    //     JSON.parse(cachedInstance)
-    //   );
-    // }
+    const cachedInstance = await client.get(redisKey);
+    if (cachedInstance) {
+      return handleResponse(
+        res,
+        200,
+        "Instances successfully retrieved",
+        JSON.parse(cachedInstance)
+      );
+    }
 
     let where = {};
     if (courseId) {

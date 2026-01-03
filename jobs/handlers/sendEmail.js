@@ -15,7 +15,6 @@ async function sendEmail(job) {
       });
     }
 
-    // await sendNotification(to, subject, html);
     switch (jobType) {
       case "sendRegistrationSuccessMail":
         await customEmails.sendRegistrationSuccessMail(

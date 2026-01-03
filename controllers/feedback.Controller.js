@@ -15,7 +15,7 @@ exports.sendFeedback = async (req, res) => {
       id,
       studentId,
       content,
-      is_anonymous: is_anonymous,
+      is_anonymous,
     });
 
       const payload = newFeedback.get ? newFeedback.get({ plain: true }) : { ...newFeedback };
@@ -41,8 +41,8 @@ exports.sendFeedback = async (req, res) => {
 
 exports.allFeedback = async (req, res) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
 
     const result = await models.Feedback.findAndCountAll({
@@ -79,7 +79,7 @@ exports.allFeedback = async (req, res) => {
       },
     });
   } catch (error) {
-    return handleError(res, 500, "Error retrieving feedbacks");
+    return handleError(res, 500, "Error retrieving feedbacks", error);
   }
 };
 

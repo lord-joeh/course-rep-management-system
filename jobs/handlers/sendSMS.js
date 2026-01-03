@@ -17,7 +17,7 @@ async function processSMS(job) {
 
 
     const result = await sendSMS(to, message);
-    if (result && result.code === "ok") {
+    if (result && result?.code === "ok") {
       // Emit success event
       if (socketId || userId) {
         await emitWorkerEvent("smsSent", {
@@ -30,7 +30,7 @@ async function processSMS(job) {
       }
       return { sent: true, to };
     } else {
-      Error("SMS provider returned non-ok status");
+     new Error("SMS provider returned non-ok status");
     }
   } catch (error) {
     console.error(`Failed to send SMS to ${to}:`, error);

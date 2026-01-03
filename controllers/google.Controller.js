@@ -77,7 +77,7 @@ exports.downloadFile = async (req, res) => {
   try {
     const fileResponse = await downloadFile(fileId);
 
-    if (!fileResponse || !fileResponse.data) {
+    if (!fileResponse) {
       return res
         .status(400)
         .send("Failed retrieving downloadable file content.");

@@ -52,8 +52,8 @@ exports.addAssignment = async (req, res) => {
 exports.allAssignment = async (req, res) => {
   try {
     const { limit, page, courseId } = req.query;
-    const _limit = parseInt(limit) || 10;
-    const _page = parseInt(page) || 1;
+    const _limit = Number.parseInt(limit) || 10;
+    const _page = Number.parseInt(page) || 1;
     const offset = (_page - 1) * _limit;
 
     if (!courseId) {
@@ -91,8 +91,8 @@ exports.assignmentById = async (req, res) => {
   try {
     const { id } = req.params;
     const { limit, page } = req.query;
-    const _limit = parseInt(limit) || 10;
-    const _page = parseInt(page) || 1;
+    const _limit = Number.parseInt(limit) || 10;
+    const _page = Number.parseInt(page) || 1;
     const offset = (_page - 1) * _limit;
 
     const assignment = await models.Assignment.findByPk(id, {
@@ -168,7 +168,7 @@ exports.deleteAssignment = async (req, res) => {
       where: { assignmentId: id },
     });
 
-    const fileIdsToDelete = submissions.map((s) => s.fileId).filter((id) => id);
+    const fileIdsToDelete = submissions.map((s) => s.fileId).filter(Boolean);
 
     if (fileIdsToDelete.length > 0) {
       await enqueue("deleteFiles", { fileIds: fileIdsToDelete });
@@ -234,8 +234,8 @@ exports.getStudentSubmittedAssignments = async (req, res) => {
   try {
     const { studentId } = req.params;
     const { limit, page } = req.query;
-    const _limit = parseInt(limit) || 10;
-    const _page = parseInt(page) || 1;
+    const _limit = Number.parseInt(limit) || 10;
+    const _page = Number.parseInt(page) || 1;
     const offset = (_page - 1) * _limit;
 
     if (!studentId) {
