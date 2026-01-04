@@ -1,17 +1,25 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  const Lecturer = sequelize.define('Lecturer', {
-    id: { type: DataTypes.STRING, primaryKey: true },
-    name: DataTypes.STRING,
-    email: DataTypes.STRING,
-    phone: DataTypes.STRING,
-  }, {
-    tableName: 'lecturer',
-    timestamps: true,
-  });
+  const Lecturer = sequelize.define(
+    "Lecturer",
+    {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
+      name: DataTypes.STRING,
+      email: DataTypes.STRING,
+      phone: DataTypes.STRING,
+    },
+    {
+      tableName: "lecturer",
+      timestamps: true,
+    }
+  );
   Lecturer.associate = (models) => {
-    Lecturer.hasMany(models.Course, { foreignKey: 'lecturerId' });
+    Lecturer.hasMany(models.Course, { foreignKey: "lecturerId" });
   };
   return Lecturer;
 };

@@ -9,6 +9,7 @@ const Attendance = require("../models/Attendance")(sequelize);
 const Event = require("../models/Event")(sequelize);
 const Feedback = require("../models/Feedback")(sequelize);
 const Notification = require("../models/Notification")(sequelize);
+const NotificationRead = require("../models/NotificationRead")(sequelize);
 const Group = require("../models/Group")(sequelize);
 const GroupMember = require("../models/GroupMember")(sequelize);
 const CourseStudent = require("../models/CourseStudent")(sequelize);
@@ -32,6 +33,7 @@ const models = {
   Event,
   Feedback,
   Notification,
+  NotificationRead,
   Group,
   GroupMember,
   CourseStudent,

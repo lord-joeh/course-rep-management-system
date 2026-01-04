@@ -7,12 +7,14 @@ const {
   updateNotification,
   deleteNotification,
   sendNotificationToStudent,
+  markAllAsRead,
+  markAsRead,
 } = require("../controllers/notification.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
 router.use(authenticate);
 
 //Route to add a notification
-router.post("/", addNotification);
+router.post("/", authorize, addNotification);
 
 //Route to get all notifications
 router.get("/", allNotification);
@@ -21,12 +23,18 @@ router.get("/", allNotification);
 router.get("/:id", notificationById);
 
 //Route to update notification
-router.put("/:id", updateNotification);
+router.put("/:id", authorize, updateNotification);
 
 //Route to delete notification
-router.delete("/:id", deleteNotification);
+router.delete("/:id", authorize, deleteNotification);
 
 //Route to send message to student
 router.post("/send", authorize, sendNotificationToStudent);
+
+//Route to mark notification as read
+router.patch("/:id/read", markAsRead);
+
+// Route to mark all notifications as read
+router.patch("/read-all", markAllAsRead);
 
 module.exports = router;

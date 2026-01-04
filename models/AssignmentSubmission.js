@@ -4,7 +4,11 @@ module.exports = (sequelize) => {
   const AssignmentSubmission = sequelize.define(
     "AssignmentSubmission",
     {
-      id: { type: DataTypes.STRING, primaryKey: true },
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
       assignmentId: DataTypes.STRING,
       studentId: DataTypes.STRING,
       fileId: DataTypes.STRING,
@@ -17,7 +21,9 @@ module.exports = (sequelize) => {
     }
   );
   AssignmentSubmission.associate = (models) => {
-    AssignmentSubmission.belongsTo(models.Assignment, { foreignKey: "assignmentId" });
+    AssignmentSubmission.belongsTo(models.Assignment, {
+      foreignKey: "assignmentId",
+    });
     AssignmentSubmission.belongsTo(models.Student, { foreignKey: "studentId" });
   };
   return AssignmentSubmission;

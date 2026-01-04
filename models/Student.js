@@ -34,6 +34,11 @@ module.exports = (sequelize) => {
     Student.hasMany(models.GroupMember, { foreignKey: "studentId" });
     Student.hasOne(models.Verification, { foreignKey: "student_id" });
     Student.hasMany(models.CourseStudent, { foreignKey: "studentId" });
+    Student.belongsToMany(models.Notification, {
+      through: models.NotificationRead,
+      as: "ReadNotifications",
+      foreignKey: "studentId",
+    });
   };
 
   return Student;

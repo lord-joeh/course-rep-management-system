@@ -1,13 +1,29 @@
-const { DataTypes } = require('sequelize');
+const { DataTypes } = require("sequelize");
 
 module.exports = (sequelize) => {
-  const Notification = sequelize.define('Notification', {
-    id: { type: DataTypes.STRING, primaryKey: true },
-    title: DataTypes.STRING,
-    message: DataTypes.STRING,
-  }, {
-    tableName: 'notification',
-    timestamps: true,
-  });
+  const Notification = sequelize.define(
+    "Notification",
+    {
+      id: {
+        type: DataTypes.STRING,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
+      title: DataTypes.STRING,
+      message: DataTypes.STRING,
+    },
+    {
+      tableName: "notification",
+      timestamps: true,
+    }
+  );
+  Notification.associate = (models) => {
+    Notification.belongsToMany(models.Student, {
+      through: models.NotificationRead,
+      as: "Readers",
+      foreignKey: "notificationId",
+    });
+  };
+
   return Notification;
 };
