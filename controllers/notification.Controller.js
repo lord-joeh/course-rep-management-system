@@ -39,7 +39,6 @@ exports.addNotification = async (req, res) => {
 
 exports.allNotification = async (req, res) => {
   try {
-    console.log(req.student)
     const userId = req?.student.id; 
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
