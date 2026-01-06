@@ -10,7 +10,7 @@ module.exports = (sequelize) => {
         primaryKey: true,
       },
       title: DataTypes.STRING,
-      message: DataTypes.STRING,
+      message: DataTypes.TEXT,
     },
     {
       tableName: "notification",

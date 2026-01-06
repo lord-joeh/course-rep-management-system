@@ -18,8 +18,8 @@ exports.registerStudent = async (req, res) => {
       );
     }
 
-    if (req.body?.isRep){
-      return handleError(res, 400, "Not allowed to be a Rep")
+    if (req?.body.isRep) {
+      return handleError(res, 400, "Not allowed to be a Rep");
     }
 
     const existingStudent = await models.Student.findOne({ where: { id } });
@@ -44,7 +44,9 @@ exports.registerStudent = async (req, res) => {
 
     await client.del(redisKey);
 
-    newStudent.password_hash = undefined;
+    // newStudent.password_hash = undefined;
+    delete newStudent.password_hash;
+    
     return handleResponse(
       res,
       201,

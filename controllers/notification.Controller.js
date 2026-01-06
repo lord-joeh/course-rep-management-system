@@ -18,7 +18,6 @@ exports.addNotification = async (req, res) => {
       message,
     });
 
-    // Emit real-time event to all connected clients
     try {
       const io = getEmitter();
       io.emit("newNotification", newNotification);

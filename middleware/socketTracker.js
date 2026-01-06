@@ -18,11 +18,8 @@ exports.captureSocketId = (req, res, next) => {
 exports.emitToUser = (userId, event, data) => {
   try {
     // Require socketIO lazily to avoid circular dependency during module init
-    const socketModule = require("./socketIO");
-    const io =
-      typeof socketModule.getSocketIO === "function"
-        ? socketModule.getSocketIO()
-        : null;
+    const { getSocketIO } = require("./socketIO");
+    const io = getSocketIO();
     if (!io) {
       console.error(
         `Socket.IO instance not available when sending to user ${userId}`

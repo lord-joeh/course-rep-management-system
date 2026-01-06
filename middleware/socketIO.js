@@ -12,7 +12,6 @@ const { corsOptions } = require("../config/corsOptions");
 async function initSocketIO(httpServer) {
   console.log("🚀 Initializing Socket.IO...");
 
-  // mirror express CORS settings so polling transport is allowed from the frontend
   io = new Server(httpServer, {
     path: "/api/socket.io",
     cors: corsOptions,
@@ -23,7 +22,8 @@ async function initSocketIO(httpServer) {
   try {
     const pubClient = new Redis(redisConfig);
     const subClient = new Redis(redisConfig);
-    // Dedicated client for worker events subscription (separate from adapter's subClient)
+
+    // Client for worker events subscription 
     const workerSubClient = new Redis(redisConfig);
 
     console.log("✅ Redis clients connected");
@@ -112,7 +112,6 @@ function getSocketIO() {
 
 function getEmitter() {
   if (!emitter) {
-    // If IO is initialized (Main Server) but emitter is missing, it failed to load.
     if (io) {
       console.log("⚠️  Redis emitter not available, returning mock emitter");
       return {
