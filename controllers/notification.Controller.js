@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { enqueue } = require("../services/enqueue");
-const { getEmitter } = require("../middleware/socketIO"); // Import Socket Emitter
+const { getEmitter } = require("../middleware/socketIO"); 
 
 exports.addNotification = async (req, res) => {
   try {
@@ -39,8 +39,8 @@ exports.addNotification = async (req, res) => {
 exports.allNotification = async (req, res) => {
   try {
     const userId = req?.student.id; 
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
 
     const { rows: notifications, count: totalItems } =

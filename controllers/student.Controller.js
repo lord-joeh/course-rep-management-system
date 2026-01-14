@@ -3,7 +3,6 @@ const bcrypt = require("bcrypt");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { client } = require("../config/redis");
-const { enqueue } = require("../services/enqueue");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
 let redisKey = `students-page=${1}-limit=${10}`;
 
@@ -44,7 +43,6 @@ exports.registerStudent = async (req, res) => {
 
     await client.del(redisKey);
 
-    // newStudent.password_hash = undefined;
     delete newStudent.password_hash;
     
     return handleResponse(

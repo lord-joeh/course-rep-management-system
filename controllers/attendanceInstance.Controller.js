@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const { client } = require("../config/redis");
-let redisKey = `attendance-instance-page=${1}-limit=${10}`;
+let redisKey = `attendance-instance-page=${1}-limit=${5}`;
 const { enqueue } = require("../services/enqueue");
 
 exports.attendanceInstance = async (req, res) => {

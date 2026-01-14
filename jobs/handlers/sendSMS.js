@@ -30,7 +30,7 @@ async function processSMS(job) {
       }
       return { sent: true, to };
     } else {
-     new Error("SMS provider returned non-ok status");
+     throw new Error("SMS provider returned non-ok status");
     }
   } catch (error) {
     console.error(`Failed to send SMS to ${to}:`, error);

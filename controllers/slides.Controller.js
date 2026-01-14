@@ -3,21 +3,21 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const searchFilesInFolder = require("../googleServices/searchFolder");
 const { enqueue } = require("../services/enqueue");
-const { client } = require("../config/redis")
-let redisKey = `slides-course=${1}-page=${1}-limit=${10}`
+const { client } = require("../config/redis");
+let redisKey = `slides-course=${1}-page=${1}-limit=${10}`;
 
 exports.uploadSlide = async (req, res) => {
   console.log("Received uploadSlide request");
   const { folderId, courseId } = req.body;
   const socketId = req.body.socketId || req.headers["x-socket-id"] || null;
-  const files = req.files;
+  const files = req?.files;
 
   try {
     if (!files || files.length === 0) {
       return handleError(res, 400, "No slide uploaded");
     }
 
-    if (files.length > 10) {
+    if (Array.isArray(files) && files.length > 10) {
       return handleError(
         res,
         400,
@@ -41,9 +41,9 @@ exports.uploadSlide = async (req, res) => {
       { removeOnComplete: { age: 3600 } }
     );
 
-    await client.del(redisKey)
+    await client.del(redisKey);
     return handleResponse(res, 202, "Slides upload started in background", {
-      count: files.length,
+      count: Array.isArray(files) ? files.length : 0,
     });
   } catch (error) {
     console.error("Error in uploadSlide controller:", error);
@@ -100,13 +100,9 @@ exports.deleteSlide = async (req, res) => {
     }
 
     await enqueue("deleteFiles", { fileIds: [slideToDelete.driveFileID] });
-    await client.del(redisKey)
+    await client.del(redisKey);
 
-    return handleResponse(
-      res,
-      200,
-      "Slides deleting"
-    );
+    return handleResponse(res, 200, "Slides deleting");
   } catch (error) {
     console.error("Error deleting slide:", error);
     if (error.message.includes("Google Drive API error")) {
@@ -127,17 +123,22 @@ exports.getSlidesByCourse = async (req, res) => {
   const _limit = Number.parseInt(limit) || 10;
   const _page = Number.parseInt(page) || 1;
   const offset = (_page - 1) * _limit;
-  redisKey = `slides-course=${courseId}-page=${_page}-limit=${_limit}`
+  redisKey = `slides-course=${courseId}-page=${_page}-limit=${_limit}`;
 
   try {
     if (!courseId) {
       return handleError(res, 400, "No course ID provided");
     }
 
-    const cachedSlides = await client.get(redisKey)
-    if(cachedSlides){
-      console.log("Cache Hit")
-      return  handleResponse(res, 200, "Slides retrieved successfully", JSON.parse(cachedSlides))
+    const cachedSlides = await client.get(redisKey);
+    if (cachedSlides) {
+      console.log("Cache Hit");
+      return handleResponse(
+        res,
+        200,
+        "Slides retrieved successfully",
+        JSON.parse(cachedSlides)
+      );
     }
 
     const results = await models.Slides.findAndCountAll({
@@ -153,15 +154,20 @@ exports.getSlidesByCourse = async (req, res) => {
       return handleResponse(res, 200, "No slides found for this course", []);
     }
 
-    await client.set(redisKey, JSON.stringify({
-      slides: slides,
-      pagination: {
-        totalItems,
-        currentPage: _page,
-        totalPages,
-        itemsPerPage: _limit,
-      },
-    }), "EX", 3600)
+    await client.set(
+      redisKey,
+      JSON.stringify({
+        slides: slides,
+        pagination: {
+          totalItems,
+          currentPage: _page,
+          totalPages,
+          itemsPerPage: _limit,
+        },
+      }),
+      "EX",
+      3600
+    );
 
     return handleResponse(res, 200, "Slides retrieved successfully", {
       slides: slides,

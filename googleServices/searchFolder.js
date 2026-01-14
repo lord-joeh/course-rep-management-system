@@ -30,7 +30,7 @@ async function listFilesInFolder(service, folderId, allFiles) {
     console.log(`API call successful. Found ${files ? files.length : 0} items.`);
 
     if (!files || files.length === 0) {
-      console.log(`No files or subfolders found in: ${folderId}`);
+      console.log(`No files or subfolders found in: %s`, folderId);
       return;
     }
 
@@ -43,7 +43,7 @@ async function listFilesInFolder(service, folderId, allFiles) {
       }
     }
   } catch (err) {
-    console.error(`Error processing folder ${folderId}:`, err);
+    console.error(`Error processing folder %s`, folderId, err);
     throw err;
   }
 }

@@ -133,7 +133,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
       })
     );
 
-    const students = studentsResolved.filter((s) => s && s?.email);
+    const students = studentsResolved.filter((s) => s?.email);
     if (!students.length) {
       console.warn(`No students found for group ${groupName}`);
       return;

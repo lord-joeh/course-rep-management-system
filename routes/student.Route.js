@@ -14,7 +14,7 @@ router.post("/", registerStudent);
 router.use(authenticate);
 
 // Route to get all student
-router.get("/", getAllStudent);
+router.get("/", authorize, getAllStudent);
 
 //Route to get student by id
 router.get("/:id", getStudentById);

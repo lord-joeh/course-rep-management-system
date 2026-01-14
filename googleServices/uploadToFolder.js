@@ -13,7 +13,7 @@ async function uploadToFolder(folderId, fileObj) {
   };
 
 
-  if (!fileObj || !fileObj?.path) {
+  if (fileObj && !fileObj?.path) {
     throw new Error(
       "uploadToFolder requires a disk-backed file with a 'path' property. Configure multer with diskStorage."
     );
@@ -21,16 +21,6 @@ async function uploadToFolder(folderId, fileObj) {
 
   if (typeof fs.createReadStream !== "function") {
     throw new TypeError("fs.createReadStream is not available in this environment");
-  }
-
-  // Debug: Log absolute file path
-  const absolutePath = require('path').resolve(fileObj.path);
-  console.log(`[uploadToFolder] Attempting to read file at: ${absolutePath}`);
-
-  // Check if file exists before reading
-  if (!fs.existsSync(fileObj.path)) {
-    console.error(`[uploadToFolder] File does not exist: ${absolutePath}`);
-    throw new Error(`File not found: ${absolutePath}`);
   }
 
   const bodyStream = fs.createReadStream(fileObj?.path);

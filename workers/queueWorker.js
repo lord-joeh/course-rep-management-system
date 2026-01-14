@@ -37,4 +37,4 @@ async function initializeWorker() {
   }
 }
 
-initializeWorker();
+await initializeWorker();
