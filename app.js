@@ -19,6 +19,7 @@ const app = express();
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const { corsOptions } = require("./config/corsOptions");
+const csrf = require("lusca").csrf;
 
 const trustProxy = process.env.TRUST_PROXY ?? "1";
 app.set("trust proxy", trustProxy);
@@ -27,6 +28,7 @@ app.use(cors(corsOptions));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cookieParser());
+app.use(csrf());
 app.use(captureSocketId);
 app.use(limiter);
 app.use(helmet());
