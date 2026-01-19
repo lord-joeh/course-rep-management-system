@@ -9,8 +9,8 @@ const redisConfig = {
 
 const client = new Redis(redisConfig);
 
-client.on("error", (err) => console.error("❌ Redis Error:", err));
-client.on("connect", () => console.log("✅ Redis connected"));
+client.on("error", (err) => console.error("Redis Error:", err));
+client.on("connect", () => console.log("Redis connected"));
 
 async function connectRedis() {
   if (client.status === "wait") {

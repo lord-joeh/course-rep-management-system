@@ -10,60 +10,58 @@ const jwt = require("jsonwebtoken");
 const { corsOptions } = require("../config/corsOptions");
 
 async function initSocketIO(httpServer) {
-  console.log("🚀 Initializing Socket.IO...");
+  console.log("Initializing Socket.IO...");
 
   io = new Server(httpServer, {
     path: "/api/socket.io",
     cors: corsOptions,
   });
 
-  console.log("✅ Socket.IO server created");
+  console.log(" Socket.IO server created");
 
   try {
     const pubClient = new Redis(redisConfig);
     const subClient = new Redis(redisConfig);
 
-    // Client for worker events subscription 
+    // Client for worker events subscription
     const workerSubClient = new Redis(redisConfig);
 
-    console.log("✅ Redis clients connected");
+    console.log(" Redis clients connected");
 
     io.adapter(createAdapter(pubClient, subClient));
     emitter = new Emitter(pubClient);
-    console.log("✅ Socket.IO Redis adapter enabled");
+    console.log(" Socket.IO Redis adapter enabled");
 
     // Subscribe to worker events from Redis using dedicated subscriber
     await workerSubClient.subscribe("worker-events");
-    console.log("✅ Subscribed to worker-events channel");
+    console.log(" Subscribed to worker-events channel");
 
     // Listen for messages on the subscribed channel
     workerSubClient.on("message", (channel, message) => {
-      console.log(`📨 Received message on channel: ${channel}`);
+      console.log(` Received message on channel: ${channel}`);
       if (channel === "worker-events") {
         try {
           const eventData = JSON.parse(message);
-          console.log("📨 Received worker event:", eventData);
+          console.log(" Received worker event:", eventData);
 
           // Emit the event to all connected Socket.IO clients
           io.emit(eventData.type, eventData);
-          console.log(
-            `📤 Worker event ${eventData.type} emitted to all clients`
-          );
+          console.log(` Worker event ${eventData.type} emitted to all clients`);
         } catch (error) {
-          console.error("❌ Error processing worker event:", error);
+          console.error(" Error processing worker event:", error);
         }
       }
     });
 
     workerSubClient.on("error", (error) => {
-      console.error("❌ Redis subscriber error:", error);
+      console.error("Redis subscriber error:", error);
     });
   } catch (error) {
     console.error(
-      "❌ Failed to setup Redis adapter for Socket.IO:",
-      error.message
+      "Failed to setup Redis adapter for Socket.IO:",
+      error.message,
     );
-    console.log("⚠️  Socket.IO running without Redis adapter");
+    console.log("Socket.IO running without Redis adapter");
     emitter = null;
   }
 
@@ -113,7 +111,7 @@ function getSocketIO() {
 function getEmitter() {
   if (!emitter) {
     if (io) {
-      console.log("⚠️  Redis emitter not available, returning mock emitter");
+      console.log(" Redis emitter not available, returning mock emitter");
       return {
         emit: (event, data) => {
           console.log(`Mock emitter: ${event}`, data);
@@ -125,10 +123,10 @@ function getEmitter() {
     // If IO is NOT initialized, we are likely in a Worker process.
     // Initialize a standalone emitter.
     try {
-      console.log("🔄 Initializing standalone Redis Emitter for Worker...");
+      console.log("Initializing standalone Redis Emitter for Worker...");
       const redisClient = new Redis(redisConfig);
       emitter = new Emitter(redisClient);
-      console.log("✅ Worker Emitter initialized");
+      console.log(" Worker Emitter initialized");
       return emitter;
     } catch (err) {
       console.error("Failed to initialize worker emitter:", err);

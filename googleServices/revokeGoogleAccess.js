@@ -8,7 +8,7 @@ async function revokeGoogleAccess() {
     const record = await models.GoogleToken.findOne({ where: { userId } });
 
     if (!record || !record?.refresh_token) {
-      console.log("⚠️ No token found to revoke.");
+      console.log("No token found to revoke.");
       return;
     }
 
@@ -27,12 +27,12 @@ async function revokeGoogleAccess() {
       }
     );
 
-    console.log("🔴 Token successfully revoked.");
+    console.log(" Token successfully revoked.");
 
     await models.GoogleToken.destroy({ where: { userId } });
-    console.log("🗑️ Token removed from DB.");
+    console.log(" Token removed from DB.");
   } catch (error) {
-    console.error("❌ Failed to revoke token:", error?.response?.data || error);
+    console.error("Failed to revoke token:", error?.response?.data || error);
   }
 }
 

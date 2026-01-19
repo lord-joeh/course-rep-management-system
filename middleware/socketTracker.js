@@ -3,12 +3,14 @@ exports.captureSocketId = (req, res, next) => {
 
   if (socketId) {
     req.socketId = socketId;
-    if (req.student) {
-      console.log(
-        `Request from user ${req.student.id} with socket ${socketId}`
-      );
-    } else {
-      console.log(`Request with socket ${socketId} (no student in request)`);
+    if (process.env.NODE_ENV !== "production") {
+      if (req.student) {
+        console.log(
+          `Request from user ${req.student.id} with socket ${socketId}`,
+        );
+      } else {
+        console.log(`Request with socket ${socketId} (no student in request)`);
+      }
     }
   }
 
@@ -22,7 +24,7 @@ exports.emitToUser = (userId, event, data) => {
     const io = getSocketIO();
     if (!io) {
       console.error(
-        `Socket.IO instance not available when sending to user ${userId}`
+        `Socket.IO instance not available when sending to user ${userId}`,
       );
       return false;
     }

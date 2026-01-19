@@ -37,7 +37,7 @@ async function processQueue(job) {
         throw new Error(`Unknown job type: ${type}`);
     }
   } catch (err) {
-    console.error("❌ Job processing error:", err);
+    console.error(" Job processing error:", err);
     throw err;
   }
 }

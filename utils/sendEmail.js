@@ -23,7 +23,7 @@ exports.sendNotification = async (to, subject, message) => {
   try {
     // Verify transporter configuration first (promise-based)
     await transporter.verify();
-    console.log("✅ Email configuration is valid, Server ready to send");
+    console.log(" Email configuration is valid, Server ready to send");
 
     const info = await transporter.sendMail(mailOptions);
     console.log("Email sent:", info?.response || info);

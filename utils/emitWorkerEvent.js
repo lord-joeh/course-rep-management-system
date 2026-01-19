@@ -13,12 +13,12 @@ async function emitWorkerEvent(eventType, eventData) {
     );
 
     console.log(
-      `📤 Worker event ${eventType} published. Subscribers: ${result}`
+      ` Worker event ${eventType} published. Subscribers: ${result}`
     );
     return result;
   } catch (error) {
     console.error(
-      `❌ Failed to publish worker event ${eventType}:`,
+      ` Failed to publish worker event ${eventType}:`,
       error.message
     );
     return 0;

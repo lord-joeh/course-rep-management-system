@@ -16,34 +16,37 @@ async function searchFilesInFolder(folderId) {
 }
 
 async function listFilesInFolder(service, folderId, allFiles) {
+  let pageToken = null;
+
   try {
-    console.log(`Making API call for folder: ${folderId}`);
-    const res = await service.files.list({
-      q: `'${folderId}' in parents`,
-      fields: "nextPageToken, files(id, name, mimeType)",
-      spaces: "drive",
-      includeItemsFromAllDrives: true,
-      supportsAllDrives: true,
-    });
+    do {
+      const res = await service.files.list({
+        q: `'${folderId}' in parents and trashed = false`,
+        fields: "nextPageToken, files(id, name, mimeType)",
+        spaces: "drive",
+        pageToken: pageToken, // Pass the token for the next page
+        pageSize: 1000, // Maximize results per call to reduce API overhead
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
+      });
 
-    const files = res.data.files;
-    console.log(`API call successful. Found ${files ? files.length : 0} items.`);
+      const files = res.data.files;
+      if (files && files.length > 0) {
+        allFiles.push(...files);
 
-    if (!files || files.length === 0) {
-      console.log(`No files or subfolders found in: %s`, folderId);
-      return;
-    }
-
-    allFiles.push(...files);
-
-    for (const file of files) {
-      if (file.mimeType === 'application/vnd.google-apps.folder') {
-        console.log(`Found subfolder: ${file.name} (${file.id}). Recursing...`);
-        await listFilesInFolder(service, file.id, allFiles);
+        // Recursively search subfolders found in this page
+        for (const file of files) {
+          if (file.mimeType === "application/vnd.google-apps.folder") {
+            await listFilesInFolder(service, file.id, allFiles);
+          }
+        }
       }
-    }
+
+      // Update token for the next iteration of the loop
+      pageToken = res.data.nextPageToken;
+    } while (pageToken);
   } catch (err) {
-    console.error(`Error processing folder %s`, folderId, err);
+    console.error(`Error processing folder ${folderId}:`, err);
     throw err;
   }
 }
