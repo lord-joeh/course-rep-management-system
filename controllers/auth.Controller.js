@@ -40,7 +40,7 @@ exports.login = async (req, res) => {
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "15m" },
     );
 
     const refreshTokenValue = crypto.randomBytes(64).toString("hex");
@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      path: "/",
+      path: "/api/auth/refresh",
     });
 
     return res.status(200).json({
@@ -87,7 +87,7 @@ exports.forgotPassword = async (req, res) => {
     const resetToken = jwt.sign(
       { id: student.id, email: student.email },
       process.env.JWT_RESET,
-      { expiresIn: "5m" }
+      { expiresIn: "5m" },
     );
     const resetTokenExpiration = new Date(Date.now() + 5 * 60 * 1000);
     await models.Verification.upsert({
@@ -99,7 +99,7 @@ exports.forgotPassword = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Reset link sent. Check your mail and click on the button to reset your password"
+      "Reset link sent. Check your mail and click on the button to reset your password",
     );
   } catch (error) {
     return handleError(res, 500, "Error requesting reset password link", error);
@@ -118,14 +118,14 @@ exports.resetPassword = async (req, res) => {
       return handleError(
         res,
         400,
-        "Password reset token is missing or invalid"
+        "Password reset token is missing or invalid",
       );
     }
     if (newPassword.length < 8) {
       return handleError(
         res,
         400,
-        "Password must be at least 8 characters long"
+        "Password must be at least 8 characters long",
       );
     }
 
@@ -169,7 +169,7 @@ exports.resetPassword = async (req, res) => {
     await Promise.all([
       models.Student.update(
         { password_hash: hashedPassword },
-        { where: { id: decoded.id, email: decoded.email } }
+        { where: { id: decoded.id, email: decoded.email } },
       ),
       verification.destroy(),
     ]);
@@ -182,7 +182,7 @@ exports.resetPassword = async (req, res) => {
       res,
       500,
       "An error occurred while resetting your password",
-      error
+      error,
     );
   }
 };
@@ -201,13 +201,13 @@ exports.changePassword = async (req, res) => {
       return handleError(
         res,
         404,
-        "Can not change the password of this account"
+        "Can not change the password of this account",
       );
     }
 
     const isMatch = await bcrypt.compare(
       currentPassword,
-      student.password_hash
+      student.password_hash,
     );
     if (!isMatch) {
       return handleError(res, 400, "Invalid password for current password");
@@ -217,7 +217,7 @@ exports.changePassword = async (req, res) => {
 
     await models.Student.update(
       { password_hash: hashedPassword },
-      { where: { student_id } }
+      { where: { student_id } },
     );
 
     return handleResponse(res, 200, "Password successfully changed");
@@ -269,7 +269,7 @@ exports.refreshToken = async (req, res) => {
         isRep: student.isRep,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "15m" }
+      { expiresIn: "15m" },
     );
 
     return res.status(200).json({
