@@ -20,39 +20,35 @@ async function sendEmail(job) {
         await customEmails.sendRegistrationSuccessMail(
           job?.data?.name,
           to,
-          job?.data?.id
+          job?.data?.id,
         );
         break;
       case "sendResetConfirmation":
-        await customEmails.sendResetConfirmation(
-        to,
-        job?.data?.name,
-        );
+        await customEmails.sendResetConfirmation(to, job?.data?.name);
         break;
       case "sendGroupAssignmentEmail":
         await customEmails.sendGroupAssignmentEmail(
           job?.data?.groupName,
           job?.data?.group,
-          job?.data?.courseId
         );
         break;
       case "sendResetLink":
         await customEmails.sendResetLink(
-            job?.data?.email,
-            job?.data?.reset_token
-        )
-            break;
+          job?.data?.email,
+          job?.data?.reset_token,
+        );
+        break;
       case "sendFeedbackReceived":
         await customEmails.sendFeedbackReceived(
-            job?.data?.is_anonymous,
-            job?.data?.id
-        )
-            break;
+          job?.data?.is_anonymous,
+          job?.data?.id,
+        );
+        break;
       case "sendMessageToStudent":
         await customEmails.sendMessageToStudent(
-            job?.data?.email,
-            job?.data?.message
-        )
+          job?.data?.email,
+          job?.data?.message,
+        );
         break;
       default:
         break;

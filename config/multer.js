@@ -17,7 +17,7 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 // Ensure the destination directory exists
-const uploadDir = path.join(__dirname, "uploads/temp/");
+const uploadDir = path.join(__dirname, "../uploads/temp/");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

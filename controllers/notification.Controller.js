@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { enqueue } = require("../services/enqueue");
-const { getEmitter } = require("../middleware/socketIO"); 
+const { getEmitter } = require("../middleware/socketIO");
 
 exports.addNotification = async (req, res) => {
   try {
@@ -29,7 +29,7 @@ exports.addNotification = async (req, res) => {
       res,
       201,
       "Notification added successfully",
-      newNotification
+      newNotification,
     );
   } catch (error) {
     return handleError(res, 500, "Error adding notification", error);
@@ -38,7 +38,7 @@ exports.addNotification = async (req, res) => {
 
 exports.allNotification = async (req, res) => {
   try {
-    const userId = req?.student.id; 
+    const userId = req?.student.id;
     const page = Number.parseInt(req.query.page, 10) || 1;
     const limit = Number.parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
@@ -54,19 +54,19 @@ exports.allNotification = async (req, res) => {
             as: "Readers",
             attributes: ["id"],
             where: { id: userId },
-            required: false, 
-            through: { attributes: [] }, 
+            required: false,
+            through: { attributes: [] },
           },
         ],
-        distinct: true, 
+        distinct: true,
       });
 
     const processedNotifications = notifications.map((n) => {
       const json = n.toJSON();
       return {
         ...json,
-        isRead: json.Readers && json.Readers.length > 0, 
-        Readers: undefined, 
+        isRead: json.Readers && json.Readers.length > 0,
+        Readers: undefined,
       };
     });
 
@@ -145,7 +145,7 @@ exports.notificationById = async (req, res) => {
       res,
       200,
       "Notification retrieved successfully",
-      notification
+      notification,
     );
   } catch (error) {
     return handleError(res, 500, "Error retrieving notification", error);
@@ -166,11 +166,19 @@ exports.updateNotification = async (req, res) => {
     notification.title = title;
     notification.message = message;
     await notification.save();
+
+    try {
+      const io = getEmitter();
+      io.emit("updateNotification", notification);
+    } catch (socketError) {
+      console.error("Failed to Emit Notification Event");
+    }
+
     return handleResponse(
       res,
       200,
       "Notification updated successfully",
-      notification
+      notification,
     );
   } catch (error) {
     return handleError(res, 500, "Error updating notification", error);
@@ -182,11 +190,19 @@ exports.deleteNotification = async (req, res) => {
     const { id } = req.params;
     const deleted = await models.Notification.destroy({ where: { id } });
     if (!deleted) {
-      return handleError(res, 404, "Notification not found");
+      handleError(res, 404, "Notification not found");
     }
-    return handleResponse(res, 200, "Notification deleted successfully");
+
+    try {
+      const io = getEmitter();
+      io.emit("deleteNotification", id);
+    } catch (socketError) {
+      console.error("Failed to Emit Notification Event");
+    }
+
+    handleResponse(res, 200, "Notification deleted successfully");
   } catch (error) {
-    return handleError(res, 500, "Error deleting notification", error);
+    handleError(res, 500, "Error deleting notification", error);
   }
 };
 
@@ -195,44 +211,39 @@ exports.sendNotificationToStudent = async (req, res) => {
   const socketId = req.socketId;
   try {
     if (!studentId)
-      return handleError(res, 400, "Student ID is required to send message");
-    if (!message)
-      return handleError(res, 400, "You can not send an empty message");
+      handleError(res, 400, "Student ID is required to send message");
+    if (!message) handleError(res, 400, "You can not send an empty message");
     if (!messageType)
-      return handleError(
-        res,
-        400,
-        "Type of message is required to send message"
-      );
+      handleError(res, 400, "Type of message is required to send message");
 
     const student = await models.Student.findByPk(studentId, {
       attributes: ["phone", "email"],
     });
 
-    if (!student) return handleError(res, 400, "Student does not exist");
+    if (!student) handleError(res, 400, "Student does not exist");
 
-    if (messageType === "email") {
-      const subject = "Urgent!";
-      // Enqueue Email Job
-      await enqueue("sendEmail", {
-        to: student.email,
-        subject,
-        message,
-        socketId,
-      });
-      return handleResponse(res, 200, "Message queued for sending");
-    }
-    if (messageType === "SMS") {
-      // Enqueue SMS job
-      await enqueue("sendSMS", {
-        to: student.phone,
-        message,
-        socketId,
-        studentId,
-      });
-      return handleResponse(res, 200, "Message queued for sending");
+    switch (messageType) {
+      case "email":
+        await enqueue("sendEmail", {
+          jobType: "sendMessageToStudent",
+          email: student?.email,
+          message,
+        });
+        
+        handleResponse(res, 200, "Message queued for sending");
+
+        break;
+      case "SMS":
+        await enqueue("sendSMS", {
+          to: student.phone,
+          message,
+          socketId,
+          studentId,
+        });
+        handleResponse(res, 200, "Message queued for sending");
+        break;
     }
   } catch (error) {
-    return handleError(res, 500, "Error sending message", error);
+    handleError(res, 500, "Error sending message", error);
   }
 };

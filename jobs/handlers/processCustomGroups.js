@@ -3,6 +3,7 @@ const sequelize = require("../../config/db"); // Required for transaction
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const { shuffle, generatedId } = require("../../services/customServices");
 const { sendGroupAssignmentEmail } = require("../../services/customEmails");
+const { enqueue } = require("../../services/enqueue");
 
 async function processCustomGroups(job) {
   const { studentsPerGroup, isGeneral, courseId, socketId } = job.data;
@@ -83,7 +84,7 @@ async function processCustomGroups(job) {
             description: groupName,
             isGeneral,
           },
-          { transaction }
+          { transaction },
         );
 
         const memberRecords = groupChunk.map((student, idx) => ({
@@ -126,10 +127,12 @@ async function processCustomGroups(job) {
 
     await Promise.allSettled(
       emailQueue.map((item) =>
-        sendGroupAssignmentEmail(item.groupName, item.members).catch((err) =>
-          console.error(`Failed email for ${item.groupName}:`, err.message)
-        )
-      )
+        enqueue("sendEmail", {
+          jobType: "sendGroupAssignmentEmail",
+          groupName: item?.groupName,
+          group: item?.members,
+        }),
+      ),
     );
 
     await emitWorkerEvent("jobComplete", {

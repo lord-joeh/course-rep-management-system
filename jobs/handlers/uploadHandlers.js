@@ -44,7 +44,7 @@ async function uploadSlides(job) {
           courseId,
           socketId,
         },
-        { removeOnComplete: { age: 3600 } }
+        { removeOnComplete: { age: 3600 } },
       );
 
       await emitWorkerEvent("uploadProgress", {
@@ -134,6 +134,12 @@ async function uploadAssignment(job) {
         jobType: "uploadAssignment",
         message: "Assignment uploaded successfully.",
         socketId,
+      });
+
+      await emitWorkerEvent("newNotification", {
+        id: submissionId,
+        title: "NEW ASSIGNMENT",
+        message: "New Assignment has been uploaded",
       });
 
       return { success: true, submissionId, type: "submission" };

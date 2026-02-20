@@ -1,6 +1,7 @@
 const models = require("../config/models");
 const { sendFeedbackReceived } = require("../services/customEmails");
 const { generatedId } = require("../services/customServices");
+const { enqueue } = require("../services/enqueue");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 
@@ -18,22 +19,24 @@ exports.sendFeedback = async (req, res) => {
       is_anonymous,
     });
 
-      const payload = newFeedback.get ? newFeedback.get({ plain: true }) : { ...newFeedback };
+    const payload = newFeedback.get
+      ? newFeedback.get({ plain: true })
+      : { ...newFeedback };
 
-      if (payload.is_anonymous) {
-          delete payload.studentId;
-          if (payload.Student) {
-              payload.Student.name = "Anonymous";
-              delete payload.Student.email;
-          }
+    if (payload.is_anonymous) {
+      delete payload.studentId;
+      if (payload.Student) {
+        payload.Student.name = "Anonymous";
+        delete payload.Student.email;
       }
-    await sendFeedbackReceived(is_anonymous, studentId);
-    return handleResponse(
-      res,
-      201,
-      "Feedback submitted successfully",
-      payload,
-    );
+    }
+
+    await enqueue("sendEmail", {
+      jobType: "sendFeedbackReceived",
+      is_anonymous,
+      id: studentId,
+    });
+    return handleResponse(res, 201, "Feedback submitted successfully", payload);
   } catch (error) {
     return handleError(res, 500, "Error sending feedback", error);
   }
@@ -58,12 +61,14 @@ exports.allFeedback = async (req, res) => {
       return handleError(res, 404, "No feedbacks found");
     }
 
-    feedbacks.map((feedback) => feedback.get ? feedback.get({plain: true}) : {...feedback})
+    feedbacks.map((feedback) =>
+      feedback.get ? feedback.get({ plain: true }) : { ...feedback },
+    );
 
     feedbacks.forEach((f) => {
       if (f?.is_anonymous) {
-       delete f.studentId
-        if (f.Student) f.Student.name = 'Anonymous';
+        delete f.studentId;
+        if (f.Student) f.Student.name = "Anonymous";
       }
     });
 
@@ -84,32 +89,37 @@ exports.allFeedback = async (req, res) => {
 };
 
 exports.feedbackById = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const feedbackInstance = await models.Feedback.findByPk(id, {
-            include: [{ model: models.Student, attributes: ["name", "email"] }],
-        });
-        if (!feedbackInstance) {
-            return handleError(res, 404, "Feedback not found");
-        }
-
-        const feedback = feedbackInstance.get
-            ? feedbackInstance.get({ plain: true })
-            : { ...feedbackInstance };
-
-        if (feedback.is_anonymous) {
-            delete feedback.studentId;
-            if (feedback.Student) {
-                feedback.Student.name = "Anonymous";
-                delete feedback.Student.email;
-            }
-        }
-
-        return handleResponse(res, 200, "Feedback retrieved successfully", feedback);
-    } catch (error) {
-        return handleError(res, 500, "Error retrieving feedback", error);
+  try {
+    const { id } = req.params;
+    const feedbackInstance = await models.Feedback.findByPk(id, {
+      include: [{ model: models.Student, attributes: ["name", "email"] }],
+    });
+    if (!feedbackInstance) {
+      return handleError(res, 404, "Feedback not found");
     }
-}
+
+    const feedback = feedbackInstance.get
+      ? feedbackInstance.get({ plain: true })
+      : { ...feedbackInstance };
+
+    if (feedback.is_anonymous) {
+      delete feedback.studentId;
+      if (feedback.Student) {
+        feedback.Student.name = "Anonymous";
+        delete feedback.Student.email;
+      }
+    }
+
+    return handleResponse(
+      res,
+      200,
+      "Feedback retrieved successfully",
+      feedback,
+    );
+  } catch (error) {
+    return handleError(res, 500, "Error retrieving feedback", error);
+  }
+};
 
 exports.deleteFeedback = async (req, res) => {
   try {

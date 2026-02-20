@@ -3,13 +3,10 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const {
-  sendResetLink,
-  sendResetConfirmation,
-} = require("../services/customEmails");
 const crypto = require("node:crypto");
 require("dotenv").config();
 const { Op } = require("sequelize");
+const { enqueue } = require("../services/enqueue");
 
 exports.login = async (req, res) => {
   try {
@@ -95,7 +92,13 @@ exports.forgotPassword = async (req, res) => {
       reset_token: resetToken,
       reset_token_expiration: resetTokenExpiration,
     });
-    await sendResetLink(student.email, resetToken);
+    
+    await enqueue("sendEmail", {
+      jobType: "sendResetLink",
+      email: student?.email,
+      reset_token: resetToken
+    });
+
     return handleResponse(
       res,
       200,
@@ -174,7 +177,12 @@ exports.resetPassword = async (req, res) => {
       verification.destroy(),
     ]);
 
-    await sendResetConfirmation(student?.email, student?.name);
+
+    await enqueue("sendEmail", {
+      jobType: "sendResetConfirmation",
+      to: student?.email,
+      name: student?.name
+    })
 
     return handleResponse(res, 200, "Password has been successfully reset");
   } catch (error) {

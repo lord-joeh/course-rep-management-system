@@ -1,6 +1,7 @@
 const models = require("../config/models");
 const { enqueue } = require("./enqueue");
 require("dotenv").config();
+const { sendNotification } = require("../utils/sendEmail.js");
 
 //Send password reset link
 exports.sendResetLink = async (email, reset_token) => {
@@ -18,11 +19,7 @@ exports.sendResetLink = async (email, reset_token) => {
     </div>`;
 
   try {
-    await enqueue("sendEmail", {
-      to: email,
-      subject: "Password Reset",
-      html: content,
-    });
+    sendNotification(email, "Password Reset", content);
     console.log("Password reset link sent successfully");
   } catch (error) {
     console.log("Error sending password reset link", error);
@@ -42,11 +39,8 @@ exports.sendResetConfirmation = async (email, name) => {
     </div>`;
 
   try {
-    await enqueue("sendEmail", {
-      to: email,
-      subject: "Password Reset Confirmation",
-      html: content,
-    });
+    sendNotification(email, "Password Reset Confirmation", content);
+
     console.log("Password reset confirmation sent successfully");
   } catch (error) {
     console.log("Error sending password reset confirmation", error);
@@ -74,11 +68,11 @@ exports.sendRegistrationSuccessMail = async (name, email, id) => {
         <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
     </div>`;
   try {
-    await enqueue("sendEmail", {
-      to: email,
-      subject: "Welcome to the Course Rep Management System",
-      html: content,
-    });
+    await sendNotification(
+      email,
+      "Welcome to the Course Rep Management System",
+      content,
+    );
     console.log("Registration mail sent successfully");
   } catch (error) {
     console.log("Error sending registration success mail", error);
@@ -103,16 +97,17 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
         <h2 style="color: #007bff;">Feedback Received</h2>
         <p>Dear ${student.name}, </p>
         <p>Thank you for taking the time to share your feedback with us.</p>
-        <p>We’ve successfully received your message, and we truly appreciate your input.</p>
+        <p>We've successfully received your message, and we truly appreciate your input.</p>
         <p>Our team will review your feedback and, if necessary, follow up with you shortly.</p>
         <p>If you have any additional thoughts or questions in the meantime, feel free to reach out.</p>
         <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
     </div>`;
-    await enqueue("sendEmail", {
-      to: student.email,
-      subject: "We’ve Received Your Feedback  Thank You!",
-      html: content,
-    });
+
+    await sendNotification(
+      student?.email,
+      "We've Received Your Feedback  Thank You!",
+      content,
+    );
     console.log("Feedback received mail sent successfully");
   } catch (error) {
     console.log("Error sending feedback received mail", error);
@@ -130,7 +125,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
           where: { id: student.id },
           attributes: ["id", "name", "email"],
         });
-      })
+      }),
     );
 
     const students = studentsResolved.filter((s) => s?.email);
@@ -152,7 +147,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
           s.id === leader.id ? "Leader" : "Member"
         }</td>
       </tr>
-    `
+    `,
       )
       .join("");
 
@@ -191,15 +186,15 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
           await sendNotification(
             student?.email,
             `Your Group Assignment: ${groupName}`,
-            html
+            html,
           );
         } catch (error) {
           console.error(
             `Failed to send email to student ${student.id}:`,
-            error
+            error,
           );
         }
-      })
+      }),
     );
     console.log(`Group assignment emails sent for ${groupName}`);
   } catch (err) {
@@ -220,14 +215,10 @@ exports.sendMessageToStudent = async (email, message) => {
    </div>
   `;
   try {
-    await enqueue("sendEmail", {
-      to: email,
-      subject: "Urgent!!",
-      html: customEmail,
-    });
-    console.log(`Message sent to ${email} wait for confirmation`);
+    await sendNotification(email, "Message From Course Rep", customEmail);
+    console.log(`Message sent to ${email}`);
   } catch (error) {
-    console.error(error)
+    console.error(error);
     throw error;
   }
 };

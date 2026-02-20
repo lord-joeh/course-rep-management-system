@@ -14,11 +14,11 @@ async function initializeWorker() {
     });
 
     generalWorker.on("completed", (job) =>
-      console.log(`Job ${job.id} completed`)
+      console.log(`Job ${job.id} completed`),
     );
 
     generalWorker.on("failed", (job, err) =>
-      console.error(`Job ${job.id} failed:`, err)
+      console.error(`Job ${job.id} failed:`, err),
     );
 
     console.log("Queue processing worker started.");
@@ -37,4 +37,6 @@ async function initializeWorker() {
   }
 }
 
-await initializeWorker();
+initializeWorker().catch(error => {
+  console.error(error)
+});

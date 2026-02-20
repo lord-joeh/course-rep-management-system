@@ -4,6 +4,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { client } = require("../config/redis");
 const { sendRegistrationSuccessMail } = require("../services/customEmails");
+const { enqueue } = require("../services/enqueue");
 let redisKey = `students-page=${1}-limit=${10}`;
 
 exports.registerStudent = async (req, res) => {
@@ -13,7 +14,7 @@ exports.registerStudent = async (req, res) => {
       return handleError(
         res,
         400,
-        "Student Id, name, email, phone, and password are required"
+        "Student Id, name, email, phone, and password are required",
       );
     }
 
@@ -21,7 +22,7 @@ exports.registerStudent = async (req, res) => {
       return handleError(res, 400, "Not allowed to be a Rep");
     }
 
-    const existingStudent = await models.Student.findOne({ where: { id } });
+    const existingStudent = await models.Student.findOne({ where: { id }  });
     if (existingStudent) {
       return handleError(res, 409, "Student already exist");
     }
@@ -35,21 +36,22 @@ exports.registerStudent = async (req, res) => {
       isRep: false,
     });
 
-    await sendRegistrationSuccessMail(
-      newStudent.name,
-      newStudent.email,
-      newStudent.id
-    );
+    await enqueue("sendEmail", {
+      jobType: "sendRegistrationSuccessMail",
+      name: newStudent.name,
+      to: newStudent.email,
+      id: newStudent.id,
+    });
 
     await client.del(redisKey);
 
     delete newStudent.password_hash;
-    
+
     return handleResponse(
       res,
       201,
       "Student registered successfully",
-      newStudent
+      newStudent,
     );
   } catch (error) {
     return handleError(res, 500, "Error registering student", error);
@@ -70,7 +72,7 @@ exports.getAllStudent = async (req, res) => {
         res,
         200,
         "Students retrieved successfully",
-        JSON.parse(cachedStudents)
+        JSON.parse(cachedStudents),
       );
     }
 
@@ -105,7 +107,7 @@ exports.getAllStudent = async (req, res) => {
         },
       }),
       "EX",
-      3600
+      3600,
     );
 
     return handleResponse(res, 200, "Students retrieved successfully", {
@@ -158,7 +160,7 @@ exports.updateStudent = async (req, res) => {
     const { name, email, phone, isRep, status } = req.body;
     const [updated] = await models.Student.update(
       { name, email, phone, isRep, status },
-      { where: { id }, returning: true }
+      { where: { id }, returning: true },
     );
     if (!updated) {
       return handleError(res, 404, "Student not found for update");
@@ -172,7 +174,7 @@ exports.updateStudent = async (req, res) => {
       res,
       200,
       "Your profile has been updated successfully",
-      updatedStudent
+      updatedStudent,
     );
   } catch (error) {
     return handleError(res, 500, "Error updating student", error);
