@@ -1,5 +1,4 @@
 const models = require("../config/models");
-const { enqueue } = require("./enqueue");
 require("dotenv").config();
 const { sendNotification } = require("../utils/sendEmail.js");
 
@@ -117,8 +116,6 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
 //Send group assignment mail
 exports.sendGroupAssignmentEmail = async (groupName, group) => {
   try {
-    const { sendNotification } = require("../utils/sendEmail");
-
     const studentsResolved = await Promise.all(
       group.map(async (student) => {
         return await models.Student.findOne({

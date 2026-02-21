@@ -229,7 +229,7 @@ exports.sendNotificationToStudent = async (req, res) => {
           email: student?.email,
           message,
         });
-        
+
         handleResponse(res, 200, "Message queued for sending");
 
         break;
@@ -242,6 +242,8 @@ exports.sendNotificationToStudent = async (req, res) => {
         });
         handleResponse(res, 200, "Message queued for sending");
         break;
+      default:
+        handleError(res, 400, "Type of message not supported");
     }
   } catch (error) {
     handleError(res, 500, "Error sending message", error);
