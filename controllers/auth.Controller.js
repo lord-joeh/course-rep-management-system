@@ -13,19 +13,19 @@ exports.login = async (req, res) => {
     const { studentId, password } = req.body;
 
     if (!studentId || !password) {
-      handleError(res, 409, "Student ID and Password are required");
+     return handleError(res, 409, "Student ID and Password are required");
     }
 
     const student = await models.Student.findByPk(studentId);
 
     if (!student) {
-      handleError(res, 404, "Student does not exist");
+     return handleError(res, 404, "Student does not exist");
     }
 
-    const isMatch = await bcrypt.compare(password, student.password_hash);
+    const isMatch = await bcrypt.compare(password, student?.password_hash);
 
     if (!isMatch) {
-      handleError(res, 400, "Invalid credentials");
+     return handleError(res, 400, "Invalid credentials");
     }
 
     student.password_hash = undefined;
@@ -57,14 +57,14 @@ exports.login = async (req, res) => {
       path: "/api/auth/refresh",
     });
 
-    res.status(200).json({
+   return res.status(200).json({
       success: true,
       message: "Login successful",
       token: accessToken,
       data: student,
     });
   } catch (error) {
-    handleError(res, 500, "Error logging in", error);
+   return handleError(res, 500, "Error logging in", error);
   }
 };
 
