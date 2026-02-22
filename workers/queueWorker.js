@@ -1,8 +1,7 @@
-const path = require("node:path");
-require("dotenv").config({ path: path.resolve(__dirname, "../.env") });
+require("dotenv").config();
 const { Worker } = require("bullmq");
 const { redisConfig } = require("../config/redis");
-const processQueue = require("../jobs/queueProcesser");
+const processQueue = require("../jobs/queueProcessor");
 const { emitWorkerEvent } = require("../utils/emitWorkerEvent");
 const logger = require("../config/logger");
 
@@ -13,13 +12,17 @@ async function initializeWorker() {
       concurrency: 5,
     });
 
-    generalWorker.on("completed", (job) =>
-      console.log(`Job ${job.id} completed`),
-    );
+    generalWorker.on("completed", (job) => {
+      logger.info(`Job Name: ${job?.name} Job ID: ${job?.id} (completed)`);
+    });
 
-    generalWorker.on("failed", (job, err) =>
-      console.error(`Job ${job.id} failed:`, err),
-    );
+    generalWorker.on("failed", (job, err) => {
+      logger.error({
+        error: err.message,
+        stack: err.stack,
+        statusCode: err.statusCode,
+      });
+    });
 
     console.log("Queue processing worker started.");
 
@@ -37,6 +40,6 @@ async function initializeWorker() {
   }
 }
 
-initializeWorker().catch(error => {
-  console.error(error)
+initializeWorker().catch((error) => {
+  console.error(error);
 });
