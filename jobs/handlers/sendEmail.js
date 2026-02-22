@@ -50,6 +50,12 @@ async function sendEmail(job) {
           job?.data?.message,
         );
         break;
+      case "sendChangeConfirmation":
+        await customEmails.sendChangeConfirmation(
+          job?.data?.email,
+          job?.data?.name,
+        );
+        break;
       default:
         break;
     }

@@ -13,19 +13,19 @@ exports.login = async (req, res) => {
     const { studentId, password } = req.body;
 
     if (!studentId || !password) {
-      return handleError(res, 409, "Student ID and Password are required");
+      handleError(res, 409, "Student ID and Password are required");
     }
 
     const student = await models.Student.findByPk(studentId);
 
     if (!student) {
-      return handleError(res, 404, "Student does not exist");
+      handleError(res, 404, "Student does not exist");
     }
 
     const isMatch = await bcrypt.compare(password, student.password_hash);
 
     if (!isMatch) {
-      return handleError(res, 400, "Invalid credentials");
+      handleError(res, 400, "Invalid credentials");
     }
 
     student.password_hash = undefined;
@@ -41,10 +41,9 @@ exports.login = async (req, res) => {
     );
 
     const refreshTokenValue = crypto.randomBytes(64).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    await models.RefreshToken.destroy({ where: { student_id: student.id } });
-    await models.RefreshToken.create({
+    await models.RefreshToken.upsert({
       student_id: student.id,
       token: refreshTokenValue,
       expires_at: expiresAt,
@@ -58,14 +57,14 @@ exports.login = async (req, res) => {
       path: "/api/auth/refresh",
     });
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Login successful",
       token: accessToken,
       data: student,
     });
   } catch (error) {
-    return handleError(res, 500, "Error logging in", error);
+    handleError(res, 500, "Error logging in", error);
   }
 };
 
@@ -92,11 +91,11 @@ exports.forgotPassword = async (req, res) => {
       reset_token: resetToken,
       reset_token_expiration: resetTokenExpiration,
     });
-    
+
     await enqueue("sendEmail", {
       jobType: "sendResetLink",
       email: student?.email,
-      reset_token: resetToken
+      reset_token: resetToken,
     });
 
     return handleResponse(
@@ -177,12 +176,11 @@ exports.resetPassword = async (req, res) => {
       verification.destroy(),
     ]);
 
-
     await enqueue("sendEmail", {
       jobType: "sendResetConfirmation",
       to: student?.email,
-      name: student?.name
-    })
+      name: student?.name,
+    });
 
     return handleResponse(res, 200, "Password has been successfully reset");
   } catch (error) {
@@ -197,14 +195,16 @@ exports.resetPassword = async (req, res) => {
 
 exports.changePassword = async (req, res) => {
   try {
-    const { student_id } = req.query;
-    const { currentPassword, newPassword } = req.body;
+    const { currentPassword, newPassword, student_id } = req.body;
 
     if (!currentPassword || !newPassword) {
       return handleError(res, 409, "Current and new password required");
     }
 
-    const student = await models.Student.findOne({ where: { student_id } });
+    const { dataValues: student } = await models.Student.findOne({
+      where: { id: student_id },
+      attributes: ["id", "password_hash", "email", "name"],
+    });
     if (!student) {
       return handleError(
         res,
@@ -225,9 +225,13 @@ exports.changePassword = async (req, res) => {
 
     await models.Student.update(
       { password_hash: hashedPassword },
-      { where: { student_id } },
+      { where: { id: student_id } },
     );
-
+    await enqueue("sendEmail", {
+      jobType: "sendChangeConfirmation",
+      email: student?.email,
+      name: student?.name,
+    });
     return handleResponse(res, 200, "Password successfully changed");
   } catch (error) {
     return handleError(res, 500, "Error changing password", error);

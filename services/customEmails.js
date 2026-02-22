@@ -2,6 +2,8 @@ const models = require("../config/models");
 require("dotenv").config();
 const { sendNotification } = require("../utils/sendEmail.js");
 
+const emailHTMLFooter = `<p>Best regards,<br/><strong>Course Rep Management Team</strong><br/> <small><a href="mensah.dev-joseph.me">Software Developed by Joseph Mensah</a></small> </p>`;
+
 //Send password reset link
 exports.sendResetLink = async (email, reset_token) => {
   const content = `
@@ -14,11 +16,11 @@ exports.sendResetLink = async (email, reset_token) => {
          padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff; text-decoration: none;
           border-radius: 5px;">Reset Password</a>
         <p>If you didn't request for a password reset ignore this message</p>
-        <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+        ${emailHTMLFooter}
     </div>`;
 
   try {
-    sendNotification(email, "Password Reset", content);
+    await sendNotification(email, "Password Reset", content);
     console.log("Password reset link sent successfully");
   } catch (error) {
     console.log("Error sending password reset link", error);
@@ -33,14 +35,33 @@ exports.sendResetConfirmation = async (email, name) => {
         <h2 style="color: #007bff;">Password Reset Successful </h2>
         <p>Dear ${name},</p>
         <p>You have successfully reset your password</p>
-        
-        <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+        ${emailHTMLFooter}
     </div>`;
 
   try {
-    sendNotification(email, "Password Reset Confirmation", content);
+    await sendNotification(email, "Password Reset Confirmation", content);
 
     console.log("Password reset confirmation sent successfully");
+  } catch (error) {
+    console.log("Error sending password reset confirmation", error);
+  }
+};
+
+//Send password change confirmation
+exports.sendChangeConfirmation = async (email, name) => {
+  const content = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px;
+         margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; color: #000000">
+        <h2 style="color: #007bff;">Password Change Successful </h2>
+        <p>Dear ${name},</p>
+        <p>Your password has been changed successfully</p>
+        ${emailHTMLFooter}
+    </div>`;
+
+  try {
+    await sendNotification(email, "Password Change Confirmation", content);
+
+    console.log("Password change confirmation sent successfully");
   } catch (error) {
     console.log("Error sending password reset confirmation", error);
   }
@@ -64,7 +85,7 @@ exports.sendRegistrationSuccessMail = async (name, email, id) => {
          padding: 10px 20px; font-size: 16px; color: #fff; background-color: #007bff;
           text-decoration: none;
           border-radius: 5px;">Click here to login</a>
-        <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+        ${emailHTMLFooter}
     </div>`;
   try {
     await sendNotification(
@@ -99,7 +120,7 @@ exports.sendFeedbackReceived = async (is_anonymous, id) => {
         <p>We've successfully received your message, and we truly appreciate your input.</p>
         <p>Our team will review your feedback and, if necessary, follow up with you shortly.</p>
         <p>If you have any additional thoughts or questions in the meantime, feel free to reach out.</p>
-        <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+        ${emailHTMLFooter}
     </div>`;
 
     await sendNotification(
@@ -175,7 +196,7 @@ exports.sendGroupAssignmentEmail = async (groupName, group) => {
               </table>
 
               <p>Please reach out to your group members and prepare for upcoming tasks.</p>
-              <p>Best regards,<br/><strong>Course Rep Management Team</strong></p>
+              ${emailHTMLFooter}
             </div>
           `;
 

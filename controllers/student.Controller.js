@@ -3,7 +3,6 @@ const bcrypt = require("bcrypt");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { client } = require("../config/redis");
-const { sendRegistrationSuccessMail } = require("../services/customEmails");
 const { enqueue } = require("../services/enqueue");
 let redisKey = `students-page=${1}-limit=${10}`;
 
