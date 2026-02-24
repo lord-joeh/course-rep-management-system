@@ -21,7 +21,7 @@ exports.registerStudent = async (req, res) => {
       return handleError(res, 400, "Not allowed to be a Rep");
     }
 
-    const existingStudent = await models.Student.findOne({ where: { id }  });
+    const existingStudent = await models.Student.findOne({ where: { id } });
     if (existingStudent) {
       return handleError(res, 409, "Student already exist");
     }
@@ -59,10 +59,11 @@ exports.registerStudent = async (req, res) => {
 
 exports.getAllStudent = async (req, res) => {
   try {
+    const student_id = req.query.student_id || "";
     const page = Number.parseInt(req.query.page, 10) || 1;
     const limit = Number.parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
-    redisKey = `students-page=${page}-limit=${limit}`;
+    redisKey = `students-page=${page}-limit=${limit}-id=${student_id}`;
 
     const cachedStudents = await client.get(redisKey);
     if (cachedStudents) {
@@ -74,8 +75,11 @@ exports.getAllStudent = async (req, res) => {
         JSON.parse(cachedStudents),
       );
     }
+    let where = {};
+    if (student_id) where.id = student_id;
 
     const result = await models.Student.findAndCountAll({
+      where,
       order: [["name", "ASC"]],
       limit: limit,
       offset: offset,
