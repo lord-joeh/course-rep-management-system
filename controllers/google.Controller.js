@@ -27,7 +27,9 @@ exports.googleAuth = async (req, res) => {
       prompt: "consent",
     });
 
-    res.redirect(authUrl);
+    return res.status(201).json({
+      authUrl
+    });
   } catch (error) {
     console.error(error);
   }
@@ -55,7 +57,7 @@ exports.googleCallback = async (req, res) => {
       expiry_date: tokens.expiry_date
     });
 
-    res.send("✅ Google account connected. You can now close this tab.");
+   return res.send("✅ Google account connected. You can now close this tab.");
   } catch (error) {
     console.error(error);
     return handleError(res, 500, "Error connecting google account", error);

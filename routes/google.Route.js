@@ -11,16 +11,10 @@ const {
   uploadToFolder,
   deleteFile,
 } = require("../controllers/google.Controller");
-const { authenticate } = require("../middleware/auth.Middleware");
-
-// Route for google auth
-router.get("/", googleAuth);
+const { authenticate, authorize } = require("../middleware/auth.Middleware");
 
 // Route for google auth callback
 router.get("/callback", googleCallback);
-
-// Route to revoke google access
-router.post("/revoke", revokeGoogleAccess);
 
 router.use(authenticate);
 
@@ -38,5 +32,12 @@ router.post("/file", upload.single("file"), uploadToFolder);
 
 // Route to delete file
 router.delete("/:fileId/delete", deleteFile);
+
+router.use(authorize);
+// Route for google auth
+router.get("/", googleAuth);
+
+// Route to revoke google access
+router.post("/revoke", revokeGoogleAccess);
 
 module.exports = router;
