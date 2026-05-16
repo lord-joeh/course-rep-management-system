@@ -9,12 +9,16 @@ const {
   sendNotificationToStudent,
   markAllAsRead,
   markAsRead,
+  pushNotification,
 } = require("../controllers/notification.Controller");
 const { authenticate, authorize } = require("../middleware/auth.Middleware");
 router.use(authenticate);
 
 //Route to add a notification
 router.post("/", authorize, addNotification);
+
+// Route to receive fmc tokens
+router.post("/push", pushNotification)
 
 //Route to get all notifications
 router.get("/", allNotification);

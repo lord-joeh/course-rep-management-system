@@ -3,6 +3,7 @@ const { generatedId } = require("../services/customServices");
 const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const { enqueue } = require("../services/enqueue");
+const deleteFile = require("../googleServices/deleteFile");
 
 exports.addAssignment = async (req, res) => {
   try {
@@ -12,7 +13,7 @@ exports.addAssignment = async (req, res) => {
       return handleError(
         res,
         400,
-        "Title, description, course ID and deadline are required"
+        "Title, description, course ID and deadline are required",
       );
     }
     const id = await generatedId("ASS");
@@ -22,7 +23,7 @@ exports.addAssignment = async (req, res) => {
       return handleError(
         res,
         404,
-        "Course with provided courseId does not exist"
+        "Course with provided courseId does not exist",
       );
     }
 
@@ -134,26 +135,31 @@ exports.updateAssignment = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, deadline } = req.body;
+
     if (!title || !description || !deadline) {
       return handleError(
         res,
         400,
-        "Title, description, and deadline are required"
+        "Title, description, and deadline are required",
       );
     }
+
     const [updated] = await models.Assignment.update(
       { title, description, deadline: deadline },
-      { where: { id }, returning: true }
+      { where: { id }, returning: true },
     );
+
     if (!updated) {
       return handleError(res, 404, "Assignment not found for update");
     }
+
     const updatedAssignment = await models.Assignment.findByPk(id);
+
     return handleResponse(
       res,
       200,
       "Assignment updated successfully",
-      updatedAssignment
+      updatedAssignment,
     );
   } catch (error) {
     return handleError(res, 500, "Error updating assignment", error);
@@ -166,6 +172,7 @@ exports.deleteAssignment = async (req, res) => {
 
     const submissions = await models.AssignmentSubmission.findAll({
       where: { assignmentId: id },
+      include: [{ attributes: ["fileId"] }],
     });
 
     const fileIdsToDelete = submissions.map((s) => s.fileId).filter(Boolean);
@@ -176,7 +183,17 @@ exports.deleteAssignment = async (req, res) => {
 
     await models.AssignmentSubmission.destroy({ where: { assignmentId: id } });
 
+    const assignmentFolder = await models.Assignment.findOne({
+      where: { id },
+      include: [{ attributes: ["submissionFolderID"] }],
+    });
+
+    if (assignmentFolder) {
+      await deleteFile(assignmentFolder?.submissionFolderID);
+    }
+
     const deleted = await models.Assignment.destroy({ where: { id } });
+
     if (!deleted) {
       return handleError(res, 404, "Assignment not found for deletion");
     }
@@ -184,7 +201,7 @@ exports.deleteAssignment = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Assignment and all submissions deleted successfully"
+      "Assignment and all submissions deleted successfully",
     );
   } catch (error) {
     return handleError(res, 500, "Error deleting assignment", error);
@@ -223,7 +240,7 @@ exports.uploadAssignment = async (req, res) => {
       res,
       202,
       "Your Assignment submission has been queued",
-      { file: req.file.originalname }
+      { file: req.file.originalname },
     );
   } catch (error) {
     handleError(res, 500, "Error uploading assignment", error);
@@ -283,11 +300,7 @@ exports.deleteSubmittedAssignment = async (req, res) => {
     const { submissionId } = req.params;
 
     if (!studentId || !submissionId || !assignmentId || !submittedAt) {
-      return handleError(
-        res,
-        400,
-        "Student ID, Submission ID, Assignment ID, and Submitted At are required"
-      );
+      return handleError(res, 400, "All fields are required");
     }
 
     // Verify assignment exists
@@ -309,15 +322,15 @@ exports.deleteSubmittedAssignment = async (req, res) => {
         studentId,
         submittedAt: new Date(submittedAt),
       },
+      include: [{ attributes: ["fileId"] }],
     });
     if (!submission) {
       return handleError(
         res,
         404,
-        "Submission not found or details do not match"
+        "Submission not found",
       );
     }
-
 
     if (submission.fileId) {
       await enqueue("deleteFiles", { fileIds: [submission.fileId] });
@@ -328,7 +341,7 @@ exports.deleteSubmittedAssignment = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Submitted assignment deleted successfully"
+      "Submitted assignment deleted successfully",
     );
   } catch (error) {
     return handleError(res, 500, "Error deleting submitted assignment", error);

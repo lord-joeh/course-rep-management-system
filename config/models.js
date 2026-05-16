@@ -22,6 +22,7 @@ const RefreshToken = require("../models/RefreshToken")(sequelize);
 const AssignmentSubmission = require("../models/AssignmentSubmission")(
   sequelize
 );
+const FcmToken = require("../models/FcmToken")(sequelize)
 
 const models = {
   Student,
@@ -44,6 +45,7 @@ const models = {
   Slides,
   RefreshToken,
   AssignmentSubmission,
+  FcmToken
 };
 
 Object.values(models).forEach((model) => {

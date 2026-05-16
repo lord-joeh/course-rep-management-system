@@ -1,9 +1,13 @@
 services:
   api:
+    build:
+      context: .
+      target: dev-deps
+    command: ["pnpm", "dev"]
     restart: always
-    build: .
     env_file: .env
-    command: ["pnpm", "start"]
+    environment:
+      - NODE_ENV=development
     ports:
       - 3000:${PORT}
     depends_on:
@@ -12,20 +16,27 @@ services:
       postgres:
         condition: service_healthy
     volumes:
+      - .:/app
+      - /app/node_modules
       - ./logs:/app/logs
 
   worker:
-    build: .
-    env_file:
-      - .env
+    build:
+      context: .
+      target: dev-deps
+    command: ["pnpm", "dev:worker"]
     restart: always
-    command: ["pnpm", "start:worker"]
+    env_file: .env
+    environment:
+      - NODE_ENV=development
     depends_on:
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
     volumes:
+      - .:/app
+      - /app/node_modules
       - ./logs:/app/logs
 
   redis:

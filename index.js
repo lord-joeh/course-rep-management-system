@@ -23,6 +23,9 @@ httpServer.listen(PORT, (error) => {
       await sequelize.authenticate();
       console.log("Database connection has been established successfully.");
 
+      await sequelize.sync({ alter: true });
+      console.log("DB synced successfully");
+
       await authorize();
       console.log("Google Drive Connected successfully");
 

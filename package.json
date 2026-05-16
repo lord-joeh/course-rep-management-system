@@ -3,14 +3,10 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "start:worker": "node workers/queueWorker.js",
     "dev": "nodemon index.js",
-    "start": "pm2 start ecosystem.config.js",
-    "stop": "pm2 stop ecosystem.config.js",
-    "restart": "pm2 restart ecosystem.config.js",
-    "reload": "pm2 reload ecosystem.config.js",
-    "delete": "pm2 delete ecosystem.config.js",
-    "logs": "pm2 logs",
-    "status": "pm2 status"
+    "dev:worker": "nodemon workers/queueWorker.js"
   },
   "keywords": [],
   "author": "Joseph Mensah",
@@ -28,6 +24,7 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
+    "firebase-admin": "^13.8.0",
     "geolib": "^3.3.4",
     "googleapis": "^160.0.0",
     "helmet": "^8.1.0",

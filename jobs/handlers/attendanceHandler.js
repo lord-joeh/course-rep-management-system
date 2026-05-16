@@ -7,6 +7,7 @@ const { getDistance } = require("geolib");
 const sequelize = require("../../config/db");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const { UnrecoverableError } = require("bullmq");
+const { enqueue } = require("../../services/enqueue");
 
 exports.processAttendanceCreation = async (job) => {
   const { courseId, date, classType, latitude, longitude, socketId } = job.data;
@@ -25,11 +26,11 @@ exports.processAttendanceCreation = async (job) => {
     const qrToken = jwt.sign(
       { courseId, instanceId, classType, latitude, longitude },
       process.env.JWT_SECRET,
-      { expiresIn: "1hr" }
+      { expiresIn: "1hr" },
     );
 
     const qrImage = await generateQR(
-      `${process.env.FRONTEND_URL}/mark?instanceId=${instanceId}&token=${qrToken}`
+      `${process.env.FRONTEND_URL}/mark?instanceId=${instanceId}&token=${qrToken}`,
     );
 
     const students = await models.CourseStudent.findAll({
@@ -46,7 +47,7 @@ exports.processAttendanceCreation = async (job) => {
         date,
         studentId: cs.studentId || cs["Student.id"],
         status: "absent",
-      }))
+      })),
     );
 
     await sequelize.transaction(async (transaction) => {
@@ -62,7 +63,7 @@ exports.processAttendanceCreation = async (job) => {
           longitude: longitude || 0,
           class_type: classType,
         },
-        { transaction }
+        { transaction },
       );
 
       await models.Attendance.bulkCreate(attendanceRecords, {
@@ -74,6 +75,14 @@ exports.processAttendanceCreation = async (job) => {
       jobType: "processAttendanceCreation",
       message: "Attendance session is live!",
       socketId,
+    });
+    
+    await enqueue("sendPushNotification", {
+      jobType: "pushNotificationToUsers",
+      message: {
+        title: "Attendance session is live",
+        body: "Login to mark your attendance now",
+      },
     });
   } catch (error) {
     await emitWorkerEvent("jobFailed", {
@@ -105,7 +114,7 @@ exports.processAttendanceMarking = async (job) => {
 
       const distance = getDistance(
         { latitude: instance.latitude, longitude: instance.longitude },
-        { latitude, longitude }
+        { latitude, longitude },
       );
 
       if (distance > 50) {
@@ -137,7 +146,7 @@ exports.processAttendanceMarking = async (job) => {
             status: "absent",
           },
           transaction,
-        }
+        },
       );
 
       if (updatedRows === 0) {
@@ -158,7 +167,7 @@ exports.processAttendanceMarking = async (job) => {
             studentId,
             status: "present",
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -170,7 +179,7 @@ exports.processAttendanceMarking = async (job) => {
           location_valid: locationValid,
           details: locationMessage,
         },
-        { transaction }
+        { transaction },
       );
     });
 

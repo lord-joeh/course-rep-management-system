@@ -3,7 +3,7 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const { client } = require("../config/redis");
-let redisKey = `attendance-instance-page=${1}-limit=${5}`;
+let redisKey = `attendance-instance-page=${1}`;
 const { enqueue } = require("../services/enqueue");
 
 exports.attendanceInstance = async (req, res) => {
@@ -14,23 +14,19 @@ exports.attendanceInstance = async (req, res) => {
       return handleError(
         res,
         409,
-        "Course ID, date, and class type are required"
+        "Course ID, date, and class type are required",
       );
     }
 
     if (!["in-person", "online"].includes(classType)) {
-      return handleError(
-        res,
-        400,
-        'Invalid class type. Must be "in-person" or "online"'
-      );
+      return handleError(res, 400, "Invalid class type");
     }
 
     if (classType === "in-person" && (!latitude || !longitude)) {
       return handleError(
         res,
         400,
-        "Location coordinates are required for in-person classes"
+        "Location coordinates are required for in-person classes",
       );
     }
 
@@ -79,15 +75,15 @@ exports.allAttendanceInstance = async (req, res) => {
   try {
     const { page = 1, limit = 5, courseId, date, classType } = req.query;
     const offset = (page - 1) * limit;
-    redisKey = `attendance-instance-page=${page}-limit=${limit}`;
+    redisKey = `attendance-instance-page=${page}`;
 
     const cachedInstance = await client.get(redisKey);
-    if (cachedInstance) {
+    if (cachedInstance > 1) {
       return handleResponse(
         res,
         200,
         "Instances successfully retrieved",
-        JSON.parse(cachedInstance)
+        JSON.parse(cachedInstance),
       );
     }
 
@@ -128,7 +124,7 @@ exports.allAttendanceInstance = async (req, res) => {
         },
       }),
       "EX",
-      3600
+      3600,
     );
 
     return handleResponse(res, 200, "Instances successfully retrieved", {
@@ -145,7 +141,7 @@ exports.allAttendanceInstance = async (req, res) => {
       res,
       500,
       "Error retrieving attendance instances",
-      error
+      error,
     );
   }
 };
@@ -167,7 +163,7 @@ exports.deleteInstance = async (req, res) => {
     return handleResponse(
       res,
       200,
-      "Instance and all related attendance deleted successfully"
+      "Instance and all related attendance deleted successfully",
     );
   } catch (error) {
     return handleError(res, 500, "Error deleting attendance instance", error);
@@ -299,7 +295,7 @@ exports.autoAttendanceMark = async (req, res) => {
     return handleResponse(
       res,
       200,
-      `Attendance queued successfully for marking. `
+      `Attendance queued successfully for marking. `,
     );
   } catch (error) {
     if (error.name === "TokenExpiredError") {

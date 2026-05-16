@@ -33,7 +33,7 @@ const upload = multer({
       callback(null, uniqueSuffix + "-" + file.originalname);
     },
   }),
-  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB max file size
+  // limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max file size
 
   fileFilter: (_req, file, callback) => {
     if (ALLOWED_MIME_TYPES.has(file.mimetype)) {

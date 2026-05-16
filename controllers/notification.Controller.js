@@ -4,6 +4,7 @@ const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { enqueue } = require("../services/enqueue");
 const { getEmitter } = require("../middleware/socketIO");
+const { where } = require("sequelize");
 
 exports.addNotification = async (req, res) => {
   try {
@@ -24,6 +25,14 @@ exports.addNotification = async (req, res) => {
     } catch (socketError) {
       console.error("Failed to emit notification event:", socketError);
     }
+
+    await enqueue("sendPushNotification", {
+      jobType: "pushNotificationToUsers",
+      message: {
+        title: "New Notification",
+        body: "A new announcement has been posted",
+      },
+    });
 
     return handleResponse(
       res,
@@ -247,5 +256,50 @@ exports.sendNotificationToStudent = async (req, res) => {
     }
   } catch (error) {
     handleError(res, 500, "Error sending message", error);
+  }
+};
+
+exports.pushNotification = async (req, res) => {
+  const { studentId, fcmToken } = req.body;
+
+  try {
+    if (!studentId || !fcmToken) {
+      return handleError(res, 400, "All fields are required");
+    }
+
+    const existingToken = await models.FcmToken.findOne({
+      where: {
+        token: fcmToken,
+        student_id: studentId,
+      },
+    });
+
+    if (existingToken && new Date() < new Date(existingToken?.expires_at)) {
+      return handleResponse(res, 200, "You are already subscribed");
+    }
+
+    if (new Date() > new Date(existingToken?.expires_at)) {
+      await models.FcmToken.destroy({
+        where: {
+          token: fcmToken,
+          student_id: studentId,
+        },
+      });
+    }
+
+    const fcmTokenExpiration = new Date();
+    fcmTokenExpiration.setDate(fcmTokenExpiration.getDate() + 30);
+
+    const newToken = await models.FcmToken.create({
+      student_id: studentId,
+      token: fcmToken,
+      expires_at: fcmTokenExpiration,
+    });
+
+    console.log("New Token Sub", newToken);
+
+    return handleResponse(res, 200, "You have subscribe to receive messages");
+  } catch (error) {
+    return handleError(res, 500, "Error subscribing messages", error);
   }
 };

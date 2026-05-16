@@ -309,7 +309,7 @@ exports.logout = async (req, res) => {
     });
     return res
       .status(200)
-      .json({ success: true, message: "Logged out successfully" });
+      .json({ success: true, message: "Logged out successful" });
   } catch (error) {
     return handleError(res, 500, "Error logging out", error);
   }
