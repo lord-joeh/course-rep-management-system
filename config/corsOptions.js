@@ -1,7 +1,7 @@
 const whitelist = [
   process.env.FRONTEND_URL,
   process.env.NGINX_SERVER,
-  process.env.OUTRAY_HOST,
+  process.env.DEV_TUNNELS,
 ];
 
 if (process.env.NODE_ENV !== "production") {

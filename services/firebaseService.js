@@ -4,10 +4,6 @@ const logger = require("../config/logger");
 class firebaseService {
   static buildMessageData(message) {
     return {
-      notification: {
-        title: message?.title,
-        body: message?.body,
-      },
       data: {
         title: message?.title,
         body: message?.body,
@@ -19,7 +15,7 @@ class firebaseService {
           icon: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS80xmNVFjYoCoYnfOgqjMtVV6S8kCqK-SruA&s",
         },
         fcm_options: {
-          link: "/",
+          link: process.env.FRONTEND_URL,
         },
       },
     };
@@ -34,11 +30,11 @@ class firebaseService {
       logger.info(messageResponse);
       return messageResponse;
     } catch (error) {
-       logger.error({
-            error: error.message,
-            stack: error.stack,
-            statusCode: statusCode,
-          });
+      logger.error({
+        error: error.message,
+        stack: error.stack,
+        statusCode: statusCode,
+      });
       throw new Error(error);
     }
   }
@@ -62,11 +58,10 @@ class firebaseService {
 
       return messageResponse;
     } catch (error) {
-       logger.error({
-            error: error.message,
-            stack: error.stack,
-            statusCode: statusCode,
-          });
+      logger.error({
+        error: error.message,
+        stack: error.stack,
+      });
       throw new Error(error);
     }
   }

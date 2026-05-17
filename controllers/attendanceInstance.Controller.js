@@ -3,8 +3,9 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const jwt = require("jsonwebtoken");
 const { client } = require("../config/redis");
-let redisKey = `attendance-instance-page=${1}`;
 const { enqueue } = require("../services/enqueue");
+const scanAndInvalidateRedisKeys = require("../utils/scanAndInvalidateRedisKeys");
+const pattern = "attendance-instances:*";
 
 exports.attendanceInstance = async (req, res) => {
   try {
@@ -37,7 +38,11 @@ exports.attendanceInstance = async (req, res) => {
       socketId,
     });
 
-    await client.del(redisKey);
+    scanAndInvalidateRedisKeys(pattern)
+      .then(() => console.log(`Successfully cleared keys for ${pattern}`))
+      .catch((err) =>
+        console.error(`Failed to clear keys for ${pattern}:`, err),
+      );
     res.status(200).json({
       success: true,
       message: "Attendance initialization queued",
@@ -64,7 +69,12 @@ exports.closeAttendance = async (req, res) => {
     instance.qr_token = "";
     await instance.save();
 
-    await client.del(redisKey);
+    scanAndInvalidateRedisKeys(pattern)
+      .then(() => console.log(`Successfully cleared keys for ${pattern}`))
+      .catch((err) =>
+        console.error(`Failed to clear keys for ${pattern}:`, err),
+      );
+
     return handleResponse(res, 200, "Attendance successfully closed");
   } catch (error) {
     return handleError(res, 500, "Error closing attendance", error);
@@ -75,10 +85,12 @@ exports.allAttendanceInstance = async (req, res) => {
   try {
     const { page = 1, limit = 5, courseId, date, classType } = req.query;
     const offset = (page - 1) * limit;
-    redisKey = `attendance-instance-page=${page}`;
 
-    const cachedInstance = await client.get(redisKey);
-    if (cachedInstance > 1) {
+    const filterKey = `${courseId || "all"}-${date || "all"}-${classType || "all"}`;
+    const localRedisKey = `attendance-instances:page=${page}:filters=${filterKey}`;
+
+    const cachedInstance = await client.get(localRedisKey);
+    if (cachedInstance) {
       return handleResponse(
         res,
         200,
@@ -113,7 +125,7 @@ exports.allAttendanceInstance = async (req, res) => {
     const totalPages = Math.ceil(count / limit);
 
     await client.set(
-      redisKey,
+      localRedisKey,
       JSON.stringify({
         instance: instances,
         pagination: {
@@ -159,7 +171,12 @@ exports.deleteInstance = async (req, res) => {
 
     await models.Attendance.destroy({ where: { instanceId } });
 
-    await client.del(redisKey);
+    scanAndInvalidateRedisKeys(pattern)
+      .then(() => console.log(`Successfully cleared keys for ${pattern}`))
+      .catch((err) =>
+        console.error(`Failed to clear keys for ${pattern}:`, err),
+      );
+
     return handleResponse(
       res,
       200,
@@ -288,7 +305,7 @@ exports.autoAttendanceMark = async (req, res) => {
     enqueue("processAttendanceMarking", {
       ...req.body,
       studentId,
-      instance,
+      instanceId: instance.id,
       socketId,
     });
 

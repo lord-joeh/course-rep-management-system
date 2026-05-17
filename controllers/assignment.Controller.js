@@ -36,7 +36,11 @@ exports.addAssignment = async (req, res) => {
       description,
       courseId,
       deadline,
-      file: req.file,
+      file: {
+        path: req?.file.path,
+        mimetype: req?.file.mimetype,
+        originalname: req?.file.originalname,
+      },
       socketId,
     });
 
@@ -172,7 +176,7 @@ exports.deleteAssignment = async (req, res) => {
 
     const submissions = await models.AssignmentSubmission.findAll({
       where: { assignmentId: id },
-      include: [{ attributes: ["fileId"] }],
+      attributes: ["fileId"],
     });
 
     const fileIdsToDelete = submissions.map((s) => s.fileId).filter(Boolean);
@@ -185,7 +189,7 @@ exports.deleteAssignment = async (req, res) => {
 
     const assignmentFolder = await models.Assignment.findOne({
       where: { id },
-      include: [{ attributes: ["submissionFolderID"] }],
+      attributes: ["submissionFolderID"],
     });
 
     if (assignmentFolder) {
@@ -232,7 +236,11 @@ exports.uploadAssignment = async (req, res) => {
       folderId,
       assignmentId,
       studentId,
-      file: req.file,
+      file: {
+        path: req?.file.path,
+        mimetype: req?.file.mimetype,
+        originalname: req?.file.originalname,
+      },
       socketId,
     });
 
@@ -322,14 +330,10 @@ exports.deleteSubmittedAssignment = async (req, res) => {
         studentId,
         submittedAt: new Date(submittedAt),
       },
-      include: [{ attributes: ["fileId"] }],
+      attributes: ["fileId"],
     });
     if (!submission) {
-      return handleError(
-        res,
-        404,
-        "Submission not found",
-      );
+      return handleError(res, 404, "Submission not found");
     }
 
     if (submission.fileId) {

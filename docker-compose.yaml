@@ -6,13 +6,8 @@ services:
     command: ["pnpm", "start"]
     ports:
       - 3000:${PORT}
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
+    networks:
+      - web
 
   worker:
     build: .
@@ -20,46 +15,9 @@ services:
       - .env
     restart: always
     command: ["pnpm", "start:worker"]
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
+    networks:
+      - web
 
-  redis:
-    image: redis:alpine
-    restart: always
-    env_file:
-      - .env
-    command: ["redis-server", "--maxmemory-policy", "noeviction"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-    volumes:
-      - redis_data:/data
-
-  postgres:
-    image: postgres:16-alpine
-    restart: always
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  redis_data:
-  postgres_data:
+networks:
+  web:
+    external: true

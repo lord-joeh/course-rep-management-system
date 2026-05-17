@@ -3,8 +3,8 @@ const { handleError } = require("../services/errorService");
 const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const { enqueue } = require("../services/enqueue");
-const { client } = require("../config/redis")
-let redisKey = `groups-course=${1}-page=${1}-limit=${10}`
+const { client } = require("../config/redis");
+let redisKey = `groups-course="all"-page=${1}`;
 
 exports.addGroup = async (req, res) => {
   try {
@@ -17,7 +17,7 @@ exports.addGroup = async (req, res) => {
         return handleError(
           res,
           400,
-          "courseId is required for non-general groups"
+          "courseId is required for non-general groups",
         );
       }
       const courseExists = await models.Course.findOne({
@@ -27,7 +27,7 @@ exports.addGroup = async (req, res) => {
         return handleError(
           res,
           404,
-          "Course with provided courseId does not exist"
+          "Course with provided courseId does not exist",
         );
       }
     }
@@ -40,7 +40,7 @@ exports.addGroup = async (req, res) => {
       description,
     });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
     return handleResponse(res, 201, "Group created successfully", newGroup);
   } catch (error) {
     return handleError(res, 500, "Error adding group", error);
@@ -52,12 +52,17 @@ exports.getAllGroups = async (req, res) => {
   const _page = Number.parseInt(page, 10) || 1;
   const _limit = Number.parseInt(limit, 10) || 10;
   const offset = (_page - 1) * _limit;
-  redisKey =  `groups-course=${courseId}-page=${_page}-limit=${_limit}`
+  redisKey = `groups-course=${courseId ?? "all"}-page=${_page}`;
 
   try {
-    const cachedGroups = await client.get(redisKey)
-    if(cachedGroups){
-      return handleResponse(res, 200, "Groups retrieved successfully", JSON.parse(cachedGroups))
+    const cachedGroups = await client.get(redisKey);
+    if (cachedGroups) {
+      return handleResponse(
+        res,
+        200,
+        "Groups retrieved successfully",
+        JSON.parse(cachedGroups),
+      );
     }
 
     const where = courseId ? { courseId } : {};
@@ -66,9 +71,7 @@ exports.getAllGroups = async (req, res) => {
       limit: _limit,
       offset: offset,
       include: [{ model: models.Course, attributes: ["name"] }],
-      order: [
-        ["createdAt", "ASC"],
-      ]
+      order: [["createdAt", "ASC"]],
     });
 
     const { rows: groups, count: totalItems } = result;
@@ -79,15 +82,20 @@ exports.getAllGroups = async (req, res) => {
       return handleError(res, 404, "No groups were found");
     }
 
-    await client.set(redisKey, JSON.stringify({
-      groups: groups,
-      pagination: {
-        totalItems,
-        currentPage: _page,
-        totalPages,
-        itemsPerPage: _limit,
-      },
-    }), "EX", 3600)
+    await client.set(
+      redisKey,
+      JSON.stringify({
+        groups: groups,
+        pagination: {
+          totalItems,
+          currentPage: _page,
+          totalPages,
+          itemsPerPage: _limit,
+        },
+      }),
+      "EX",
+      3600,
+    );
 
     return handleResponse(res, 200, "Groups retrieved successfully", {
       groups: groups,
@@ -132,14 +140,14 @@ exports.updateGroup = async (req, res) => {
     const { name, courseId, description } = req.body;
     const [updated] = await models.Group.update(
       { name, courseId, description },
-      { where: { id }, returning: true }
+      { where: { id }, returning: true },
     );
     if (!updated) {
       return handleError(res, 404, "Group not found for update");
     }
     const updatedGroup = await models.Group.findOne({ where: { id } });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
     return handleResponse(res, 200, "Group updated successfully", updatedGroup);
   } catch (error) {
     return handleError(res, 500, "Error updating group", error);
@@ -156,7 +164,7 @@ exports.deleteGroup = async (req, res) => {
     }
     await models.GroupMember.destroy({ where: { groupId: id } });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     return handleResponse(res, 200, "Group deleted successfully");
   } catch (error) {
@@ -171,7 +179,7 @@ exports.createCustomGroup = async (req, res) => {
       return handleError(
         res,
         400,
-        "Invalid input. Provide a positive integer for group size."
+        "Invalid input. Provide a positive integer for group size.",
       );
     }
 
@@ -180,7 +188,7 @@ exports.createCustomGroup = async (req, res) => {
       return handleError(
         res,
         400,
-        "courseId is required for non-general groups"
+        "courseId is required for non-general groups",
       );
     }
 
@@ -192,7 +200,7 @@ exports.createCustomGroup = async (req, res) => {
       userId: req?.user?.id,
     });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     return handleResponse(res, 201, `Group creation job enqueued successfully`);
   } catch (error) {
@@ -228,7 +236,7 @@ exports.addGroupMember = async (req, res) => {
         return handleError(
           res,
           409,
-          "Student is not enrolled in the course for this group"
+          "Student is not enrolled in the course for this group",
         );
       }
     }
@@ -241,13 +249,13 @@ exports.addGroupMember = async (req, res) => {
     }
     const newMember = await models.GroupMember.create({ groupId, studentId });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     return handleResponse(
       res,
       201,
       "Student added to group successfully",
-      newMember
+      newMember,
     );
   } catch (error) {
     return handleError(res, 500, "Error adding group member", error);
@@ -264,7 +272,7 @@ exports.deleteGroupMember = async (req, res) => {
       return handleError(res, 404, "Group member not found for deletion");
     }
 
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     return handleResponse(res, 200, "Successfully deleted group member");
   } catch (error) {

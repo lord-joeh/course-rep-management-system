@@ -8,6 +8,7 @@ const sequelize = require("../../config/db");
 const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const { UnrecoverableError } = require("bullmq");
 const { enqueue } = require("../../services/enqueue");
+const { where } = require("sequelize");
 
 exports.processAttendanceCreation = async (job) => {
   const { courseId, date, classType, latitude, longitude, socketId } = job.data;
@@ -24,7 +25,7 @@ exports.processAttendanceCreation = async (job) => {
     const qrTokenExpiration = new Date(Date.now() + 60 * 60 * 1000); // Token valid for 1 hour
 
     const qrToken = jwt.sign(
-      { courseId, instanceId, classType, latitude, longitude },
+      { courseId, instanceId, classType },
       process.env.JWT_SECRET,
       { expiresIn: "1hr" },
     );
@@ -76,7 +77,7 @@ exports.processAttendanceCreation = async (job) => {
       message: "Attendance session is live!",
       socketId,
     });
-    
+
     await enqueue("sendPushNotification", {
       jobType: "pushNotificationToUsers",
       message: {
@@ -96,7 +97,7 @@ exports.processAttendanceCreation = async (job) => {
 };
 
 exports.processAttendanceMarking = async (job) => {
-  const { studentId, instance, latitude, longitude, socketId } = job.data;
+  const { studentId, instanceId, socketId, longitude, latitude } = job.data;
 
   try {
     await emitWorkerEvent("jobStarted", {
@@ -104,6 +105,14 @@ exports.processAttendanceMarking = async (job) => {
       message: "Verifying details...",
       socketId,
     });
+
+    const instance = await models.AttendanceInstance.findOne({
+      where: { id: instanceId },
+    });
+
+    if (!instance) {
+      throw new UnrecoverableError("Attendance instance not found");
+    }
 
     let locationValid = true;
     let locationMessage = "Verified";

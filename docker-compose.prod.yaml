@@ -1,0 +1,6 @@
+services:
+  api:
+    image: lordjoeh/course-rep-api:latest
+
+  worker:
+    image: lordjoeh/course-rep-api:latest
