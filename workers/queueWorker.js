@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const { Worker } = require("bullmq");
 const { redisConfig } = require("../config/redis");
 const processQueue = require("../jobs/queueProcessor");

@@ -5,7 +5,6 @@ let generalQueue = null;
 
 async function getQueue() {
   // ensure Redis client is connected before creating the Queue
-  await connectRedis();
   if (!generalQueue) {
     generalQueue = new Queue("queueProcessing", {
       connection: client,

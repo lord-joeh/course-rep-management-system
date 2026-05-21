@@ -30,10 +30,13 @@ const upload = multer({
     filename: (_req, file, callback) => {
       // a unique name to prevent collisions
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      callback(null, uniqueSuffix + "-" + file.originalname);
+
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, "_");
+      callback(null, uniqueSuffix + "-" + sanitizedName);
     },
   }),
-  // limits: { fileSize: 100 * 1024 * 1024 }, // 100MB max file size
+  
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max file size
 
   fileFilter: (_req, file, callback) => {
     if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
@@ -41,8 +44,8 @@ const upload = multer({
       callback(null, true);
     } else {
       // Reject the file with a specific Multer error
-      const error = new multer.MulterError("LIMIT_UNSUPPORTED_MIMETYPE");
-      ((error.message = `Unsupported file type: %s`), file.mimetype);
+      const error = new Error(`Unsupported file type: ${file.mimetype}`);
+      error.code = "LIMIT_UNSUPPORTED_MIMETYPE";
       callback(error, false);
     }
   },

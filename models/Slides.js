@@ -21,7 +21,7 @@ module.exports = (sequelize) => {
   );
 
   Slides.associate = (models) => {
-    Slides.belongsTo(models.Course, { foreignKey: "courseId" });
+    Slides.belongsTo(models.Course, { foreignKey: "courseId",  onDelete: 'CASCADE' });
   };
   return Slides;
 };

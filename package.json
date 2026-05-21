@@ -21,6 +21,7 @@
     "bullmq": "^5.66.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dd-trace": "^5.103.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",

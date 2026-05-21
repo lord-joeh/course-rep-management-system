@@ -1,19 +1,31 @@
 services:
   api:
-    restart: always
+    restart: unless-stopped
     build: .
-    env_file: .env
+    container_name: course-rep-api-1
+    labels:
+      com.datadoghq.ad.logs: '[{"source":"nodejs","service":"course-rep-api"}]'
+    environment:
+      - NODE_ENV=production
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - LOG_LEVEL=info
+    env_file: .env.prod
+
     command: ["pnpm", "start"]
     ports:
-      - 3000:${PORT}
+      - 3000:3000
     networks:
       - web
 
   worker:
     build: .
+    container_name: course-rep-worker-1
+    labels:
+      com.datadoghq.ad.logs: '[{"source":"nodejs","service":"course-rep-worker"}]'
     env_file:
-      - .env
-    restart: always
+      - .env.prod
+    restart: unless-stopped
     command: ["pnpm", "start:worker"]
     networks:
       - web

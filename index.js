@@ -1,3 +1,10 @@
+const tracer = require("dd-trace");
+tracer.init({
+  service: "course-rep-api",
+  env: process.env.NODE_ENV,
+  logInjection: true,
+});
+
 const { createServer } = require("node:http");
 const { initSocketIO } = require("./middleware/socketIO");
 const app = require("./app");

@@ -3,8 +3,9 @@ const { handleResponse } = require("../services/responseService");
 const models = require("../config/models");
 const createFolder = require("../googleServices/createDriveFolder");
 const deleteFile = require("../googleServices/deleteFile");
-const { client } = require("../config/redis")
-let redisKey = `courses`
+const { client } = require("../config/redis");
+const { where } = require("sequelize");
+let redisKey = `courses`;
 
 exports.addCourse = async (req, res) => {
   try {
@@ -22,8 +23,13 @@ exports.addCourse = async (req, res) => {
       return handleError(
         res,
         400,
-        "id, name, lecturerId, day, start time, end time, and semester is required"
+        "id, name, lecturerId, day, start time, end time, and semester is required",
       );
+    }
+
+    const existingCourse = await models.Course.findOne({ where: id });
+    if (existingCourse) {
+      return handleError(res, 400, "Course with this code already exist");
     }
     const folderId = await createFolder(`${name} Slides`);
     const newCourse = await models.Course.create({
@@ -37,8 +43,7 @@ exports.addCourse = async (req, res) => {
       slidesFolderID: folderId?.id,
     });
 
-    await client.del(redisKey)
-
+    await client.del(redisKey);
 
     return handleResponse(res, 201, "Course added successfully", newCourse);
   } catch (error) {
@@ -48,9 +53,14 @@ exports.addCourse = async (req, res) => {
 
 exports.getAllCourse = async (req, res) => {
   try {
-    const cachedCourses = await client.get(redisKey)
-    if(cachedCourses){
-      return handleResponse(res, 200, "Courses retrieved successfully", JSON.parse(cachedCourses))
+    const cachedCourses = await client.get(redisKey);
+    if (cachedCourses) {
+      return handleResponse(
+        res,
+        200,
+        "Courses retrieved successfully",
+        JSON.parse(cachedCourses),
+      );
     }
 
     const courses = await models.Course.findAll();
@@ -58,7 +68,7 @@ exports.getAllCourse = async (req, res) => {
       return handleError(res, 404, "No course was found");
     }
 
-    await client.set(redisKey, JSON.stringify(courses), "EX", 3600)
+    await client.set(redisKey, JSON.stringify(courses), "EX", 3600);
     return handleResponse(res, 200, "Courses retrieved successfully", courses);
   } catch (error) {
     return handleError(res, 500, "Error retrieving courses", error);
@@ -100,19 +110,19 @@ exports.updateCourse = async (req, res) => {
         end_time,
         semester,
       },
-      { where: { id }, returning: true }
+      { where: { id }, returning: true },
     );
     if (!updated) {
       return handleError(res, 404, "Course not found for update");
     }
     const updatedCourse = await models.Course.findOne({ where: { id } });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
     return handleResponse(
       res,
       200,
       "Course updated successfully",
-      updatedCourse
+      updatedCourse,
     );
   } catch (error) {
     return handleError(res, 500, "Error updating course", error);
@@ -132,12 +142,12 @@ exports.deleteCourse = async (req, res) => {
     if (foundCourse) {
       await deleteFile(foundCourse?.slidesFolderID);
     }
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     return handleResponse(
       res,
       200,
-      "Course and it's slides folder has been deleted successfully"
+      "Course and it's slides folder has been deleted successfully",
     );
   } catch (error) {
     return handleError(res, 500, "Error deleting course", error);
@@ -151,14 +161,14 @@ exports.registerCourse = async (req, res) => {
       return handleError(
         res,
         400,
-        "Course ID and student ID required to register course"
+        "Course ID and student ID required to register course",
       );
     }
     const registeredCourse = await models.CourseStudent.findOne({
       where: { courseId, studentId },
     });
 
-    await client.del(redisKey)
+    await client.del(redisKey);
 
     if (!registeredCourse) {
       await models.CourseStudent.create({
@@ -202,7 +212,7 @@ exports.getCourseByStudentId = async (req, res) => {
       res,
       200,
       "Courses retrieved successfully",
-      studentCourses
+      studentCourses,
     );
   } catch (error) {
     return handleError(res, 500, "Error retrieving courses for student", error);

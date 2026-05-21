@@ -12,13 +12,8 @@ exports.handleError = (res, statusCode, message, error = null) => {
     logger.error(message);
   }
 
-  const responseMessage =
-    process.env.NODE_ENV === "production"
-      ? "An unexpected error occurred"
-      : message;
-
   return res.status(statusCode).json({
     success: false,
-    error: responseMessage,
+    error: message,
   });
 };
