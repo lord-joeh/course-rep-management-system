@@ -296,7 +296,6 @@ exports.pushNotification = async (req, res) => {
       expires_at: fcmTokenExpiration,
     });
 
-
     return handleResponse(res, 200, "You have subscribe to receive messages");
   } catch (error) {
     return handleError(res, 500, "Error subscribing messages", error);

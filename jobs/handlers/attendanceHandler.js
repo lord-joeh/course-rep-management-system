@@ -9,6 +9,7 @@ const { emitWorkerEvent } = require("../../utils/emitWorkerEvent");
 const { UnrecoverableError } = require("bullmq");
 const { enqueue } = require("../../services/enqueue");
 const { where } = require("sequelize");
+const pushNotification = require("../../utils/pushNotification");
 
 exports.processAttendanceCreation = async (job) => {
   const { courseId, date, classType, latitude, longitude, socketId } = job.data;
@@ -78,12 +79,9 @@ exports.processAttendanceCreation = async (job) => {
       socketId,
     });
 
-    await enqueue("sendPushNotification", {
-      jobType: "pushNotificationToUsers",
-      message: {
-        title: "Attendance session is live",
-        body: "Login to mark your attendance now",
-      },
+    await pushNotification({
+      title: "Attendance session is live",
+      body: "Login to mark your attendance now",
     });
   } catch (error) {
     await emitWorkerEvent("jobFailed", {

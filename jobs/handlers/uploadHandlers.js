@@ -4,6 +4,7 @@ const models = require("../../config/models");
 const { generatedId } = require("../../services/customServices");
 const { enqueue } = require("../../services/enqueue");
 const getCourseAssignmentsFolder = require("../../googleServices/getAssignmentsFolder");
+const pushNotification = require("../../utils/pushNotification");
 require("../../googleServices/deleteFile");
 
 async function uploadSlides(job) {
@@ -68,6 +69,11 @@ async function uploadSlides(job) {
     failed: failedUploads.length,
     failedItems: failedUploads,
     socketId,
+  });
+
+  await pushNotification({
+    title: "New Slide Upload",
+    body: "New slides has been uploaded.",
   });
 
   return { successful: successfulUploads.length, failed: failedUploads.length };
@@ -211,6 +217,11 @@ async function uploadAssignment(job) {
         jobType: "uploadAssignment",
         message: "Assignment uploaded successfully.",
         socketId,
+      });
+
+      await pushNotification({
+        title: "New Assignment Upload",
+        body: "New Assignmet has been uploaded.",
       });
 
       return { success: true, assignmentId: id, type: "creation" };
