@@ -21,7 +21,7 @@ exports.uploadSlide = async (req, res) => {
       return handleError(
         res,
         400,
-        "Can not upload more than 10 slides at a time"
+        "You Can not upload more than 10 slides at a time"
       );
     }
 

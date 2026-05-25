@@ -17,7 +17,7 @@ const ALLOWED_MIME_TYPES = new Set([
 ]);
 
 // Ensure the destination directory exists
-const uploadDir = path.join(__dirname, "../uploads/temp/");
+const uploadDir = path.join(process.cwd(), "/uploads/temp/");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -35,7 +35,7 @@ const upload = multer({
       callback(null, uniqueSuffix + "-" + sanitizedName);
     },
   }),
-  
+
   limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max file size
 
   fileFilter: (_req, file, callback) => {

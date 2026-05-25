@@ -5,6 +5,7 @@ const createFolder = require("../googleServices/createDriveFolder");
 const deleteFile = require("../googleServices/deleteFile");
 const { client } = require("../config/redis");
 const { where } = require("sequelize");
+const scanAndInvalidateRedisKeys = require("../utils/scanAndInvalidateRedisKeys");
 let redisKey = `courses`;
 
 exports.addCourse = async (req, res) => {
@@ -27,7 +28,7 @@ exports.addCourse = async (req, res) => {
       );
     }
 
-    const existingCourse = await models.Course.findOne({ where: id });
+    const existingCourse = await models.Course.findOne({ where: { id } });
     if (existingCourse) {
       return handleError(res, 400, "Course with this code already exist");
     }
@@ -43,7 +44,7 @@ exports.addCourse = async (req, res) => {
       slidesFolderID: folderId?.id,
     });
 
-    await client.del(redisKey);
+    await scanAndInvalidateRedisKeys(redisKey);
 
     return handleResponse(res, 201, "Course added successfully", newCourse);
   } catch (error) {
@@ -117,7 +118,7 @@ exports.updateCourse = async (req, res) => {
     }
     const updatedCourse = await models.Course.findOne({ where: { id } });
 
-    await client.del(redisKey);
+    await scanAndInvalidateRedisKeys(redisKey);
     return handleResponse(
       res,
       200,
@@ -142,7 +143,7 @@ exports.deleteCourse = async (req, res) => {
     if (foundCourse) {
       await deleteFile(foundCourse?.slidesFolderID);
     }
-    await client.del(redisKey);
+    await scanAndInvalidateRedisKeys(redisKey);
 
     return handleResponse(
       res,
@@ -168,7 +169,7 @@ exports.registerCourse = async (req, res) => {
       where: { courseId, studentId },
     });
 
-    await client.del(redisKey);
+    await scanAndInvalidateRedisKeys(redisKey);
 
     if (!registeredCourse) {
       await models.CourseStudent.create({

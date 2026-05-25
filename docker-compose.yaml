@@ -17,6 +17,9 @@ services:
       - 3000:3000
     networks:
       - web
+    volumes:
+      - uploads:/app/uploads/temp
+      - ./course-rep-firebase-cert.json:/app/course-rep-firebase-cert.json:ro
 
   worker:
     build: .
@@ -29,7 +32,14 @@ services:
     command: ["pnpm", "start:worker"]
     networks:
       - web
+    volumes:
+      - uploads:/app/uploads/temp
+      - ./course-rep-firebase-cert.json:/app/course-rep-firebase-cert.json:ro
 
 networks:
   web:
     external: true
+
+
+volumes:
+  uploads:
