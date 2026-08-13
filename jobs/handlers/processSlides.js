@@ -4,6 +4,34 @@ const models = require("../../config/models");
 const crypto = require("node:crypto");
 const { enqueue } = require("../../services/enqueue");
 
+async function calculateFileHash(fileStream) {
+  const hashSum = crypto.createHash("sha256");
+  await new Promise((resolve, reject) => {
+    fileStream.on("error", (err) => reject(err));
+    fileStream.on("data", (chunk) => hashSum.update(chunk));
+    fileStream.on("end", () => resolve());
+  });
+  return hashSum.digest("hex");
+}
+
+async function handleDuplicateSlide(existingSlide, slideId, driveFileID, hex, socketId) {
+  console.log(`Duplicate slide found: ${existingSlide.fileName} (Hash: ${hex})`);
+
+  // Delete the newly created duplicate record from DB
+  await models.Slides.destroy({ where: { id: slideId } });
+
+  await enqueue("deleteFiles", {
+    fileIds: [driveFileID],
+  });
+
+  await emitWorkerEvent("jobFailed", {
+    jobType: "processSlides",
+    error: "Duplicate slide detected. The file has been removed.",
+    slideId,
+    socketId,
+  });
+}
+
 async function processSlides(job) {
   const { slideId, driveFileID, courseId, socketId } = job.data;
 
@@ -36,15 +64,8 @@ async function processSlides(job) {
       message: "Calculating file hash...",
       socketId,
     });
-    const hashSum = crypto.createHash("sha256");
 
-    await new Promise((resolve, reject) => {
-      fileStream.on("error", (err) => reject(err));
-      fileStream.on("data", (chunk) => hashSum.update(chunk));
-      fileStream.on("end", () => resolve());
-    });
-
-    const hex = hashSum.digest("hex");
+    const hex = await calculateFileHash(fileStream);
 
     // Check for duplicates
     await emitWorkerEvent("jobProgress", {
@@ -62,23 +83,7 @@ async function processSlides(job) {
     });
 
     if (existingSlide && existingSlide.id !== slideId) {
-      console.log(
-        `Duplicate slide found: ${existingSlide.fileName} (Hash: ${hex})`
-      );
-
-      // Delete the newly created duplicate record from DB
-      await models.Slides.destroy({ where: { id: slideId } });
-
-      await enqueue("deleteFiles", {
-        fileIds: [driveFileID],
-      });
-
-      await emitWorkerEvent("jobFailed", {
-        jobType: "processSlides",
-        error: "Duplicate slide detected. The file has been removed.",
-        slideId,
-        socketId,
-      });
+      await handleDuplicateSlide(existingSlide, slideId, driveFileID, hex, socketId);
       return;
     }
 
