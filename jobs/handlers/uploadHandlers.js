@@ -21,46 +21,51 @@ async function uploadSlides(job) {
     socketId,
   });
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    try {
-      const uploadRes = await uploadToFolder(folderId, file);
+  let completedCount = 0;
 
-      const slide = await models.Slides.create({
-        id: await generatedId("SLD"),
-        driveFileID: uploadRes.id,
-        fileName: uploadRes.name,
-        courseId: courseId,
-      });
+  await Promise.all(
+    files.map(async (file) => {
+      try {
+        const uploadRes = await uploadToFolder(folderId, file);
 
-      successfulUploads.push(slide);
-
-      // Enqueue processing
-      await enqueue(
-        "processSlides",
-        {
-          jobType: "uploadSlides",
-          slideId: slide.id,
+        const slide = await models.Slides.create({
+          id: await generatedId("SLD"),
           driveFileID: uploadRes.id,
-          courseId,
-          socketId,
-        },
-        { removeOnComplete: { age: 3600 } },
-      );
+          fileName: uploadRes.name,
+          courseId: courseId,
+        });
 
-      await emitWorkerEvent("uploadProgress", {
-        jobType: "uploadSlides",
-        status: "progress",
-        current: i + 1,
-        total: files.length,
-        slide,
-        socketId,
-      });
-    } catch (err) {
-      console.error(`Failed to upload slide ${file.originalname}:`, err);
-      failedUploads.push({ file: file.originalname, error: err.message });
-    }
-  }
+        successfulUploads.push(slide);
+
+        // Enqueue processing
+        await enqueue(
+          "processSlides",
+          {
+            jobType: "uploadSlides",
+            slideId: slide.id,
+            driveFileID: uploadRes.id,
+            courseId,
+            socketId,
+          },
+          { removeOnComplete: { age: 3600 } },
+        );
+
+        completedCount++;
+
+        await emitWorkerEvent("uploadProgress", {
+          jobType: "uploadSlides",
+          status: "progress",
+          current: completedCount,
+          total: files.length,
+          slide,
+          socketId,
+        });
+      } catch (err) {
+        console.error(`Failed to upload slide ${file.originalname}:`, err);
+        failedUploads.push({ file: file.originalname, error: err.message });
+      }
+    })
+  );
 
   // Notify completion
   await emitWorkerEvent("uploadComplete", {
