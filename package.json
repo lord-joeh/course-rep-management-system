@@ -6,7 +6,8 @@
     "start": "node index.js",
     "start:worker": "node workers/queueWorker.js",
     "dev": "nodemon index.js",
-    "dev:worker": "nodemon workers/queueWorker.js"
+    "dev:worker": "nodemon workers/queueWorker.js",
+    "test": "jest"
   },
   "keywords": [],
   "author": "Joseph Mensah",
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
+    "jest": "^30.4.2",
     "nodemon": "^3.1.11"
   }
 }
