@@ -34,11 +34,15 @@ async function listFilesInFolder(service, folderId, allFiles) {
       if (files && files.length > 0) {
         allFiles.push(...files);
 
-        // Recursively search subfolders found in this page
-        for (const file of files) {
-          if (file.mimeType === "application/vnd.google-apps.folder") {
-            await listFilesInFolder(service, file.id, allFiles);
-          }
+        // Recursively search subfolders found in this page concurrently
+        const folders = files.filter(
+          (file) => file.mimeType === "application/vnd.google-apps.folder"
+        );
+
+        if (folders.length > 0) {
+          await Promise.all(
+            folders.map((folder) => listFilesInFolder(service, folder.id, allFiles))
+          );
         }
       }
 
