@@ -5,6 +5,93 @@ const { shuffle, generatedId } = require("../../services/customServices");
 const { sendGroupAssignmentEmail } = require("../../services/customEmails");
 const { enqueue } = require("../../services/enqueue");
 
+async function fetchStudents(isGeneral, courseId) {
+  if (isGeneral) {
+    return await models.Student.findAll({
+      attributes: ["id"],
+      where: { status: "active" },
+      raw: true,
+    });
+  }
+
+  const courseExists = await models.Course.findByPk(courseId);
+  if (!courseExists) {
+    throw new Error("Course with provided courseId does not exist");
+  }
+
+  const courseStudents = await models.CourseStudent.findAll({
+    where: { courseId },
+    attributes: ["studentId"],
+    raw: true,
+  });
+
+  return courseStudents.map((cs) => ({ id: cs.studentId }));
+}
+
+async function createGroupsAndMembers(
+  shuffledStudents,
+  studentsPerGroup,
+  isGeneral,
+  courseId,
+  socketId
+) {
+  const emailQueue = [];
+  let totalGroups = 0;
+
+  await sequelize.transaction(async (transaction) => {
+    let currentGroupNumber = 1;
+    let processedStudents = 0;
+
+    for (let i = 0; i < shuffledStudents.length; i += studentsPerGroup) {
+      const groupChunk = shuffledStudents.slice(i, i + studentsPerGroup);
+      const groupName = `GROUP ${currentGroupNumber}`;
+      const groupId = await generatedId("GRP");
+
+      await models.Group.create(
+        {
+          id: groupId,
+          name: groupName,
+          courseId: isGeneral ? null : courseId,
+          description: groupName,
+          isGeneral,
+        },
+        { transaction }
+      );
+
+      const memberRecords = groupChunk.map((student, idx) => ({
+        groupId,
+        studentId: student.id,
+        isLeader: idx === 0,
+      }));
+
+      await models.GroupMember.bulkCreate(memberRecords, { transaction });
+
+      emailQueue.push({
+        groupName,
+        members: groupChunk,
+      });
+
+      processedStudents += groupChunk.length;
+      const progress =
+        30 + Math.floor((processedStudents / shuffledStudents.length) * 50);
+
+      if (currentGroupNumber % 5 === 0) {
+        await emitWorkerEvent("jobProgress", {
+          jobType: "processCustomGroups",
+          progress: progress,
+          message: `Created ${groupName}...`,
+          socketId,
+        });
+      }
+
+      currentGroupNumber++;
+      totalGroups++;
+    }
+  });
+
+  return { emailQueue, totalGroups };
+}
+
 async function processCustomGroups(job) {
   const { studentsPerGroup, isGeneral, courseId, socketId } = job.data;
 
@@ -27,29 +114,7 @@ async function processCustomGroups(job) {
       socketId,
     });
 
-    let studentIDs = [];
-
-    if (isGeneral) {
-      const studentRows = await models.Student.findAll({
-        attributes: ["id"],
-        where: { status: "active" },
-        raw: true,
-      });
-      studentIDs = studentRows;
-    } else {
-      const courseExists = await models.Course.findByPk(courseId);
-      if (!courseExists) {
-        throw new Error("Course with provided courseId does not exist");
-      }
-
-      const courseStudents = await models.CourseStudent.findAll({
-        where: { courseId },
-        attributes: ["studentId"],
-        raw: true,
-      });
-
-      studentIDs = courseStudents.map((cs) => ({ id: cs.studentId }));
-    }
+    const studentIDs = await fetchStudents(isGeneral, courseId);
 
     if (!studentIDs.length) {
       throw new Error("No students found to group");
@@ -64,59 +129,13 @@ async function processCustomGroups(job) {
 
     const shuffledStudents = await shuffle(studentIDs);
 
-    const emailQueue = [];
-    let totalGroups = 0;
-
-    await sequelize.transaction(async (transaction) => {
-      let currentGroupNumber = 1;
-      let processedStudents = 0;
-
-      for (let i = 0; i < shuffledStudents.length; i += studentsPerGroup) {
-        const groupChunk = shuffledStudents.slice(i, i + studentsPerGroup);
-        const groupName = `GROUP ${currentGroupNumber}`;
-        const groupId = await generatedId("GRP");
-
-        await models.Group.create(
-          {
-            id: groupId,
-            name: groupName,
-            courseId: isGeneral ? null : courseId,
-            description: groupName,
-            isGeneral,
-          },
-          { transaction },
-        );
-
-        const memberRecords = groupChunk.map((student, idx) => ({
-          groupId,
-          studentId: student.id,
-          isLeader: idx === 0,
-        }));
-
-        await models.GroupMember.bulkCreate(memberRecords, { transaction });
-
-        emailQueue.push({
-          groupName,
-          members: groupChunk,
-        });
-
-        processedStudents += groupChunk.length;
-        const progress =
-          30 + Math.floor((processedStudents / shuffledStudents.length) * 50);
-
-        if (currentGroupNumber % 5 === 0) {
-          await emitWorkerEvent("jobProgress", {
-            jobType: "processCustomGroups",
-            progress: progress,
-            message: `Created ${groupName}...`,
-            socketId,
-          });
-        }
-
-        currentGroupNumber++;
-        totalGroups++;
-      }
-    });
+    const { emailQueue, totalGroups } = await createGroupsAndMembers(
+      shuffledStudents,
+      studentsPerGroup,
+      isGeneral,
+      courseId,
+      socketId
+    );
 
     await emitWorkerEvent("jobProgress", {
       jobType: "processCustomGroups",
@@ -131,8 +150,8 @@ async function processCustomGroups(job) {
           jobType: "sendGroupAssignmentEmail",
           groupName: item?.groupName,
           group: item?.members,
-        }),
-      ),
+        })
+      )
     );
 
     await emitWorkerEvent("jobComplete", {
