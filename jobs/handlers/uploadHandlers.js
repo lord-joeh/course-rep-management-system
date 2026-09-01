@@ -5,6 +5,7 @@ const { generatedId } = require("../../services/customServices");
 const { enqueue } = require("../../services/enqueue");
 const getCourseAssignmentsFolder = require("../../googleServices/getAssignmentsFolder");
 const pushNotification = require("../../utils/pushNotification");
+const createFolder = require("../../googleServices/createDriveFolder");
 require("../../googleServices/deleteFile");
 
 async function uploadSlides(job) {
@@ -79,19 +80,153 @@ async function uploadSlides(job) {
   return { successful: successfulUploads.length, failed: failedUploads.length };
 }
 
-async function uploadAssignment(job) {
+async function handleAssignmentSubmission(data) {
+  const { file, folderId, assignmentId, studentId, socketId } = data;
+  try {
+    await emitWorkerEvent("jobProgress", {
+      jobType: "uploadAssignment",
+      progress: 25,
+      message: "Uploading assignment to Drive...",
+      socketId,
+    });
+
+    const uploadedFile = await uploadToFolder(folderId, file);
+    if (!uploadedFile) throw new Error("Failed to upload assignment to Drive");
+
+    await emitWorkerEvent("jobProgress", {
+      jobType: "uploadAssignment",
+      progress: 50,
+      message: "Checking for duplicates...",
+      socketId,
+    });
+
+    const submissionId = await generatedId("ASUB");
+
+    await emitWorkerEvent("jobProgress", {
+      jobType: "uploadAssignment",
+      progress: 75,
+      message: "Uploading...",
+      socketId,
+    });
+
+    await models.AssignmentSubmission.create({
+      id: submissionId,
+      assignmentId,
+      studentId,
+      fileId: uploadedFile.id,
+      fileName: uploadedFile.name,
+    });
+
+    await emitWorkerEvent("jobComplete", {
+      jobType: "uploadAssignment",
+      message: "Assignment uploaded successfully.",
+      socketId,
+    });
+
+    await emitWorkerEvent("newNotification", {
+      id: submissionId,
+      title: "NEW ASSIGNMENT",
+      message: "New Assignment has been uploaded",
+    });
+
+    return { success: true, submissionId, type: "submission" };
+  } catch (error) {
+    console.error("Error in uploadAssignment job:", error);
+    await emitWorkerEvent("jobFailed", { error: error.message, socketId });
+    throw error;
+  }
+}
+
+async function handleNewAssignment(data) {
   const {
     file,
-    folderId,
-    assignmentId,
-    studentId,
-    isNewAssignment,
     title,
     description,
     deadline,
     courseId,
     socketId,
-  } = job.data;
+  } = data;
+  try {
+    if (file)
+      await emitWorkerEvent("jobProgress", {
+        jobType: "uploadAssignment",
+        progress: 25,
+        message: "Uploading assignment to Drive...",
+        socketId,
+      });
+
+    const id = await generatedId("ASS");
+
+    const course = await models.Course.findByPk(courseId);
+    if (!course) throw new Error("Course not found");
+
+    await emitWorkerEvent("jobProgress", {
+      jobType: "uploadAssignment",
+      progress: 50,
+      message: "Creating necessary folder...",
+      socketId,
+    });
+    const folder = await createFolder(`${course.name} ${title} Submission`);
+
+    let fileId = null;
+    let fileName = null;
+
+    await emitWorkerEvent("jobProgress", {
+      jobType: "uploadAssignment",
+      progress: 75,
+      message: "Uploading assignment to folder...",
+      socketId,
+    });
+    if (file) {
+      const assignmentsFolder = await getCourseAssignmentsFolder(course.name);
+      const uploadedFile = await uploadToFolder(assignmentsFolder.id, file);
+      fileId = uploadedFile.id;
+      fileName = uploadedFile.name;
+
+      await emitWorkerEvent("jobProgress", {
+        jobType: "uploadAssignment",
+        progress: 90,
+        message: "Writing Assignment Data...",
+        socketId,
+      });
+    }
+
+    await models.Assignment.create({
+      id,
+      title,
+      description,
+      courseId,
+      deadline,
+      submissionFolderID: folder?.id,
+      fileId,
+      fileName,
+    });
+
+    await emitWorkerEvent("jobComplete", {
+      jobType: "uploadAssignment",
+      message: "Assignment uploaded successfully.",
+      socketId,
+    });
+
+    await pushNotification({
+      title: "New Assignment Upload",
+      body: "New Assignmet has been uploaded.",
+    });
+
+    return { success: true, assignmentId: id, type: "creation" };
+  } catch (error) {
+    console.error("Error in addAssignment job:", error);
+    await emitWorkerEvent("jobFailed", {
+      jobType: "uploadAssignment",
+      error: error.message,
+      socketId,
+    });
+    throw error;
+  }
+}
+
+async function uploadAssignment(job) {
+  const { studentId, assignmentId, isNewAssignment, socketId } = job.data;
 
   await emitWorkerEvent("jobStarted", {
     jobType: "uploadAssignment",
@@ -100,141 +235,9 @@ async function uploadAssignment(job) {
   });
 
   if (studentId && assignmentId && !isNewAssignment) {
-    try {
-      await emitWorkerEvent("jobProgress", {
-        jobType: "uploadAssignment",
-        progress: 25,
-        message: "Uploading assignment to Drive...",
-        socketId,
-      });
-
-      const uploadedFile = await uploadToFolder(folderId, file);
-      if (!uploadedFile)
-        throw new Error("Failed to upload assignment to Drive");
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "uploadAssignment",
-        progress: 50,
-        message: "Checking for duplicates...",
-        socketId,
-      });
-
-      const submissionId = await generatedId("ASUB");
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "uploadAssignment",
-        progress: 75,
-        message: "Uploading...",
-        socketId,
-      });
-
-      await models.AssignmentSubmission.create({
-        id: submissionId,
-        assignmentId,
-        studentId,
-        fileId: uploadedFile.id,
-        fileName: uploadedFile.name,
-      });
-
-      await emitWorkerEvent("jobComplete", {
-        jobType: "uploadAssignment",
-        message: "Assignment uploaded successfully.",
-        socketId,
-      });
-
-      await emitWorkerEvent("newNotification", {
-        id: submissionId,
-        title: "NEW ASSIGNMENT",
-        message: "New Assignment has been uploaded",
-      });
-
-      return { success: true, submissionId, type: "submission" };
-    } catch (error) {
-      console.error("Error in uploadAssignment job:", error);
-
-      await emitWorkerEvent("jobFailed", { error: error.message, socketId });
-      throw error;
-    }
+    return handleAssignmentSubmission(job.data);
   } else if (isNewAssignment) {
-    try {
-      if (file)
-        await emitWorkerEvent("jobProgress", {
-          jobType: "uploadAssignment",
-          progress: 25,
-          message: "Uploading assignment to Drive...",
-          socketId,
-        });
-
-      const id = await generatedId("ASS");
-
-      const createFolder = require("../../googleServices/createDriveFolder");
-      const course = await models.Course.findByPk(courseId);
-      if (!course) throw new Error("Course not found");
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "uploadAssignment",
-        progress: 50,
-        message: "Creating necessary folder...",
-        socketId,
-      });
-      const folder = await createFolder(`${course.name} ${title} Submission`);
-
-      let fileId = null;
-      let fileName = null;
-
-      await emitWorkerEvent("jobProgress", {
-        jobType: "uploadAssignment",
-        progress: 75,
-        message: "Uploading assignment to folder...",
-        socketId,
-      });
-      if (file) {
-        const assignmentsFolder = await getCourseAssignmentsFolder(course.name);
-        const uploadedFile = await uploadToFolder(assignmentsFolder.id, file);
-        fileId = uploadedFile.id;
-        fileName = uploadedFile.name;
-
-        await emitWorkerEvent("jobProgress", {
-          jobType: "uploadAssignment",
-          progress: 90,
-          message: "Writing Assignment Data...",
-          socketId,
-        });
-      }
-
-      await models.Assignment.create({
-        id,
-        title,
-        description,
-        courseId,
-        deadline,
-        submissionFolderID: folder?.id,
-        fileId,
-        fileName,
-      });
-
-      await emitWorkerEvent("jobComplete", {
-        jobType: "uploadAssignment",
-        message: "Assignment uploaded successfully.",
-        socketId,
-      });
-
-      await pushNotification({
-        title: "New Assignment Upload",
-        body: "New Assignmet has been uploaded.",
-      });
-
-      return { success: true, assignmentId: id, type: "creation" };
-    } catch (error) {
-      console.error("Error in addAssignment job:", error);
-
-      await emitWorkerEvent("jobFailed", {
-        jobType: "uploadAssignment",
-        error: error.message,
-        socketId,
-      });
-      throw error;
-    }
+    return handleNewAssignment(job.data);
   }
 }
 
