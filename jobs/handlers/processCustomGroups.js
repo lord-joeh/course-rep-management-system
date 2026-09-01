@@ -71,21 +71,21 @@ async function processCustomGroups(job) {
       let currentGroupNumber = 1;
       let processedStudents = 0;
 
+      const groupsData = [];
+      const membersData = [];
+
       for (let i = 0; i < shuffledStudents.length; i += studentsPerGroup) {
         const groupChunk = shuffledStudents.slice(i, i + studentsPerGroup);
         const groupName = `GROUP ${currentGroupNumber}`;
         const groupId = await generatedId("GRP");
 
-        await models.Group.create(
-          {
-            id: groupId,
-            name: groupName,
-            courseId: isGeneral ? null : courseId,
-            description: groupName,
-            isGeneral,
-          },
-          { transaction },
-        );
+        groupsData.push({
+          id: groupId,
+          name: groupName,
+          courseId: isGeneral ? null : courseId,
+          description: groupName,
+          isGeneral,
+        });
 
         const memberRecords = groupChunk.map((student, idx) => ({
           groupId,
@@ -93,7 +93,7 @@ async function processCustomGroups(job) {
           isLeader: idx === 0,
         }));
 
-        await models.GroupMember.bulkCreate(memberRecords, { transaction });
+        membersData.push(...memberRecords);
 
         emailQueue.push({
           groupName,
@@ -115,6 +115,14 @@ async function processCustomGroups(job) {
 
         currentGroupNumber++;
         totalGroups++;
+      }
+
+      // Execute bulk inserts
+      if (groupsData.length > 0) {
+        await models.Group.bulkCreate(groupsData, { transaction });
+      }
+      if (membersData.length > 0) {
+        await models.GroupMember.bulkCreate(membersData, { transaction });
       }
     });
 
