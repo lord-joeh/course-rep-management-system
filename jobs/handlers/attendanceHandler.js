@@ -94,6 +94,95 @@ exports.processAttendanceCreation = async (job) => {
   }
 };
 
+const verifyLocation = async (instance, latitude, longitude, studentId) => {
+  let locationValid = true;
+  let locationMessage = "Verified";
+
+  if (instance.class_type === "in-person") {
+    if (!latitude || !longitude)
+      throw new UnrecoverableError("Location access is required");
+
+    const distance = getDistance(
+      { latitude: instance.latitude, longitude: instance.longitude },
+      { latitude, longitude },
+    );
+
+    if (distance > 50) {
+      locationValid = false;
+      locationMessage = `Too far from classroom. You are ${distance}m away.`;
+    }
+  }
+
+  if (!locationValid) {
+    await models.SecurityLog.create({
+      student_id: studentId,
+      instance_id: instance.id,
+      event_type: "location_verification_failed",
+      details: locationMessage,
+    });
+    throw new UnrecoverableError(locationMessage);
+  }
+
+  return { locationValid, locationMessage };
+};
+
+const markAttendanceRecord = async (
+  instance,
+  studentId,
+  locationValid,
+  locationMessage,
+) => {
+  await sequelize.transaction(async (transaction) => {
+    const [updatedRows] = await models.Attendance.update(
+      {
+        status: "present",
+        updatedAt: new Date(),
+      },
+      {
+        where: {
+          instanceId: instance.id,
+          studentId,
+          status: "absent",
+        },
+        transaction,
+      },
+    );
+
+    if (updatedRows === 0) {
+      const exists = await models.Attendance.findOne({
+        where: { instanceId: instance.id, studentId },
+        transaction,
+      });
+
+      if (exists) throw new UnrecoverableError("Attendance already marked");
+
+      const newId = await generatedId("ATT");
+      await models.Attendance.create(
+        {
+          id: newId,
+          instanceId: instance.id,
+          courseId: instance.courseId,
+          date: instance.date,
+          studentId,
+          status: "present",
+        },
+        { transaction },
+      );
+    }
+
+    await models.AttendanceLog.create(
+      {
+        student_id: studentId,
+        instance_id: instance.id,
+        location_checked: instance.class_type === "in-person",
+        location_valid: locationValid,
+        details: locationMessage,
+      },
+      { transaction },
+    );
+  });
+};
+
 exports.processAttendanceMarking = async (job) => {
   const { studentId, instanceId, socketId, longitude, latitude } = job.data;
 
@@ -112,83 +201,19 @@ exports.processAttendanceMarking = async (job) => {
       throw new UnrecoverableError("Attendance instance not found");
     }
 
-    let locationValid = true;
-    let locationMessage = "Verified";
+    const { locationValid, locationMessage } = await verifyLocation(
+      instance,
+      latitude,
+      longitude,
+      studentId,
+    );
 
-    if (instance.class_type === "in-person") {
-      if (!latitude || !longitude)
-        throw new UnrecoverableError("Location access is required");
-
-      const distance = getDistance(
-        { latitude: instance.latitude, longitude: instance.longitude },
-        { latitude, longitude },
-      );
-
-      if (distance > 50) {
-        locationValid = false;
-        locationMessage = `Too far from classroom. You are ${distance}m away.`;
-      }
-    }
-
-    if (!locationValid) {
-      await models.SecurityLog.create({
-        student_id: studentId,
-        instance_id: instance.id,
-        event_type: "location_verification_failed",
-        details: locationMessage,
-      });
-      throw new UnrecoverableError(locationMessage);
-    }
-
-    await sequelize.transaction(async (transaction) => {
-      const [updatedRows] = await models.Attendance.update(
-        {
-          status: "present",
-          updatedAt: new Date(),
-        },
-        {
-          where: {
-            instanceId: instance.id,
-            studentId,
-            status: "absent",
-          },
-          transaction,
-        },
-      );
-
-      if (updatedRows === 0) {
-        const exists = await models.Attendance.findOne({
-          where: { instanceId: instance.id, studentId },
-          transaction,
-        });
-
-        if (exists) throw new UnrecoverableError("Attendance already marked");
-
-        const newId = await generatedId("ATT");
-        await models.Attendance.create(
-          {
-            id: newId,
-            instanceId: instance.id,
-            courseId: instance.courseId,
-            date: instance.date,
-            studentId,
-            status: "present",
-          },
-          { transaction },
-        );
-      }
-
-      await models.AttendanceLog.create(
-        {
-          student_id: studentId,
-          instance_id: instance.id,
-          location_checked: instance.class_type === "in-person",
-          location_valid: locationValid,
-          details: locationMessage,
-        },
-        { transaction },
-      );
-    });
+    await markAttendanceRecord(
+      instance,
+      studentId,
+      locationValid,
+      locationMessage,
+    );
 
     await emitWorkerEvent("jobComplete", {
       jobType: "processAttendanceMarking",
