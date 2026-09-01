@@ -37,28 +37,19 @@ describe('Event Controller - addEvent', () => {
   });
 
   describe('Validation failures', () => {
-    it('should return 400 if description is missing', async () => {
-      req.body = { date: '2023-01-01', time: '10:00', venue: 'Room A' };
-      await eventController.addEvent(req, res);
-      expect(handleError).toHaveBeenCalledWith(res, 400, 'Description, date, time, and venue are required');
-    });
+    const testCases = [
+      { missingField: 'description', body: { date: '2023-01-01', time: '10:00', venue: 'Room A' } },
+      { missingField: 'date', body: { description: 'Meeting', time: '10:00', venue: 'Room A' } },
+      { missingField: 'time', body: { description: 'Meeting', date: '2023-01-01', venue: 'Room A' } },
+      { missingField: 'venue', body: { description: 'Meeting', date: '2023-01-01', time: '10:00' } },
+    ];
 
-    it('should return 400 if date is missing', async () => {
-      req.body = { description: 'Meeting', time: '10:00', venue: 'Room A' };
-      await eventController.addEvent(req, res);
-      expect(handleError).toHaveBeenCalledWith(res, 400, 'Description, date, time, and venue are required');
-    });
-
-    it('should return 400 if time is missing', async () => {
-      req.body = { description: 'Meeting', date: '2023-01-01', venue: 'Room A' };
-      await eventController.addEvent(req, res);
-      expect(handleError).toHaveBeenCalledWith(res, 400, 'Description, date, time, and venue are required');
-    });
-
-    it('should return 400 if venue is missing', async () => {
-      req.body = { description: 'Meeting', date: '2023-01-01', time: '10:00' };
-      await eventController.addEvent(req, res);
-      expect(handleError).toHaveBeenCalledWith(res, 400, 'Description, date, time, and venue are required');
+    testCases.forEach(({ missingField, body }) => {
+      it(`should return 400 if ${missingField} is missing`, async () => {
+        req.body = body;
+        await eventController.addEvent(req, res);
+        expect(handleError).toHaveBeenCalledWith(res, 400, 'Description, date, time, and venue are required');
+      });
     });
   });
 

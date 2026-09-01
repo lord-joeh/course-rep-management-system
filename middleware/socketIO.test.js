@@ -238,9 +238,10 @@ describe('socketIO middleware', () => {
   });
 
   describe('Authentication middleware', () => {
-    it('should authenticate with valid token', async () => {
-      const { initSocketIO } = require('./socketIO');
+    let useHandler;
 
+    beforeEach(async () => {
+      const { initSocketIO } = require('./socketIO');
       const mServerInstance = {
         adapter: jest.fn(),
         use: jest.fn(),
@@ -248,10 +249,11 @@ describe('socketIO middleware', () => {
         emit: jest.fn(),
       };
       require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
-
       await initSocketIO(httpServer);
+      useHandler = mServerInstance.use.mock.calls[0][0];
+    });
 
-      const useHandler = mServerInstance.use.mock.calls[0][0];
+    it('should authenticate with valid token', async () => {
       const mockSocket = {
         handshake: { auth: { token: 'valid-token' } },
       };
@@ -268,19 +270,6 @@ describe('socketIO middleware', () => {
     });
 
     it('should authenticate with id in payload', async () => {
-      const { initSocketIO } = require('./socketIO');
-
-      const mServerInstance = {
-        adapter: jest.fn(),
-        use: jest.fn(),
-        on: jest.fn(),
-        emit: jest.fn(),
-      };
-      require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
-
-      await initSocketIO(httpServer);
-
-      const useHandler = mServerInstance.use.mock.calls[0][0];
       const mockSocket = {
         handshake: { auth: { token: 'valid-token' } },
       };
@@ -297,19 +286,6 @@ describe('socketIO middleware', () => {
     });
 
     it('should reject if no token provided', async () => {
-      const { initSocketIO } = require('./socketIO');
-
-      const mServerInstance = {
-        adapter: jest.fn(),
-        use: jest.fn(),
-        on: jest.fn(),
-        emit: jest.fn(),
-      };
-      require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
-
-      await initSocketIO(httpServer);
-
-      const useHandler = mServerInstance.use.mock.calls[0][0];
       const mockSocket = { handshake: { auth: {} } };
       const mockNext = jest.fn();
 
@@ -320,19 +296,6 @@ describe('socketIO middleware', () => {
     });
 
     it('should reject if token missing user id', async () => {
-      const { initSocketIO } = require('./socketIO');
-
-      const mServerInstance = {
-        adapter: jest.fn(),
-        use: jest.fn(),
-        on: jest.fn(),
-        emit: jest.fn(),
-      };
-      require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
-
-      await initSocketIO(httpServer);
-
-      const useHandler = mServerInstance.use.mock.calls[0][0];
       const mockSocket = { handshake: { auth: { token: 'valid-token' } } };
       const mockNext = jest.fn();
 
@@ -346,19 +309,6 @@ describe('socketIO middleware', () => {
     });
 
     it('should reject if jwt verify fails', async () => {
-      const { initSocketIO } = require('./socketIO');
-
-      const mServerInstance = {
-        adapter: jest.fn(),
-        use: jest.fn(),
-        on: jest.fn(),
-        emit: jest.fn(),
-      };
-      require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
-
-      await initSocketIO(httpServer);
-
-      const useHandler = mServerInstance.use.mock.calls[0][0];
       const mockSocket = {
         handshake: { auth: { token: 'invalid-token' } },
       };
