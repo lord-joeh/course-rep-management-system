@@ -1,6 +1,48 @@
 services:
   api:
     image: lordjoeh/course-rep-api:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   worker:
     image: lordjoeh/course-rep-api:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:alpine
+    restart: always
+    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis_data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:
