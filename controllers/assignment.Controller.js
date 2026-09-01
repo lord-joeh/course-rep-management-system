@@ -27,8 +27,6 @@ exports.addAssignment = async (req, res) => {
       );
     }
 
-    console.log("Enqueueing assignment creation...");
-
     await enqueue("uploadAssignment", {
       isNewAssignment: true,
       assignmentId: id,
