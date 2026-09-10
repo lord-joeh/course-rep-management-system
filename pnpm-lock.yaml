@@ -98,8 +98,8 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       multer:
-        specifier: ^2.1.1
-        version: 2.1.1
+        specifier: ^2.3.0
+        version: 2.3.0
       nodemailer:
         specifier: ^9.0.1
         version: 9.0.1
@@ -2243,8 +2243,8 @@ packages:
   msgpackr@1.11.5:
     resolution: {integrity: sha512-UjkUHN0yqp9RWKy0Lplhh+wlpdt9oQBYgULZOiFhV3VclSF1JnSQWZ5r9gORQlNYaUKQoR8itv7g7z1xDDuACA==}
 
-  multer@2.1.1:
-    resolution: {integrity: sha512-mo+QTzKlx8R7E5ylSXxWzGoXoZbOsRMpyitcht8By2KHvMbf3tjwosZ/Mu/XYU6UuJ3VZnODIrak5ZrPiPyB6A==}
+  multer@2.3.0:
+    resolution: {integrity: sha512-cjNbm3sttszgZeGfJR124D+jFEfkXCVAsoPBmFn9X7UxmDSFHWqE2CoEj0vrmSpuAFnqWR1Szcm9QTsiHr60Xw==}
     engines: {node: '>= 10.16.0'}
 
   napi-postinstall@0.3.4:
@@ -5560,7 +5560,7 @@ snapshots:
     optionalDependencies:
       msgpackr-extract: 3.0.3
 
-  multer@2.1.1:
+  multer@2.3.0:
     dependencies:
       append-field: 1.0.0
       busboy: 1.6.0
