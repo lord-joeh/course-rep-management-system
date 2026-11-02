@@ -15,6 +15,7 @@ import { LecturerModule } from './modules/lecturer/lecturer.module';
 import { CourseModule } from './modules/course/course.module';
 import { GoogleModule } from './modules/google/google.module';
 import { SlideModule } from './modules/slide/slide.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -41,6 +42,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     CourseModule,
     GoogleModule,
     SlideModule,
+    AssignmentModule,
   ],
   providers: [
     {

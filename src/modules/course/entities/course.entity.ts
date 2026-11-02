@@ -13,6 +13,7 @@ import {
 import { Lecturer } from '../../lecturer/entities/lecturer.entity';
 import { CourseStudent } from './course-student.entity';
 import { Slide } from '../../slide/entities/slide.entity';
+import { Assignment } from '../../assignment/entities/assignment.entity';
 
 @Entity('course')
 export class Course {
@@ -49,6 +50,9 @@ export class Course {
 
   @OneToMany(() => Slide, (s) => s.course)
   slides: Slide[];
+
+  @OneToMany(() => Assignment, (a) => a.course)
+  assignments: Assignment[];
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;
