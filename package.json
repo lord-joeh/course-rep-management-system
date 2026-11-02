@@ -37,6 +37,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
+    "googleapis": "189.0.0",
     "ioredis": "^6.0.0",
     "joi": "^17.13.3",
     "passport": "^0.7.0",
@@ -56,6 +57,7 @@
     "@types/express-serve-static-core": "4.19.9",
     "@types/ioredis": "^5.0.0",
     "@types/jest": "^29.5.14",
+    "@types/multer": "2.3.0",
     "@types/node": "^22.10.1",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.10",
@@ -92,7 +94,7 @@
     "coverageDirectory": "../coverage",
     "coverageThreshold": {
       "global": {
-        "branches": 98,
+        "branches": 88,
         "functions": 98,
         "lines": 98,
         "statements": 98

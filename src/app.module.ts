@@ -13,6 +13,7 @@ import { StudentModule } from './modules/student/student.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LecturerModule } from './modules/lecturer/lecturer.module';
 import { CourseModule } from './modules/course/course.module';
+import { GoogleModule } from './modules/google/google.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -37,6 +38,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     AuthModule,
     LecturerModule,
     CourseModule,
+    GoogleModule,
   ],
   providers: [
     {
