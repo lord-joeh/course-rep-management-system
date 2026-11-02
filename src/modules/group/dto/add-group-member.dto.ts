@@ -9,3 +9,4 @@ export class AddGroupMemberDto {
   @IsBoolean()
   isLeader?: boolean;
 }
+

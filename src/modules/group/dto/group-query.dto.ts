@@ -12,3 +12,4 @@ export class GroupQueryDto extends PaginationQueryDto {
   @IsBoolean()
   isGeneral?: boolean;
 }
+

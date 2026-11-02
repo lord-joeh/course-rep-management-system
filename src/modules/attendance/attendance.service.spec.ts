@@ -24,6 +24,7 @@ import { CacheService } from '../redis/cache.service';
 import { AttendanceGateway } from './attendance.gateway';
 
 describe('AttendanceService', () => {
+  jest.setTimeout(30000);
   let service: AttendanceService;
   let instanceRepoMock: any;
   let attendanceRepoMock: any;

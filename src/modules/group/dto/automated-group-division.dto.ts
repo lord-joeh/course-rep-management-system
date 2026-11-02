@@ -41,3 +41,4 @@ export class AutomatedGroupDivisionDto {
   @IsBoolean()
   autoAssignLeader?: boolean;
 }
+

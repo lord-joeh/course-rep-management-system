@@ -58,3 +58,4 @@ export class Group {
     this.updatedAt = new Date();
   }
 }
+

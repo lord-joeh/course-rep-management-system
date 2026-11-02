@@ -17,6 +17,7 @@ import { Assignment } from '../../assignment/entities/assignment.entity';
 import { AttendanceInstance } from '../../attendance/entities/attendance-instance.entity';
 import { Attendance } from '../../attendance/entities/attendance.entity';
 import { Group } from '../../group/entities/group.entity';
+import { Event } from '../../event/entities/event.entity';
 
 @Entity('course')
 export class Course {
@@ -65,6 +66,9 @@ export class Course {
 
   @OneToMany(() => Group, (g) => g.course)
   groups: Group[];
+
+  @OneToMany(() => Event, (e) => e.course)
+  events: Event[];
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;

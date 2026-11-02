@@ -25,3 +25,4 @@ import { GroupController } from './group.controller';
   exports: [GroupService],
 })
 export class GroupModule {}
+

@@ -25,3 +25,4 @@ export class CreateGroupDto {
   @IsString()
   courseId?: string;
 }
+

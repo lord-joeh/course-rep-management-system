@@ -51,3 +51,4 @@ export class GroupMember {
     this.updatedAt = new Date();
   }
 }
+
