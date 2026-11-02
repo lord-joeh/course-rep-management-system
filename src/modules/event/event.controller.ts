@@ -124,3 +124,4 @@ export class EventController {
     return this.eventService.deleteEvent(id);
   }
 }
+

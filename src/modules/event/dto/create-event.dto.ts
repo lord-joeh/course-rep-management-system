@@ -89,3 +89,4 @@ export class CreateEventDto {
   @IsOptional()
   recurrenceCount?: number;
 }
+

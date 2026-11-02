@@ -12,6 +12,7 @@ import { RefreshToken } from "./refresh-token.entity";
 import { AssignmentSubmission } from "../../assignment/entities/assignment-submission.entity";
 import { Attendance } from "../../attendance/entities/attendance.entity";
 import { GroupMember } from "../../group/entities/group-member.entity";
+import { Feedback } from "../../feedback/entities/feedback.entity";
 
 export enum StudentStatus {
   ACTIVE = "active",
@@ -86,6 +87,9 @@ export class Student {
     cascade: ["remove"],
   })
   groupMemberships: GroupMember[];
+
+  @OneToMany(() => Feedback, (fb) => fb.student)
+  feedbacks: Feedback[];
 
   @BeforeInsert()
   setInitialDates() {

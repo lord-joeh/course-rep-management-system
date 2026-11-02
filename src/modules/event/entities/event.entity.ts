@@ -118,3 +118,4 @@ export class Event {
   @UpdateDateColumn({ name: 'updatedAt', type: 'timestamptz' })
   updatedAt: Date;
 }
+

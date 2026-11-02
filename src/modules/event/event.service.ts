@@ -545,3 +545,4 @@ export class EventService {
     return { message: 'Recurring series successfully deleted', seriesId };
   }
 }
+

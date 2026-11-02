@@ -13,3 +13,4 @@ import { RedisModule } from '../redis/redis.module';
   exports: [EventService],
 })
 export class EventModule {}
+
