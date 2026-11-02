@@ -140,6 +140,75 @@ describe('GoogleDriveService', () => {
     });
   });
 
+  describe('uploadFileStream', () => {
+    it('should throw BadRequestException if folderId is empty', async () => {
+      const mockStream = new Readable({ read() { this.push(null); } });
+      await expect(
+        service.uploadFileStream('   ', 'slide1.pdf', 'application/pdf', mockStream),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should upload stream to Drive and return id and sanitized name', async () => {
+      const mockStream = new Readable({ read() { this.push(null); } });
+      mockDriveFiles.create.mockResolvedValue({
+        data: { id: 'drive_file_999', name: 'clean_slide.pdf' },
+      });
+
+      const result = await service.uploadFileStream(
+        'folder_123',
+        'dirty/slide.pdf',
+        'application/pdf',
+        mockStream,
+      );
+
+      expect(result).toEqual({ id: 'drive_file_999', name: 'clean_slide.pdf' });
+      expect(mockDriveFiles.create).toHaveBeenCalledWith({
+        requestBody: {
+          name: 'dirty_slide.pdf',
+          parents: ['folder_123'],
+        },
+        media: {
+          mimeType: 'application/pdf',
+          body: mockStream,
+        },
+        fields: 'id, name',
+      });
+    });
+
+    it('should fallback to cleanFileName and default mimeType if omitted or null in response', async () => {
+      const mockStream = new Readable({ read() { this.push(null); } });
+      mockDriveFiles.create.mockResolvedValue({
+        data: { id: null, name: null },
+      });
+
+      const result = await service.uploadFileStream(
+        'folder_123',
+        'notes.txt',
+        '',
+        mockStream,
+      );
+
+      expect(result).toEqual({ id: '', name: 'notes.txt' });
+      expect(mockDriveFiles.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          media: {
+            mimeType: 'application/octet-stream',
+            body: mockStream,
+          },
+        }),
+      );
+    });
+
+    it('should throw BadRequestException if Drive API throws error', async () => {
+      const mockStream = new Readable({ read() { this.push(null); } });
+      mockDriveFiles.create.mockRejectedValue(new Error('Drive network failure'));
+
+      await expect(
+        service.uploadFileStream('folder_123', 'notes.txt', 'text/plain', mockStream),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('searchFilesInFolder', () => {
     it('should throw BadRequestException if folderId is empty', async () => {
       await expect(service.searchFilesInFolder('')).rejects.toThrow(BadRequestException);

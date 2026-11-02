@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Lecturer } from '../../lecturer/entities/lecturer.entity';
 import { CourseStudent } from './course-student.entity';
+import { Slide } from '../../slide/entities/slide.entity';
 
 @Entity('course')
 export class Course {
@@ -45,6 +46,9 @@ export class Course {
 
   @OneToMany(() => CourseStudent, (cs) => cs.course)
   enrollments: CourseStudent[];
+
+  @OneToMany(() => Slide, (s) => s.course)
+  slides: Slide[];
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;

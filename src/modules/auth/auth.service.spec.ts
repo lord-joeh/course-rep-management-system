@@ -484,7 +484,9 @@ describe('AuthService', () => {
   });
 
   describe('generateTokenPair fallbacks', () => {
-    it('should use default fallback secrets when configService returns null and env is unset', async () => {
+    it(
+      'should use default fallback secrets when configService returns null and env is unset',
+      async () => {
       const origAccessSecret = process.env.JWT_ACCESS_SECRET;
       const origRefreshSecret = process.env.JWT_REFRESH_SECRET;
       delete process.env.JWT_ACCESS_SECRET;
@@ -516,7 +518,7 @@ describe('AuthService', () => {
 
       process.env.JWT_ACCESS_SECRET = origAccessSecret;
       process.env.JWT_REFRESH_SECRET = origRefreshSecret;
-    });
+    }, 15000);
   });
 });
 

@@ -88,6 +88,50 @@ export class GoogleDriveService {
   }
 
   /**
+   * Stream a file upload directly to Google Drive.
+   */
+  async uploadFileStream(
+    folderId: string,
+    fileName: string,
+    mimeType: string,
+    bodyStream: Readable,
+  ): Promise<{ id: string; name: string }> {
+    if (!folderId || !folderId.trim()) {
+      throw new BadRequestException('Folder ID is required for upload');
+    }
+
+    const auth = await this.googleAuthService.getAuthorizedClient();
+    const drive = google.drive({ version: 'v3', auth });
+    const cleanFileName = this.sanitizeFileName(fileName);
+
+    const fileMetadata: drive_v3.Schema$File = {
+      name: cleanFileName,
+      parents: [folderId.trim()],
+    };
+
+    const media = {
+      mimeType: mimeType || 'application/octet-stream',
+      body: bodyStream,
+    };
+
+    try {
+      const res = await drive.files.create({
+        requestBody: fileMetadata,
+        media,
+        fields: 'id, name',
+      });
+
+      return {
+        id: res.data.id || '',
+        name: res.data.name || cleanFileName,
+      };
+    } catch (err: any) {
+      this.logger.error(`Error uploading file "${cleanFileName}" to Drive: ${err.message}`);
+      throw new BadRequestException(`Failed to upload file to Google Drive: ${err.message}`);
+    }
+  }
+
+  /**
    * Injection-Safe Search and List of files in a Drive folder.
    */
   async searchFilesInFolder(folderId: string): Promise<DriveFileItem[]> {
