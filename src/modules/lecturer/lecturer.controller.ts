@@ -9,12 +9,12 @@ import {
   Query,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import { LecturerService } from './lecturer.service';
-import { Roles, UserRole } from '../../common/decorators/roles.decorator';
-import { CreateLecturerDto, UpdateLecturerDto, LecturerQueryDto } from './dto';
+} from "@nestjs/common";
+import { LecturerService } from "./lecturer.service";
+import { Roles, UserRole } from "../../common/decorators/roles.decorator";
+import { CreateLecturerDto, UpdateLecturerDto, LecturerQueryDto } from "./dto";
 
-@Controller('lecturers')
+@Controller("lecturers")
 export class LecturerController {
   constructor(private readonly lecturerService: LecturerService) {}
 
@@ -31,8 +31,8 @@ export class LecturerController {
    * Retrieve single lecturer details by ID.
    * Accessible by all authenticated students and reps.
    */
-  @Get(':id')
-  async getLecturerById(@Param('id') id: string) {
+  @Get(":id")
+  async getLecturerById(@Param("id") id: string) {
     return this.lecturerService.findById(id);
   }
 
@@ -50,10 +50,10 @@ export class LecturerController {
    * Administrative update of an existing lecturer.
    * Course Rep only.
    */
-  @Patch(':id')
+  @Patch(":id")
   @Roles(UserRole.REP)
   async updateLecturer(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() dto: UpdateLecturerDto,
   ) {
     return this.lecturerService.update(id, dto);
@@ -63,10 +63,9 @@ export class LecturerController {
    * Administrative deletion of a lecturer.
    * Course Rep only.
    */
-  @Delete(':id')
+  @Delete(":id")
   @Roles(UserRole.REP)
-  async deleteLecturer(@Param('id') id: string) {
+  async deleteLecturer(@Param("id") id: string) {
     return this.lecturerService.delete(id);
   }
 }
-
