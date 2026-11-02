@@ -125,16 +125,21 @@ describe('socketIO middleware', () => {
   });
 
   describe('worker event subscription', () => {
-     it('should emit received worker event to all clients', async () => {
-        const { initSocketIO } = require('./socketIO');
-
-        const mServerInstance = {
+     let mServerInstance;
+     let initSocketIO;
+     beforeEach(() => {
+        const socketIOModule = require('./socketIO');
+        initSocketIO = socketIOModule.initSocketIO;
+        mServerInstance = {
             adapter: jest.fn(),
             use: jest.fn(),
             on: jest.fn(),
             emit: jest.fn(),
         };
         require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
+     });
+
+     it('should emit received worker event to all clients', async () => {
 
         let messageHandler;
         const mSubClient = {
@@ -162,16 +167,7 @@ describe('socketIO middleware', () => {
      });
 
      it('should handle invalid JSON gracefully', async () => {
-        const { initSocketIO } = require('./socketIO');
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-        const mServerInstance = {
-            adapter: jest.fn(),
-            use: jest.fn(),
-            on: jest.fn(),
-            emit: jest.fn(),
-        };
-        require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
 
         let messageHandler;
         const mSubClient = {
@@ -200,16 +196,7 @@ describe('socketIO middleware', () => {
      });
 
      it('should handle redis subscriber error', async () => {
-        const { initSocketIO } = require('./socketIO');
         const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-
-        const mServerInstance = {
-            adapter: jest.fn(),
-            use: jest.fn(),
-            on: jest.fn(),
-            emit: jest.fn(),
-        };
-        require('socket.io').Server.mockImplementationOnce(() => mServerInstance);
 
         let errorHandler;
         const mSubClient = {

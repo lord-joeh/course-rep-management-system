@@ -50,28 +50,21 @@ describe("Auth Controller - login", () => {
     process.env.JWT_SECRET = "test_secret";
   });
 
-  it("should return 409 if studentId or password is missing", async () => {
-    req.body = { studentId: "123" }; // Missing password
+  const testCases = [
+    { desc: "should return 409 if studentId or password is missing", body: { studentId: "123" } },
+    { desc: "should return 409 if password is missing but studentId is present", body: { password: "password" } },
+  ];
 
-    await login(req, res);
-
-    expect(handleError).toHaveBeenCalledWith(
-      res,
-      409,
-      "Student ID and Password are required"
-    );
-  });
-
-  it("should return 409 if password is missing but studentId is present", async () => {
-    req.body = { password: "password" }; // Missing studentId
-
-    await login(req, res);
-
-    expect(handleError).toHaveBeenCalledWith(
-      res,
-      409,
-      "Student ID and Password are required"
-    );
+  testCases.forEach(({ desc, body }) => {
+    it(desc, async () => {
+      req.body = body;
+      await login(req, res);
+      expect(handleError).toHaveBeenCalledWith(
+        res,
+        409,
+        "Student ID and Password are required"
+      );
+    });
   });
 
   it("should return 404 if student does not exist", async () => {
