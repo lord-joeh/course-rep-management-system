@@ -11,6 +11,7 @@ import { RedisModule } from './modules/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
 import { StudentModule } from './modules/student/student.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { LecturerModule } from './modules/lecturer/lecturer.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -33,6 +34,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     HealthModule,
     StudentModule,
     AuthModule,
+    LecturerModule,
   ],
   providers: [
     {
