@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 import { RefreshToken } from "./refresh-token.entity";
 import { AssignmentSubmission } from "../../assignment/entities/assignment-submission.entity";
+import { Attendance } from "../../attendance/entities/attendance.entity";
 
 export enum StudentStatus {
   ACTIVE = "active",
@@ -74,6 +75,11 @@ export class Student {
     cascade: ["remove"],
   })
   assignmentSubmissions: AssignmentSubmission[];
+
+  @OneToMany(() => Attendance, (att) => att.student, {
+    cascade: ["remove"],
+  })
+  attendances: Attendance[];
 
   @BeforeInsert()
   setInitialDates() {

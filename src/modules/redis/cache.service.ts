@@ -45,6 +45,20 @@ export class CacheService {
   }
 
   /**
+   * Sets a value only if the key does not already exist (distributed lock mutex).
+   * Returns true if the key was set, false otherwise.
+   */
+  async setNx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    try {
+      const result = await this.redis.set(key, value, 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (error) {
+      this.logger.error(`Error acquiring mutex lock for "${key}": ${(error as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
    * Deletes a single key.
    */
   async del(key: string): Promise<boolean> {

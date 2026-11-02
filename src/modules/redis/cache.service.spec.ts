@@ -82,6 +82,27 @@ describe('CacheService', () => {
     });
   });
 
+  describe('setNx', () => {
+    it('should return true when mutex lock is acquired', async () => {
+      mockRedis.set.mockResolvedValue('OK');
+      const result = await service.setNx('lock:test', '1', 10);
+      expect(result).toBe(true);
+      expect(mockRedis.set).toHaveBeenCalledWith('lock:test', '1', 'EX', 10, 'NX');
+    });
+
+    it('should return false when lock already exists', async () => {
+      mockRedis.set.mockResolvedValue(null);
+      const result = await service.setNx('lock:test', '1', 10);
+      expect(result).toBe(false);
+    });
+
+    it('should catch error and return false when redis fails', async () => {
+      mockRedis.set.mockRejectedValue(new Error('Redis lock error'));
+      const result = await service.setNx('lock:test', '1', 10);
+      expect(result).toBe(false);
+    });
+  });
+
   describe('del', () => {
     it('should return true when key is successfully deleted', async () => {
       mockRedis.unlink.mockResolvedValue(1);
