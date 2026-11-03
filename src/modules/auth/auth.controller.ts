@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -25,12 +26,14 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
   @Post('register')
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(@Body() dto: LoginDto) {
@@ -45,6 +48,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -52,6 +56,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {

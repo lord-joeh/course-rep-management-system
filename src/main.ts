@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -15,6 +16,21 @@ async function bootstrap() {
   // Prefix all endpoints with /api
   app.setGlobalPrefix(apiPrefix);
 
+  // Apply Helmet security headers
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
   // Strict payload validation & sanitization
   app.useGlobalPipes(
     new ValidationPipe({
@@ -27,9 +43,26 @@ async function bootstrap() {
     }),
   );
 
-  // Cross-Origin Resource Sharing
+  // Strict dynamic Cross-Origin Resource Sharing
+  const allowedOrigins = [
+    frontendUrl,
+    'http://localhost:5173',
+    'http://localhost:4173',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:4173',
+  ];
+
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:5173', 'http://localhost:4173'],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin "${origin}" not allowed by CORS policy`));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Socket-ID'],

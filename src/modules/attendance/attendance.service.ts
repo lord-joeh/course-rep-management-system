@@ -25,6 +25,12 @@ import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { AuditService } from '../audit/audit.service';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditResource,
+} from '../audit/entities/security-audit-log.entity';
 import {
   AttendanceGateway,
   QRRotatePayload,
@@ -64,6 +70,7 @@ export class AttendanceService implements OnModuleDestroy {
     private readonly cacheService: CacheService,
     private readonly attendanceGateway: AttendanceGateway,
     private readonly queueService: QueueService,
+    private readonly auditService: AuditService,
   ) {
     this.jwtSecret =
       this.configService.get<string>('jwt.accessSecret') ||
@@ -397,6 +404,15 @@ export class AttendanceService implements OnModuleDestroy {
             details: locationMessage,
           });
 
+          await this.auditService.recordEvent({
+            action: AuditAction.ATTENDANCE_GEOFENCE_BREACH,
+            severity: AuditSeverity.HIGH,
+            resource: AuditResource.ATTENDANCE,
+            resourceId: instanceId,
+            actorId: studentId,
+            details: { distance, maxAllowed: 50 },
+          });
+
           throw new BadRequestException(
             `Location verification failed: You are ${distance}m away from the classroom (maximum allowed: 50m)`,
           );
@@ -448,6 +464,15 @@ export class AttendanceService implements OnModuleDestroy {
         studentName: user.name,
         markedAt: new Date(),
         presentCount: result.presentCount,
+      });
+
+      await this.auditService.recordEvent({
+        action: AuditAction.ATTENDANCE_MARKED,
+        severity: AuditSeverity.INFO,
+        resource: AuditResource.ATTENDANCE,
+        resourceId: instanceId,
+        actorId: studentId,
+        details: { courseId, status: AttendanceStatus.PRESENT },
       });
 
       await this.cacheService.scanAndInvalidate(`cr:attendance:instance:${instanceId}:*`);

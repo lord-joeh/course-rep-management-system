@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { AuditService } from '../audit/audit.service';
 import { Student, StudentStatus } from '../student/entities/student.entity';
 import { RefreshToken } from '../student/entities/refresh-token.entity';
 import {
@@ -55,6 +56,9 @@ describe('AuthService', () => {
   let queueServiceMock: {
     sendEmail: jest.Mock;
   };
+  let auditServiceMock: {
+    recordEvent: jest.Mock;
+  };
 
   beforeEach(async () => {
     studentServiceMock = {
@@ -98,6 +102,9 @@ describe('AuthService', () => {
     queueServiceMock = {
       sendEmail: jest.fn().mockResolvedValue('job-email-1'),
     };
+    auditServiceMock = {
+      recordEvent: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -107,6 +114,7 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: configServiceMock },
         { provide: CacheService, useValue: cacheServiceMock },
         { provide: QueueService, useValue: queueServiceMock },
+        { provide: AuditService, useValue: auditServiceMock },
         { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepoMock },
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
       ],

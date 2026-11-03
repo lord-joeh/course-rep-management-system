@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # PostgreSQL Database
+  # ==========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: course-rep-v2-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-course_rep_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure_course_rep_pass_2026}
+      POSTGRES_DB: ${DB_NAME:-course_rep_db}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - course-rep-network
+
+  # ==========================================
+  # Redis Cache & Queue Broker
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: course-rep-v2-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-secure_redis_pass_2026}
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-secure_redis_pass_2026}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - course-rep-network
+
+  # ==========================================
+  # NestJS V2 Enterprise Backend
+  # ==========================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: course-rep-v2-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - '${PORT:-5000}:5000'
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks:
+      - course-rep-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  course-rep-network:
+    driver: bridge
+

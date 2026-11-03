@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AttendanceService } from './attendance.service';
 import {
   InitializeAttendanceDto,
@@ -43,6 +44,7 @@ export class AttendanceController {
    * Protected with distributed mutex to eliminate double-marking race conditions.
    */
   @Post('mark')
+  @Throttle({ attendance: { limit: 5, ttl: 60000 } })
   @Roles(UserRole.STUDENT, UserRole.REP)
   async markAttendance(
     @Body() dto: MarkAttendanceDto,

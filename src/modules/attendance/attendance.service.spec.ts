@@ -22,6 +22,7 @@ import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { AuditService } from '../audit/audit.service';
 import { AttendanceGateway } from './attendance.gateway';
 
 describe('AttendanceService', () => {
@@ -39,6 +40,7 @@ describe('AttendanceService', () => {
   let cacheServiceMock: any;
   let gatewayMock: any;
   let queueServiceMock: any;
+  let auditServiceMock: any;
   let queryBuilderMock: any;
 
   beforeEach(async () => {
@@ -139,6 +141,10 @@ describe('AttendanceService', () => {
       initializeAttendanceRoster: jest.fn().mockResolvedValue('job-roster-1'),
     };
 
+    auditServiceMock = {
+      recordEvent: jest.fn().mockResolvedValue({ id: 'audit-att-1' }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
@@ -189,6 +195,10 @@ describe('AttendanceService', () => {
         {
           provide: QueueService,
           useValue: queueServiceMock,
+        },
+        {
+          provide: AuditService,
+          useValue: auditServiceMock,
         },
       ],
     }).compile();

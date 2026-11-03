@@ -18,6 +18,12 @@ import { RefreshToken } from "../student/entities/refresh-token.entity";
 import { CacheService } from "../redis/cache.service";
 import { QueueService } from "../queue/queue.service";
 import { EmailJobType } from "../queue/constants";
+import { AuditService } from "../audit/audit.service";
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditResource,
+} from "../audit/entities/security-audit-log.entity";
 import {
   CACHE_KEYSPACES,
   CACHE_TTL,
@@ -46,6 +52,7 @@ export class AuthService {
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
     private readonly queueService: QueueService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -119,20 +126,52 @@ export class AuthService {
     const student =
       await this.studentService.findByIdentifierWithPassword(identifier);
     if (!student || !student.passwordHash) {
+      await this.auditService.recordEvent({
+        action: AuditAction.LOGIN_FAILURE,
+        severity: AuditSeverity.HIGH,
+        resource: AuditResource.AUTH,
+        actorEmail: identifier,
+        details: { reason: "User not found or missing password hash" },
+      });
       throw new UnauthorizedException("Invalid credentials");
     }
 
     const isMatch = await bcrypt.compare(dto.password, student.passwordHash);
     if (!isMatch) {
+      await this.auditService.recordEvent({
+        action: AuditAction.LOGIN_FAILURE,
+        severity: AuditSeverity.HIGH,
+        resource: AuditResource.AUTH,
+        actorId: student.id,
+        actorEmail: student.email,
+        details: { reason: "Password mismatch" },
+      });
       throw new UnauthorizedException("Invalid credentials");
     }
 
     if (student.status !== StudentStatus.ACTIVE) {
+      await this.auditService.recordEvent({
+        action: AuditAction.LOGIN_FAILURE,
+        severity: AuditSeverity.HIGH,
+        resource: AuditResource.AUTH,
+        actorId: student.id,
+        actorEmail: student.email,
+        details: { reason: `Account status is ${student.status}` },
+      });
       throw new UnauthorizedException(`Account is ${student.status}`);
     }
 
     const tokens = await this.generateTokenPair(student);
     await this.storeHashedRefreshToken(student.id, tokens.refreshToken);
+
+    await this.auditService.recordEvent({
+      action: AuditAction.LOGIN_SUCCESS,
+      severity: AuditSeverity.INFO,
+      resource: AuditResource.AUTH,
+      actorId: student.id,
+      actorRole: student.isRep ? "REP" : "STUDENT",
+      actorEmail: student.email,
+    });
 
     return {
       student: this.sanitizeStudent(student),
@@ -266,6 +305,15 @@ export class AuthService {
     await this.queueService.sendEmail(EmailJobType.PASSWORD_CHANGED, {
       to: resetData.email,
       name: student?.name || "Student",
+    });
+
+    // Record audit event
+    await this.auditService.recordEvent({
+      action: AuditAction.PASSWORD_RESET_SUCCESS,
+      severity: AuditSeverity.MEDIUM,
+      resource: AuditResource.AUTH,
+      actorId: resetData.studentId,
+      actorEmail: resetData.email,
     });
 
     return {
