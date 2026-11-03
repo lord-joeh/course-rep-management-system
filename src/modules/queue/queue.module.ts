@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
@@ -27,6 +28,7 @@ import { GoogleModule } from '../google/google.module';
 @Module({
   imports: [
     ConfigModule,
+    JwtModule.register({}),
     TypeOrmModule.forFeature([
       Slide,
       Attendance,
