@@ -26,6 +26,10 @@
     "migration:revert": "pnpm typeorm migration:revert"
   },
   "dependencies": {
+    "@bull-board/api": "^9.11.0",
+    "@bull-board/express": "^9.11.0",
+    "@bull-board/nestjs": "^9.11.0",
+    "@nestjs/bullmq": "^11.0.5",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
@@ -36,6 +40,7 @@
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.2.8",
     "bcryptjs": "^3.0.3",
+    "bullmq": "^6.5.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
@@ -43,12 +48,14 @@
     "googleapis": "189.0.0",
     "ioredis": "^6.0.0",
     "joi": "^17.13.3",
+    "nodemailer": "^10.3.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sanitize-html": "^2.14.0",
     "socket.io": "^4.8.4",
     "typeorm": "^0.3.20",
     "typeorm-naming-strategies": "^4.1.0"
@@ -64,9 +71,11 @@
     "@types/jest": "^29.5.14",
     "@types/multer": "2.3.0",
     "@types/node": "^22.10.1",
+    "@types/nodemailer": "^8.0.2",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.10",
     "@types/qrcode": "^1.5.6",
+    "@types/sanitize-html": "^2.16.2",
     "@types/supertest": "^6.0.2",
     "jest": "^29.7.0",
     "prettier": "^3.4.2",
@@ -95,7 +104,8 @@
       "**/*.guard.ts",
       "**/*.filter.ts",
       "**/*.interceptor.ts",
-      "**/*.strategy.ts"
+      "**/*.strategy.ts",
+      "**/*.processor.ts"
     ],
     "coverageDirectory": "../coverage",
     "coverageThreshold": {

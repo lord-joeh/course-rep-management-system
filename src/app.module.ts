@@ -21,6 +21,7 @@ import { GroupModule } from './modules/group/group.module';
 import { EventModule } from './modules/event/event.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { QueueModule } from './modules/queue/queue.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -53,6 +54,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     EventModule,
     FeedbackModule,
     NotificationModule,
+    QueueModule,
   ],
   providers: [
     {
