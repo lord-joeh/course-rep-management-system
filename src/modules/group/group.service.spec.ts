@@ -13,6 +13,7 @@ import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 
 describe('GroupService', () => {
   let service: GroupService;
@@ -22,6 +23,7 @@ describe('GroupService', () => {
   let courseStudentRepoMock: any;
   let studentRepoMock: any;
   let cacheServiceMock: any;
+  let queueServiceMock: any;
   let dataSourceMock: any;
   let managerMock: any;
   let queryBuilderMock: any;
@@ -91,6 +93,10 @@ describe('GroupService', () => {
       scanAndInvalidate: jest.fn().mockResolvedValue(1),
     };
 
+    queueServiceMock = {
+      sendEmail: jest.fn().mockResolvedValue('job-email-1'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         GroupService,
@@ -101,6 +107,7 @@ describe('GroupService', () => {
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
         { provide: DataSource, useValue: dataSourceMock },
         { provide: CacheService, useValue: cacheServiceMock },
+        { provide: QueueService, useValue: queueServiceMock },
       ],
     }).compile();
 

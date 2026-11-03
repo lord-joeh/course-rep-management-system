@@ -14,6 +14,8 @@ import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { EmailJobType } from '../queue/constants';
 import {
   CreateGroupDto,
   UpdateGroupDto,
@@ -40,6 +42,7 @@ export class GroupService {
     private readonly studentRepository: Repository<Student>,
     private readonly dataSource: DataSource,
     private readonly cacheService: CacheService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -301,6 +304,17 @@ export class GroupService {
     });
 
     const saved = await this.groupMemberRepository.save(member);
+
+    // Enqueue transactional group assignment email notice
+    if (student.email) {
+      await this.queueService.sendEmail(EmailJobType.GROUP_ASSIGNMENT, {
+        to: student.email,
+        name: student.name,
+        groupName: group.name,
+        role: member.isLeader ? 'Leader' : 'Member',
+      });
+    }
+
     await this.cacheService.scanAndInvalidate('cr:groups:*');
     return saved;
   }

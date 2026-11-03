@@ -9,6 +9,8 @@ import { Slide } from './entities/slide.entity';
 import { Course } from '../course/entities/course.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { DriveJobType } from '../queue/constants';
 import { CACHE_TTL } from '../../common/constants/cache.constants';
 
 describe('SlideService', () => {
@@ -36,6 +38,10 @@ describe('SlideService', () => {
     get: jest.Mock;
     set: jest.Mock;
     scanAndInvalidate: jest.Mock;
+  };
+  let queueServiceMock: {
+    uploadToDrive: jest.Mock;
+    deleteFromDrive: jest.Mock;
   };
 
   let queryBuilderMock: any;
@@ -80,6 +86,11 @@ describe('SlideService', () => {
       scanAndInvalidate: jest.fn().mockResolvedValue(true),
     };
 
+    queueServiceMock = {
+      uploadToDrive: jest.fn().mockResolvedValue('job-drive-upload-1'),
+      deleteFromDrive: jest.fn().mockResolvedValue('job-drive-delete-1'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SlideService,
@@ -98,6 +109,10 @@ describe('SlideService', () => {
         {
           provide: CacheService,
           useValue: cacheServiceMock,
+        },
+        {
+          provide: QueueService,
+          useValue: queueServiceMock,
         },
       ],
     }).compile();
@@ -150,35 +165,37 @@ describe('SlideService', () => {
     it('should auto-create Drive folder if course has no slidesFolderId and no folderId passed', async () => {
       const courseWithoutFolder = { id: 'CS101', slidesFolderId: null };
       courseRepoMock.findOne.mockResolvedValue(courseWithoutFolder);
-      googleDriveServiceMock.uploadFileStream.mockResolvedValue({
-        id: 'drive_file_1',
-        name: 'Lecture1.pdf',
-      });
 
       const result = await service.uploadSlides([mockFile1], 'CS101');
 
       expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith('CS101 Slides');
       expect(courseWithoutFolder.slidesFolderId).toBe('auto_folder_123');
       expect(courseRepoMock.save).toHaveBeenCalledWith(courseWithoutFolder);
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: DriveJobType.UPLOAD_SLIDE_FILE,
+          courseId: 'CS101',
+          folderId: 'auto_folder_123',
+          fileName: 'Lecture1.pdf',
+        }),
+      );
       expect(result.uploaded).toHaveLength(1);
     });
 
     it('should use explicitly passed folderId if provided', async () => {
       const course = { id: 'CS101', slidesFolderId: 'default_folder' };
       courseRepoMock.findOne.mockResolvedValue(course);
-      googleDriveServiceMock.uploadFileStream.mockResolvedValue({
-        id: 'drive_file_1',
-        name: 'Lecture1.pdf',
-      });
 
       await service.uploadSlides([mockFile1], 'CS101', 'custom_folder_999');
 
       expect(googleDriveServiceMock.createFolder).not.toHaveBeenCalled();
-      expect(googleDriveServiceMock.uploadFileStream).toHaveBeenCalledWith(
-        'custom_folder_999',
-        'Lecture1.pdf',
-        'application/pdf',
-        expect.any(Readable),
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: DriveJobType.UPLOAD_SLIDE_FILE,
+          courseId: 'CS101',
+          folderId: 'custom_folder_999',
+          fileName: 'Lecture1.pdf',
+        }),
       );
     });
 
@@ -198,33 +215,26 @@ describe('SlideService', () => {
         { fileName: 'Lecture1.pdf', hash: hash1 },
       ]);
       expect(result.uploaded).toHaveLength(0);
-      expect(googleDriveServiceMock.uploadFileStream).not.toHaveBeenCalled();
+      expect(queueServiceMock.uploadToDrive).not.toHaveBeenCalled();
       expect(slideRepoMock.save).not.toHaveBeenCalled();
     });
 
-    it('should execute parallel uploads and handle partial failures gracefully', async () => {
+    it('should execute parallel uploads and enqueue jobs to BullMQ', async () => {
       const course = { id: 'CS101', slidesFolderId: 'folder_abc' };
       courseRepoMock.findOne.mockResolvedValue(course);
 
       const mockFile2: Express.Multer.File = {
         ...mockFile1,
-        originalname: 'FailingLecture.pdf',
-        buffer: Buffer.from('failing lecture content'),
+        originalname: 'Lecture2.pdf',
+        buffer: Buffer.from('lecture 2 content'),
       };
-
-      googleDriveServiceMock.uploadFileStream
-        .mockResolvedValueOnce({ id: 'drive_success', name: 'Lecture1.pdf' })
-        .mockRejectedValueOnce(new Error('Google Drive quota exceeded'));
 
       slideRepoMock.save.mockImplementation((entities) => Promise.resolve(entities));
 
       const result = await service.uploadSlides([mockFile1, mockFile2], 'CS101');
 
-      expect(result.uploaded).toHaveLength(1);
-      expect(result.uploaded[0].driveFileId).toBe('drive_success');
-      expect(result.failed).toEqual([
-        { fileName: 'FailingLecture.pdf', error: 'Google Drive quota exceeded' },
-      ]);
+      expect(result.uploaded).toHaveLength(2);
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledTimes(2);
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:slides:course:CS101:*');
     });
   });
@@ -327,7 +337,7 @@ describe('SlideService', () => {
       await expect(service.deleteSlide('missing_id')).rejects.toThrow(NotFoundException);
     });
 
-    it('should delete asset from Drive, remove record from db, and invalidate cache', async () => {
+    it('should delete asset from Drive via queue, remove record from db, and invalidate cache', async () => {
       const mockSlide = {
         id: 'slide_to_delete',
         driveFileId: 'drive_del_123',
@@ -341,23 +351,25 @@ describe('SlideService', () => {
         message: 'Slide deleted successfully',
         slideId: 'slide_to_delete',
       });
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('drive_del_123');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('drive_del_123', undefined, {
+        slideId: 'slide_to_delete',
+      });
       expect(slideRepoMock.remove).toHaveBeenCalledWith(mockSlide);
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:slides:course:CS101:*');
     });
 
-    it('should proceed to delete DB record even if Google Drive deleteFile throws', async () => {
+    it('should skip queue delete if slide driveFileId is pending', async () => {
       const mockSlide = {
         id: 'slide_drive_err',
-        driveFileId: 'drive_del_err',
+        driveFileId: 'pending',
         courseId: 'CS101',
       };
       slideRepoMock.findOne.mockResolvedValue(mockSlide);
-      googleDriveServiceMock.deleteFile.mockRejectedValue(new Error('Drive file not found'));
 
       const result = await service.deleteSlide('slide_drive_err');
 
       expect(result.slideId).toBe('slide_drive_err');
+      expect(queueServiceMock.deleteFromDrive).not.toHaveBeenCalled();
       expect(slideRepoMock.remove).toHaveBeenCalledWith(mockSlide);
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:slides:course:CS101:*');
     });

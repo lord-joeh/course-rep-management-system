@@ -18,6 +18,8 @@ import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
 import { NotificationGateway } from './notification.gateway';
 import { FirebaseMessagingService } from './firebase-messaging.service';
+import { QueueService } from '../queue/queue.service';
+import { EmailJobType } from '../queue/constants';
 import {
   CreateNotificationDto,
   UpdateNotificationDto,
@@ -45,6 +47,7 @@ export class NotificationService {
     private readonly cacheService: CacheService,
     private readonly notificationGateway: NotificationGateway,
     private readonly firebaseService: FirebaseMessagingService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -121,7 +124,27 @@ export class NotificationService {
       this.logger.error(`FCM multicast dispatch error: ${fcmError?.message || fcmError}`);
     }
 
-    // 3. Invalidate Redis notification caches
+    // 3. Dispatch urgent SMS alerts to active students with phone numbers
+    if (saved.priority === NotificationPriority.URGENT) {
+      try {
+        const recipients = await this.studentRepository.find({
+          where: { status: 'active' as any },
+          select: ['id', 'phone', 'name'],
+        });
+        const smsMessage = `[URGENT] ${saved.title}: ${saved.message}`;
+        for (const recipient of recipients) {
+          if (recipient.phone) {
+            await this.queueService.sendSms(recipient.phone, smsMessage, undefined, {
+              userId: recipient.id,
+            });
+          }
+        }
+      } catch (smsError: any) {
+        this.logger.error(`Urgent SMS queue dispatch error: ${smsError?.message || smsError}`);
+      }
+    }
+
+    // 4. Invalidate Redis notification caches
     await this.cacheService.scanAndInvalidate('cr:notifications:*');
 
     return saved;
@@ -498,6 +521,22 @@ export class NotificationService {
       }
     } catch (fcmError: any) {
       this.logger.error(`Direct push error: ${fcmError?.message || fcmError}`);
+    }
+
+    // 3. Email dispatch if requested
+    if (messageType === 'email' && student.email) {
+      await this.queueService.sendEmail(EmailJobType.STUDENT_MESSAGE, {
+        to: student.email,
+        name: student.name,
+        message: dto.message,
+      });
+    }
+
+    // 4. SMS dispatch if requested
+    if (messageType === 'sms' && student.phone) {
+      await this.queueService.sendSms(student.phone, dto.message, undefined, {
+        userId: student.id,
+      });
     }
 
     this.logger.log(

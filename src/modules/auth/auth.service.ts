@@ -16,6 +16,8 @@ import { StudentService } from "../student/student.service";
 import { Student, StudentStatus } from "../student/entities/student.entity";
 import { RefreshToken } from "../student/entities/refresh-token.entity";
 import { CacheService } from "../redis/cache.service";
+import { QueueService } from "../queue/queue.service";
+import { EmailJobType } from "../queue/constants";
 import {
   CACHE_KEYSPACES,
   CACHE_TTL,
@@ -43,6 +45,7 @@ export class AuthService {
     private readonly refreshTokenRepository: Repository<RefreshToken>,
     @InjectRepository(Student)
     private readonly studentRepository: Repository<Student>,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -84,6 +87,15 @@ export class AuthService {
     // Generate authentication tokens
     const tokens = await this.generateTokenPair(student);
     await this.storeHashedRefreshToken(student.id, tokens.refreshToken);
+
+    // Enqueue transactional registration welcome email
+    if (student.email) {
+      await this.queueService.sendEmail(EmailJobType.REGISTRATION_SUCCESS, {
+        to: student.email,
+        name: student.name,
+        studentId: student.id,
+      });
+    }
 
     return {
       student: this.sanitizeStudent(student),
@@ -206,6 +218,13 @@ export class AuthService {
       CACHE_TTL.FIFTEEN_MINUTES,
     );
 
+    // Enqueue transactional password reset email
+    await this.queueService.sendEmail(EmailJobType.PASSWORD_RESET, {
+      to: student.email,
+      name: student.name,
+      resetToken,
+    });
+
     return {
       message:
         "If an account exists with this identifier, password reset instructions have been dispatched.",
@@ -239,6 +258,16 @@ export class AuthService {
       studentId: resetData.studentId,
     });
 
+    const student = await this.studentRepository.findOne({
+      where: { id: resetData.studentId },
+    });
+
+    // Enqueue transactional password changed security notice
+    await this.queueService.sendEmail(EmailJobType.PASSWORD_CHANGED, {
+      to: resetData.email,
+      name: student?.name || "Student",
+    });
+
     return {
       message:
         "Password has been successfully reset. Please log in with your new credentials.",
@@ -267,6 +296,14 @@ export class AuthService {
 
     // Revoke all existing refresh tokens
     await this.refreshTokenRepository.delete({ studentId });
+
+    // Enqueue transactional password changed security notice
+    if (student.email) {
+      await this.queueService.sendEmail(EmailJobType.PASSWORD_CHANGED, {
+        to: student.email,
+        name: student.name,
+      });
+    }
 
     return {
       message:

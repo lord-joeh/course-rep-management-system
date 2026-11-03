@@ -14,6 +14,7 @@ import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
 import { NotificationGateway } from './notification.gateway';
 import { FirebaseMessagingService } from './firebase-messaging.service';
+import { QueueService } from '../queue/queue.service';
 import {
   CreateNotificationDto,
   UpdateNotificationDto,
@@ -32,6 +33,7 @@ describe('NotificationService', () => {
   let cacheServiceMock: any;
   let gatewayMock: any;
   let firebaseServiceMock: any;
+  let queueServiceMock: any;
   let queryBuilderMock: any;
 
   beforeEach(async () => {
@@ -81,6 +83,7 @@ describe('NotificationService', () => {
 
     studentRepoMock = {
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
 
     courseRepoMock = {
@@ -107,6 +110,11 @@ describe('NotificationService', () => {
         invalidTokens: [],
       }),
       sendToToken: jest.fn().mockResolvedValue('msg-id-1'),
+    };
+
+    queueServiceMock = {
+      sendEmail: jest.fn().mockResolvedValue('job-email-1'),
+      sendSms: jest.fn().mockResolvedValue('job-sms-1'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -143,6 +151,10 @@ describe('NotificationService', () => {
         {
           provide: FirebaseMessagingService,
           useValue: firebaseServiceMock,
+        },
+        {
+          provide: QueueService,
+          useValue: queueServiceMock,
         },
       ],
     }).compile();
@@ -252,6 +264,30 @@ describe('NotificationService', () => {
       });
       expect(result.type).toBe(NotificationType.ASSIGNMENT);
       expect(result.priority).toBe(NotificationPriority.HIGH);
+    });
+
+    it('should dispatch urgent SMS alerts when notification priority is URGENT', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
+      studentRepoMock.find.mockResolvedValue([
+        { id: 'st-1', phone: '+233200000001', name: 'Student 1' },
+        { id: 'st-2', phone: null, name: 'Student 2' },
+      ]);
+      fcmTokenRepoMock.find.mockResolvedValue([]);
+
+      const dto: CreateNotificationDto = {
+        title: 'Emergency Class Relocation',
+        message: 'Class relocated to Lab 3',
+        priority: NotificationPriority.URGENT,
+      };
+
+      await service.createNotification('sender-1', dto);
+
+      expect(queueServiceMock.sendSms).toHaveBeenCalledWith(
+        '+233200000001',
+        '[URGENT] Emergency Class Relocation: Class relocated to Lab 3',
+        undefined,
+        { userId: 'st-1' },
+      );
     });
 
     it('should catch WebSocket and FCM dispatch errors gracefully without failing creation', async () => {
@@ -710,6 +746,37 @@ describe('NotificationService', () => {
 
       const result = await service.sendDirectNotification('rep-1', dto);
       expect(result.message).toBe('Message queued for sending via in_app');
+    });
+
+    it('should dispatch email and sms queue jobs when messageType is email or sms', async () => {
+      studentRepoMock.findOne.mockResolvedValue({
+        id: 'student-1',
+        name: 'Student One',
+        email: 'student@uni.edu',
+        phone: '+233200000001',
+      });
+      fcmTokenRepoMock.find.mockResolvedValue([]);
+
+      const emailDto: DirectNotificationDto = {
+        studentId: 'student-1',
+        message: 'Email direct notice',
+        messageType: 'email',
+      };
+      await service.sendDirectNotification('rep-1', emailDto);
+      expect(queueServiceMock.sendEmail).toHaveBeenCalled();
+
+      const smsDto: DirectNotificationDto = {
+        studentId: 'student-1',
+        message: 'SMS direct notice',
+        messageType: 'sms',
+      };
+      await service.sendDirectNotification('rep-1', smsDto);
+      expect(queueServiceMock.sendSms).toHaveBeenCalledWith(
+        '+233200000001',
+        'SMS direct notice',
+        undefined,
+        { userId: 'student-1' },
+      );
     });
   });
 });

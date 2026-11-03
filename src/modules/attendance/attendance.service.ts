@@ -24,6 +24,7 @@ import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import {
   AttendanceGateway,
   QRRotatePayload,
@@ -62,6 +63,7 @@ export class AttendanceService implements OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
     private readonly attendanceGateway: AttendanceGateway,
+    private readonly queueService: QueueService,
   ) {
     this.jwtSecret =
       this.configService.get<string>('jwt.accessSecret') ||
@@ -260,44 +262,20 @@ export class AttendanceService implements OnModuleDestroy {
       isClose: false,
     });
 
-    // Run creation & bulk enrollment in an atomic transaction
-    const savedInstance = await this.dataSource.transaction(
-      async (manager) => {
-        const saved = await manager.save(AttendanceInstance, instance);
+    // Save attendance instance and store initial rotation nonce
+    const savedInstance = await this.instanceRepository.save(instance);
 
-        // Store initial nonce
-        await this.cacheService.set(
-          `cr:attendance:nonce:${saved.id}:${initialNonce}`,
-          true,
-          60,
-        );
+    await this.cacheService.set(
+      `cr:attendance:nonce:${savedInstance.id}:${initialNonce}`,
+      true,
+      60,
+    );
 
-        // Query active enrolled students
-        const enrollments = await manager.find(CourseStudent, {
-          where: { courseId: dto.courseId, isRegister: true },
-          relations: ['student'],
-        });
-
-        const activeEnrollments = enrollments.filter(
-          (e) => e.student && e.student.status === 'active',
-        );
-
-        if (activeEnrollments.length > 0) {
-          const attendanceRecords = activeEnrollments.map((e) =>
-            manager.create(Attendance, {
-              instanceId: saved.id,
-              courseId: dto.courseId,
-              date: sessionDate,
-              studentId: e.studentId,
-              status: AttendanceStatus.ABSENT,
-            }),
-          );
-
-          await manager.save(Attendance, attendanceRecords);
-        }
-
-        return saved;
-      },
+    // Offload bulk roster ingestion to BullMQ background worker
+    await this.queueService.initializeAttendanceRoster(
+      savedInstance.id,
+      dto.courseId,
+      sessionDate.toISOString(),
     );
 
     // Start 20s projection stream

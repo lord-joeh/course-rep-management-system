@@ -6,6 +6,7 @@ import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { RedisModule } from '../redis/redis.module';
+import { QueueModule } from '../queue/queue.module';
 import { GroupService } from './group.service';
 import { GroupController } from './group.controller';
 
@@ -19,6 +20,7 @@ import { GroupController } from './group.controller';
       Student,
     ]),
     RedisModule,
+    QueueModule,
   ],
   controllers: [GroupController],
   providers: [GroupService],

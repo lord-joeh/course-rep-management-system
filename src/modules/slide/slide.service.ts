@@ -13,6 +13,8 @@ import { Slide } from './entities/slide.entity';
 import { Course } from '../course/entities/course.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { DriveJobType } from '../queue/constants';
 import { CACHE_TTL } from '../../common/constants/cache.constants';
 import { SlideQueryDto } from './dto';
 import { PaginatedResult } from '../../common/pagination';
@@ -34,6 +36,7 @@ export class SlideService {
     private readonly courseRepository: Repository<Course>,
     private readonly googleDriveService: GoogleDriveService,
     private readonly cacheService: CacheService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -99,57 +102,43 @@ export class SlideService {
       }
     }
 
-    // 3. Parallel Uploads via Promise.allSettled
-    const uploadPromises = filesToUpload.map(async ({ file, hash }) => {
-      const bodyStream = Readable.from(file.buffer);
-      const driveFile = await this.googleDriveService.uploadFileStream(
-        targetFolderId,
-        file.originalname,
-        file.mimetype,
-        bodyStream,
-      );
-
-      return {
-        driveFileId: driveFile.id,
-        fileName: driveFile.name,
+    // 3. Create persistent slide records and offload Drive file upload to BullMQ
+    const createdSlides = filesToUpload.map(({ file, hash }) =>
+      this.slideRepository.create({
+        driveFileId: 'pending',
+        fileName: file.originalname,
         courseId,
         hash,
-      };
-    });
+      }),
+    );
 
-    const results = await Promise.allSettled(uploadPromises);
+    let savedSlides: Slide[] = [];
+    if (createdSlides.length > 0) {
+      savedSlides = await this.slideRepository.save(createdSlides);
 
-    const slidesToSave: Slide[] = [];
-    const failed: { fileName: string; error: string }[] = [];
+      // Enqueue asynchronous Google Drive uploads
+      await Promise.all(
+        savedSlides.map((slide, index) => {
+          const file = filesToUpload[index].file;
+          return this.queueService.uploadToDrive({
+            type: DriveJobType.UPLOAD_SLIDE_FILE,
+            courseId,
+            folderId: targetFolderId,
+            fileName: file.originalname,
+            mimeType: file.mimetype,
+            fileBufferBase64: file.buffer.toString('base64'),
+            slideId: slide.id,
+          });
+        }),
+      );
 
-    results.forEach((res, index) => {
-      const originalFile = filesToUpload[index].file;
-      if (res.status === 'fulfilled') {
-        const slide = this.slideRepository.create(res.value);
-        slidesToSave.push(slide);
-      } else {
-        this.logger.error(
-          `Failed uploading "${originalFile.originalname}": ${res.reason?.message}`,
-        );
-        failed.push({
-          fileName: originalFile.originalname,
-          error: res.reason?.message || 'Upload failed',
-        });
-      }
-    });
-
-    // 4. Batch Atomic Persistence
-    let uploaded: Slide[] = [];
-    if (slidesToSave.length > 0) {
-      uploaded = await this.slideRepository.save(slidesToSave);
-      // Invalidate course slides cache
       await this.cacheService.scanAndInvalidate(`cr:slides:course:${courseId}:*`);
     }
 
     return {
-      uploaded,
+      uploaded: savedSlides,
       duplicatesSkipped,
-      failed,
+      failed: [],
     };
   }
 
@@ -225,12 +214,11 @@ export class SlideService {
       throw new NotFoundException(`Slide with ID "${slideId}" not found`);
     }
 
-    try {
-      await this.googleDriveService.deleteFile(slide.driveFileId);
-    } catch (err: any) {
-      this.logger.warn(
-        `Google Drive deletion failed for slide "${slideId}" (${slide.driveFileId}): ${err.message}`,
-      );
+    // Offload remote Drive file deletion to BullMQ background worker
+    if (slide.driveFileId && slide.driveFileId !== 'pending') {
+      await this.queueService.deleteFromDrive(slide.driveFileId, undefined, {
+        slideId: slide.id,
+      });
     }
 
     await this.slideRepository.remove(slide);

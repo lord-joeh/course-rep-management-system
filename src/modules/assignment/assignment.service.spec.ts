@@ -12,6 +12,8 @@ import { Course } from '../course/entities/course.entity';
 import { Student } from '../student/entities/student.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { DriveJobType } from '../queue/constants';
 import { UserRole } from '../../common/decorators/roles.decorator';
 import { Readable } from 'stream';
 
@@ -23,6 +25,7 @@ describe('AssignmentService', () => {
   let studentRepoMock: any;
   let googleDriveServiceMock: any;
   let cacheServiceMock: any;
+  let queueServiceMock: any;
   let queryBuilderMock: any;
 
   beforeEach(async () => {
@@ -87,6 +90,15 @@ describe('AssignmentService', () => {
       scanAndInvalidate: jest.fn().mockResolvedValue(1),
     };
 
+    queueServiceMock = {
+      uploadToDrive: jest.fn().mockResolvedValue('job-drive-upload-1'),
+      deleteFromDrive: jest.fn().mockResolvedValue('job-drive-delete-1'),
+      sendEmail: jest.fn().mockResolvedValue('job-email-1'),
+      sendSms: jest.fn().mockResolvedValue('job-sms-1'),
+      initializeAttendanceRoster: jest.fn().mockResolvedValue('job-roster-1'),
+      getQueueStats: jest.fn().mockResolvedValue({}),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AssignmentService,
@@ -113,6 +125,10 @@ describe('AssignmentService', () => {
         {
           provide: CacheService,
           useValue: cacheServiceMock,
+        },
+        {
+          provide: QueueService,
+          useValue: queueServiceMock,
         },
       ],
     }).compile();
@@ -220,14 +236,17 @@ describe('AssignmentService', () => {
         fileMock,
       );
 
-      expect(googleDriveServiceMock.uploadFileStream).toHaveBeenCalledWith(
-        'drive-folder-123',
-        'ProjectBrief.pdf',
-        'application/pdf',
-        expect.any(Readable),
-      );
-      expect(result.fileId).toBe('drive-file-123');
-      expect(result.fileName).toBe('uploaded.pdf');
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledWith({
+        type: DriveJobType.UPLOAD_ASSIGNMENT_FILE,
+        courseId: 'CS101',
+        folderId: 'drive-folder-123',
+        fileName: 'ProjectBrief.pdf',
+        mimeType: 'application/pdf',
+        fileBufferBase64: fileMock.buffer.toString('base64'),
+        assignmentId: 'ass-uuid-1',
+      });
+      expect(result.fileId).toBe('pending');
+      expect(result.fileName).toBe('ProjectBrief.pdf');
     });
   });
 
@@ -411,10 +430,19 @@ describe('AssignmentService', () => {
 
       const result = await service.submitAssignment({ assignmentId: 'ass-1' }, 'student-1', fileMock);
 
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('old-file-999');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('old-file-999');
       expect(submissionRepoMock.save).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'prior-sub-1', fileId: 'drive-file-123' }),
+        expect.objectContaining({ id: 'prior-sub-1', fileId: 'pending', fileName: 'StudentWork.zip' }),
       );
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledWith({
+        type: DriveJobType.UPLOAD_SUBMISSION_FILE,
+        courseId: 'CS101',
+        folderId: 'folder-abc',
+        fileName: 'StudentWork.zip',
+        mimeType: 'application/zip',
+        fileBufferBase64: fileMock.buffer.toString('base64'),
+        submissionId: 'prior-sub-1',
+      });
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:assignments:student:student-1:*');
     });
 
@@ -439,7 +467,7 @@ describe('AssignmentService', () => {
 
       await service.submitAssignment({ assignmentId: 'ass-1' }, 'student-1', fileMock);
 
-      expect(googleDriveServiceMock.deleteFile).not.toHaveBeenCalled();
+      expect(queueServiceMock.deleteFromDrive).not.toHaveBeenCalled();
     });
 
     it('should catch error gracefully if old file deletion fails on resubmission', async () => {
@@ -460,7 +488,7 @@ describe('AssignmentService', () => {
         fileId: 'bad-file',
       };
       submissionRepoMock.findOne.mockResolvedValue(priorSubmission);
-      googleDriveServiceMock.deleteFile.mockRejectedValueOnce(new Error('Drive unreachable'));
+      queueServiceMock.deleteFromDrive.mockRejectedValueOnce(new Error('Queue unreachable'));
 
       await expect(
         service.submitAssignment({ assignmentId: 'ass-1' }, 'student-1', fileMock),
@@ -485,9 +513,19 @@ describe('AssignmentService', () => {
         expect.objectContaining({
           assignmentId: 'ass-1',
           studentId: 'student-1',
-          fileId: 'drive-file-123',
+          fileId: 'pending',
+          fileName: 'StudentWork.zip',
         }),
       );
+      expect(queueServiceMock.uploadToDrive).toHaveBeenCalledWith({
+        type: DriveJobType.UPLOAD_SUBMISSION_FILE,
+        courseId: 'CS101',
+        folderId: 'folder-abc',
+        fileName: 'StudentWork.zip',
+        mimeType: 'application/zip',
+        fileBufferBase64: fileMock.buffer.toString('base64'),
+        submissionId: 'sub-uuid-1',
+      });
       expect(result.id).toBe('sub-uuid-1');
     });
   });
@@ -752,10 +790,10 @@ describe('AssignmentService', () => {
 
       const result = await service.deleteAssignment('ass-1');
 
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('f1');
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('f2');
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('folder-123');
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('spec-file-123');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('f1');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('f2');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('folder-123');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('spec-file-123');
       expect(assignmentRepoMock.remove).toHaveBeenCalledWith(assignment);
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:assignments:*');
       expect(result.message).toContain('successfully deleted');
@@ -772,7 +810,7 @@ describe('AssignmentService', () => {
 
       await service.deleteAssignment('ass-1');
 
-      expect(googleDriveServiceMock.deleteFile).not.toHaveBeenCalled();
+      expect(queueServiceMock.deleteFromDrive).not.toHaveBeenCalled();
       expect(assignmentRepoMock.remove).toHaveBeenCalledWith(assignment);
     });
 
@@ -784,7 +822,7 @@ describe('AssignmentService', () => {
         submissions: [],
       };
       assignmentRepoMock.findOne.mockResolvedValue(assignment);
-      googleDriveServiceMock.deleteFile.mockRejectedValue(new Error('Drive error'));
+      queueServiceMock.deleteFromDrive.mockRejectedValue(new Error('Queue error'));
 
       await expect(service.deleteAssignment('ass-1')).resolves.toBeDefined();
     });
@@ -834,7 +872,7 @@ describe('AssignmentService', () => {
 
       const result = await service.deleteSubmission('sub-1', { id: 'student-1', role: UserRole.STUDENT });
 
-      expect(googleDriveServiceMock.deleteFile).toHaveBeenCalledWith('f-1');
+      expect(queueServiceMock.deleteFromDrive).toHaveBeenCalledWith('f-1');
       expect(submissionRepoMock.remove).toHaveBeenCalledWith(submission);
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:assignments:student:student-1:*');
       expect(result.message).toContain('successfully deleted');
@@ -852,7 +890,7 @@ describe('AssignmentService', () => {
 
       const result = await service.deleteSubmission('sub-1', { id: 'rep-1', role: UserRole.REP });
 
-      expect(googleDriveServiceMock.deleteFile).not.toHaveBeenCalled();
+      expect(queueServiceMock.deleteFromDrive).not.toHaveBeenCalled();
       expect(submissionRepoMock.remove).toHaveBeenCalled();
       expect(result.message).toContain('successfully deleted');
     });
@@ -866,7 +904,7 @@ describe('AssignmentService', () => {
         assignment: { courseId: 'CS101', deadline: new Date(Date.now() + 86400000) },
       };
       submissionRepoMock.findOne.mockResolvedValue(submission);
-      googleDriveServiceMock.deleteFile.mockRejectedValueOnce(new Error('Network drop'));
+      queueServiceMock.deleteFromDrive.mockRejectedValueOnce(new Error('Network drop'));
 
       await expect(
         service.deleteSubmission('sub-1', { id: 'student-1', role: UserRole.STUDENT }),

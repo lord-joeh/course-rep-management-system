@@ -17,6 +17,7 @@ export enum EmailJobType {
 export enum DriveJobType {
   UPLOAD_SLIDE_FILE = 'upload-slide-file',
   UPLOAD_ASSIGNMENT_FILE = 'upload-assignment-file',
+  UPLOAD_SUBMISSION_FILE = 'upload-submission-file',
   DELETE_DRIVE_FILE = 'delete-drive-file',
 }
 

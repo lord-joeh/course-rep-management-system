@@ -7,7 +7,9 @@ export interface EmailJobData {
   studentId?: string;
   resetToken?: string;
   groupName?: string;
-  groupMembers?: Array<{ id: string; name: string; email: string }>;
+  groupMembers?: Array<{ id: string; name: string; email?: string; role?: string }>;
+  role?: string;
+  leaderName?: string;
   isAnonymous?: boolean;
   message?: string;
   subject?: string;

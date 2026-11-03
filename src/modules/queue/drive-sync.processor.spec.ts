@@ -6,6 +6,8 @@ import * as fs from 'fs/promises';
 import { DriveSyncProcessor } from './processors/drive-sync.processor';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { Slide } from '../slide/entities/slide.entity';
+import { Assignment } from '../assignment/entities/assignment.entity';
+import { AssignmentSubmission } from '../assignment/entities/assignment-submission.entity';
 import { DriveJobType } from './constants';
 import { DriveJobData } from './dto';
 
@@ -15,6 +17,8 @@ describe('DriveSyncProcessor', () => {
   let processor: DriveSyncProcessor;
   let googleDriveService: GoogleDriveService;
   let slideRepository: Repository<Slide>;
+  let assignmentRepository: Repository<Assignment>;
+  let submissionRepository: Repository<AssignmentSubmission>;
 
   const mockGoogleDriveService = {
     uploadFileStream: jest.fn(),
@@ -22,6 +26,14 @@ describe('DriveSyncProcessor', () => {
   };
 
   const mockSlideRepository = {
+    update: jest.fn(),
+  };
+
+  const mockAssignmentRepository = {
+    update: jest.fn(),
+  };
+
+  const mockSubmissionRepository = {
     update: jest.fn(),
   };
 
@@ -37,12 +49,24 @@ describe('DriveSyncProcessor', () => {
           provide: getRepositoryToken(Slide),
           useValue: mockSlideRepository,
         },
+        {
+          provide: getRepositoryToken(Assignment),
+          useValue: mockAssignmentRepository,
+        },
+        {
+          provide: getRepositoryToken(AssignmentSubmission),
+          useValue: mockSubmissionRepository,
+        },
       ],
     }).compile();
 
     processor = module.get<DriveSyncProcessor>(DriveSyncProcessor);
     googleDriveService = module.get<GoogleDriveService>(GoogleDriveService);
     slideRepository = module.get<Repository<Slide>>(getRepositoryToken(Slide));
+    assignmentRepository = module.get<Repository<Assignment>>(getRepositoryToken(Assignment));
+    submissionRepository = module.get<Repository<AssignmentSubmission>>(
+      getRepositoryToken(AssignmentSubmission),
+    );
   });
 
   afterEach(() => {
@@ -85,6 +109,64 @@ describe('DriveSyncProcessor', () => {
     expect(mockSlideRepository.update).toHaveBeenCalledWith('slide-uuid-1', {
       driveFileId: 'drive-file-abc',
       fileName: 'Lecture1.pdf',
+    });
+  });
+
+  it('should process upload with assignmentId and update assignment entity', async () => {
+    mockGoogleDriveService.uploadFileStream.mockResolvedValue({
+      id: 'drive-assign-file',
+      name: 'Project_Brief.pdf',
+    });
+
+    const job = {
+      id: 'drive-job-assign',
+      data: {
+        type: DriveJobType.UPLOAD_ASSIGNMENT_FILE,
+        courseId: 'CS101',
+        folderId: 'folder-assign',
+        fileName: 'Project_Brief.pdf',
+        mimeType: 'application/pdf',
+        fileBufferBase64: Buffer.from('brief content').toString('base64'),
+        assignmentId: 'assign-uuid-1',
+      },
+    } as unknown as Job<DriveJobData>;
+
+    const result = await processor.process(job);
+
+    expect(result.success).toBe(true);
+    expect(result.driveFileId).toBe('drive-assign-file');
+    expect(mockAssignmentRepository.update).toHaveBeenCalledWith('assign-uuid-1', {
+      fileId: 'drive-assign-file',
+      fileName: 'Project_Brief.pdf',
+    });
+  });
+
+  it('should process upload with submissionId and update submission entity', async () => {
+    mockGoogleDriveService.uploadFileStream.mockResolvedValue({
+      id: 'drive-sub-file',
+      name: 'Solution.zip',
+    });
+
+    const job = {
+      id: 'drive-job-sub',
+      data: {
+        type: DriveJobType.UPLOAD_SUBMISSION_FILE,
+        courseId: 'CS101',
+        folderId: 'folder-sub',
+        fileName: 'Solution.zip',
+        mimeType: 'application/zip',
+        fileBufferBase64: Buffer.from('zip binary').toString('base64'),
+        submissionId: 'sub-uuid-1',
+      },
+    } as unknown as Job<DriveJobData>;
+
+    const result = await processor.process(job);
+
+    expect(result.success).toBe(true);
+    expect(result.driveFileId).toBe('drive-sub-file');
+    expect(mockSubmissionRepository.update).toHaveBeenCalledWith('sub-uuid-1', {
+      fileId: 'drive-sub-file',
+      fileName: 'Solution.zip',
     });
   });
 

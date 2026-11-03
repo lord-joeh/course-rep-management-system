@@ -6,11 +6,13 @@ import { Course } from '../course/entities/course.entity';
 import { FeedbackService } from './feedback.service';
 import { FeedbackController } from './feedback.controller';
 import { RedisModule } from '../redis/redis.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Feedback, Student, Course]),
     RedisModule,
+    QueueModule,
   ],
   controllers: [FeedbackController],
   providers: [FeedbackService],

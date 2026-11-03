@@ -16,6 +16,8 @@ import {
 import { Student } from '../student/entities/student.entity';
 import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { EmailJobType } from '../queue/constants';
 import {
   CreateFeedbackDto,
   UpdateFeedbackStatusDto,
@@ -37,6 +39,7 @@ export class FeedbackService {
     @InjectRepository(Course)
     private readonly courseRepository: Repository<Course>,
     private readonly cacheService: CacheService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -74,6 +77,15 @@ export class FeedbackService {
     });
 
     const saved = await this.feedbackRepository.save(feedback);
+
+    // Enqueue transactional feedback confirmation email for non-anonymous submissions
+    if (!dto.isAnonymous && student.email) {
+      await this.queueService.sendEmail(EmailJobType.FEEDBACK_RECEIVED, {
+        to: student.email,
+        name: student.name,
+      });
+    }
+
     await this.cacheService.scanAndInvalidate('cr:feedback:*');
     return saved;
   }

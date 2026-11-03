@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import { Student, StudentStatus } from '../student/entities/student.entity';
 import { RefreshToken } from '../student/entities/refresh-token.entity';
 import {
@@ -49,6 +50,10 @@ describe('AuthService', () => {
   };
   let studentRepoMock: {
     update: jest.Mock;
+    findOne: jest.Mock;
+  };
+  let queueServiceMock: {
+    sendEmail: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -88,6 +93,10 @@ describe('AuthService', () => {
     };
     studentRepoMock = {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: jest.fn().mockResolvedValue({ id: 'std_01', name: 'Test Student' }),
+    };
+    queueServiceMock = {
+      sendEmail: jest.fn().mockResolvedValue('job-email-1'),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -97,6 +106,7 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
         { provide: CacheService, useValue: cacheServiceMock },
+        { provide: QueueService, useValue: queueServiceMock },
         { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepoMock },
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
       ],

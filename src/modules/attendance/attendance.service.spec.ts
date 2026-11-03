@@ -21,6 +21,7 @@ import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import { AttendanceGateway } from './attendance.gateway';
 
 describe('AttendanceService', () => {
@@ -37,6 +38,7 @@ describe('AttendanceService', () => {
   let configServiceMock: any;
   let cacheServiceMock: any;
   let gatewayMock: any;
+  let queueServiceMock: any;
   let queryBuilderMock: any;
 
   beforeEach(async () => {
@@ -133,6 +135,10 @@ describe('AttendanceService', () => {
       broadcastSessionClosed: jest.fn(),
     };
 
+    queueServiceMock = {
+      initializeAttendanceRoster: jest.fn().mockResolvedValue('job-roster-1'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
@@ -179,6 +185,10 @@ describe('AttendanceService', () => {
         {
           provide: AttendanceGateway,
           useValue: gatewayMock,
+        },
+        {
+          provide: QueueService,
+          useValue: queueServiceMock,
         },
       ],
     }).compile();
@@ -339,22 +349,11 @@ describe('AttendanceService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should successfully initialize in-person attendance with bulk enrolled students', async () => {
+    it('should successfully initialize in-person attendance with bulk enrolled students offloaded to queue', async () => {
       courseRepoMock.findOne.mockResolvedValue({ id: 'CS101' });
-
-      dataSourceMock.transaction.mockImplementation(async (cb: any) => {
-        const manager = {
-          save: jest.fn(async (target: any, entity: any) => ({
-            id: 'saved-inst-uuid',
-            ...entity,
-          })),
-          find: jest.fn().mockResolvedValue([
-            { studentId: 'st-1', student: { status: 'active' } },
-            { studentId: 'st-2', student: { status: 'suspended' } }, // Inactive excluded
-          ]),
-          create: jest.fn((target: any, dto: any) => dto),
-        };
-        return cb(manager);
+      instanceRepoMock.save.mockResolvedValue({
+        id: 'saved-inst-uuid',
+        courseId: 'CS101',
       });
 
       const result = await service.initializeAttendance({
@@ -367,6 +366,11 @@ describe('AttendanceService', () => {
       });
 
       expect(result.id).toBe('saved-inst-uuid');
+      expect(queueServiceMock.initializeAttendanceRoster).toHaveBeenCalledWith(
+        'saved-inst-uuid',
+        'CS101',
+        expect.any(String),
+      );
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith(
         'cr:attendance:instances:*',
       );
@@ -374,17 +378,9 @@ describe('AttendanceService', () => {
 
     it('should successfully initialize online attendance session without lat/lon', async () => {
       courseRepoMock.findOne.mockResolvedValue({ id: 'CS101' });
-
-      dataSourceMock.transaction.mockImplementation(async (cb: any) => {
-        const manager = {
-          save: jest.fn(async (target: any, entity: any) => ({
-            id: 'online-inst-uuid',
-            ...entity,
-          })),
-          find: jest.fn().mockResolvedValue([]),
-          create: jest.fn((target: any, dto: any) => dto),
-        };
-        return cb(manager);
+      instanceRepoMock.save.mockResolvedValue({
+        id: 'online-inst-uuid',
+        courseId: 'CS101',
       });
 
       const result = await service.initializeAttendance({
@@ -394,6 +390,11 @@ describe('AttendanceService', () => {
       });
 
       expect(result.id).toBe('online-inst-uuid');
+      expect(queueServiceMock.initializeAttendanceRoster).toHaveBeenCalledWith(
+        'online-inst-uuid',
+        'CS101',
+        expect.any(String),
+      );
     });
   });
 

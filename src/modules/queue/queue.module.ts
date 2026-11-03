@@ -20,12 +20,21 @@ import { Slide } from '../slide/entities/slide.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
+import { Assignment } from '../assignment/entities/assignment.entity';
+import { AssignmentSubmission } from '../assignment/entities/assignment-submission.entity';
 import { GoogleModule } from '../google/google.module';
 
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([Slide, Attendance, CourseStudent, Student]),
+    TypeOrmModule.forFeature([
+      Slide,
+      Attendance,
+      CourseStudent,
+      Student,
+      Assignment,
+      AssignmentSubmission,
+    ]),
     GoogleModule,
 
     // BullMQ Connection Configuration

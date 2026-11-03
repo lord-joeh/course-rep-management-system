@@ -7,6 +7,7 @@ import {
   SmsJobData,
   DriveJobData,
   DriveUploadJobData,
+  DriveUploadType,
   DriveDeleteJobData,
   AttendanceRosterJobData,
 } from './dto';
@@ -76,12 +77,12 @@ export class QueueService {
    * Enqueue a Google Drive background file upload
    */
   async uploadToDrive(
-    data: Omit<DriveUploadJobData, 'type'>,
+    data: (Omit<DriveUploadJobData, 'type'> & { type?: DriveUploadType }) | DriveUploadJobData,
     options?: JobsOptions,
   ): Promise<string> {
     const jobData: DriveUploadJobData = {
       ...data,
-      type: DriveJobType.UPLOAD_SLIDE_FILE,
+      type: data.type || DriveJobType.UPLOAD_SLIDE_FILE,
     };
     const defaultOptions: JobsOptions = {
       attempts: 5,
@@ -102,13 +103,14 @@ export class QueueService {
   async deleteFromDrive(
     driveFileId: string,
     options?: JobsOptions,
-    meta?: { slideId?: string; assignmentId?: string },
+    meta?: { slideId?: string; assignmentId?: string; submissionId?: string },
   ): Promise<string> {
     const jobData: DriveDeleteJobData = {
       type: DriveJobType.DELETE_DRIVE_FILE,
       driveFileId,
       slideId: meta?.slideId,
       assignmentId: meta?.assignmentId,
+      submissionId: meta?.submissionId,
     };
     const defaultOptions: JobsOptions = {
       attempts: 5,

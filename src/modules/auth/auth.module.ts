@@ -6,6 +6,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { StudentModule } from '../student/student.module';
+import { QueueModule } from '../queue/queue.module';
 import { Student } from '../student/entities/student.entity';
 import { RefreshToken } from '../student/entities/refresh-token.entity';
 
@@ -15,6 +16,7 @@ import { RefreshToken } from '../student/entities/refresh-token.entity';
     JwtModule.register({}),
     TypeOrmModule.forFeature([Student, RefreshToken]),
     StudentModule,
+    QueueModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

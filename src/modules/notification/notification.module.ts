@@ -10,6 +10,7 @@ import { NotificationController } from './notification.controller';
 import { NotificationGateway } from './notification.gateway';
 import { FirebaseMessagingService } from './firebase-messaging.service';
 import { RedisModule } from '../redis/redis.module';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RedisModule } from '../redis/redis.module';
       Course,
     ]),
     RedisModule,
+    QueueModule,
   ],
   controllers: [NotificationController],
   providers: [

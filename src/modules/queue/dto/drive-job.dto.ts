@@ -1,7 +1,12 @@
-import { DriveJobType } from '../constants';
+import { DriveJobType } from "../constants";
+
+export type DriveUploadType =
+  | DriveJobType.UPLOAD_SLIDE_FILE
+  | DriveJobType.UPLOAD_ASSIGNMENT_FILE
+  | DriveJobType.UPLOAD_SUBMISSION_FILE;
 
 export interface DriveUploadJobData {
-  type: DriveJobType.UPLOAD_SLIDE_FILE | DriveJobType.UPLOAD_ASSIGNMENT_FILE;
+  type: DriveUploadType;
   courseId: string;
   folderId?: string;
   fileName: string;
@@ -10,6 +15,7 @@ export interface DriveUploadJobData {
   tempFilePath?: string;
   slideId?: string;
   assignmentId?: string;
+  submissionId?: string;
   socketId?: string;
   userId?: string;
 }
@@ -19,9 +25,9 @@ export interface DriveDeleteJobData {
   driveFileId: string;
   slideId?: string;
   assignmentId?: string;
+  submissionId?: string;
   socketId?: string;
   userId?: string;
 }
 
 export type DriveJobData = DriveUploadJobData | DriveDeleteJobData;
-

@@ -9,6 +9,8 @@ import { QueueName, DriveJobType } from '../constants';
 import { DriveJobData, DriveUploadJobData, DriveDeleteJobData } from '../dto';
 import { GoogleDriveService } from '../../google/services/google-drive.service';
 import { Slide } from '../../slide/entities/slide.entity';
+import { Assignment } from '../../assignment/entities/assignment.entity';
+import { AssignmentSubmission } from '../../assignment/entities/assignment-submission.entity';
 
 @Processor(QueueName.DRIVE_SYNC)
 export class DriveSyncProcessor extends WorkerHost {
@@ -18,6 +20,10 @@ export class DriveSyncProcessor extends WorkerHost {
     private readonly googleDriveService: GoogleDriveService,
     @InjectRepository(Slide)
     private readonly slideRepository: Repository<Slide>,
+    @InjectRepository(Assignment)
+    private readonly assignmentRepository: Repository<Assignment>,
+    @InjectRepository(AssignmentSubmission)
+    private readonly submissionRepository: Repository<AssignmentSubmission>,
   ) {
     super();
   }
@@ -29,6 +35,7 @@ export class DriveSyncProcessor extends WorkerHost {
     switch (data.type) {
       case DriveJobType.UPLOAD_SLIDE_FILE:
       case DriveJobType.UPLOAD_ASSIGNMENT_FILE:
+      case DriveJobType.UPLOAD_SUBMISSION_FILE:
         return this.handleUpload(job.id, data as DriveUploadJobData);
 
       case DriveJobType.DELETE_DRIVE_FILE:
@@ -73,11 +80,31 @@ export class DriveSyncProcessor extends WorkerHost {
         this.logger.log(`Updated Slide [${data.slideId}] with Drive file ID: ${uploadResult.id}`);
       }
 
+      // If tied to an existing Assignment record, update fileId
+      if (data.assignmentId) {
+        await this.assignmentRepository.update(data.assignmentId, {
+          fileId: uploadResult.id,
+          fileName: data.fileName,
+        });
+        this.logger.log(`Updated Assignment [${data.assignmentId}] with Drive file ID: ${uploadResult.id}`);
+      }
+
+      // If tied to an existing AssignmentSubmission record, update fileId
+      if (data.submissionId) {
+        await this.submissionRepository.update(data.submissionId, {
+          fileId: uploadResult.id,
+          fileName: data.fileName,
+        });
+        this.logger.log(`Updated AssignmentSubmission [${data.submissionId}] with Drive file ID: ${uploadResult.id}`);
+      }
+
       return {
         success: true,
         driveFileId: uploadResult.id,
         fileName: uploadResult.name,
         slideId: data.slideId,
+        assignmentId: data.assignmentId,
+        submissionId: data.submissionId,
       };
     } catch (error: any) {
       this.logger.error(`Drive upload job [${jobId}] failed: ${error.message}`, error.stack);

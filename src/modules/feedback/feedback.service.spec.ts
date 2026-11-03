@@ -11,6 +11,7 @@ import {
 import { Student } from '../student/entities/student.entity';
 import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import {
   CreateFeedbackDto,
   UpdateFeedbackStatusDto,
@@ -25,6 +26,7 @@ describe('FeedbackService', () => {
   let studentRepoMock: any;
   let courseRepoMock: any;
   let cacheServiceMock: any;
+  let queueServiceMock: any;
   let queryBuilderMock: any;
 
   beforeEach(async () => {
@@ -64,6 +66,10 @@ describe('FeedbackService', () => {
       scanAndInvalidate: jest.fn().mockResolvedValue(undefined),
     };
 
+    queueServiceMock = {
+      sendEmail: jest.fn().mockResolvedValue('job-email-1'),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FeedbackService,
@@ -82,6 +88,10 @@ describe('FeedbackService', () => {
         {
           provide: CacheService,
           useValue: cacheServiceMock,
+        },
+        {
+          provide: QueueService,
+          useValue: queueServiceMock,
         },
       ],
     }).compile();

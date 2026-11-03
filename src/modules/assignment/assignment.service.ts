@@ -14,6 +14,8 @@ import { Course } from '../course/entities/course.entity';
 import { Student } from '../student/entities/student.entity';
 import { GoogleDriveService, DriveDownloadResult } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
+import { DriveJobType } from '../queue/constants';
 import {
   CreateAssignmentDto,
   UpdateAssignmentDto,
@@ -39,6 +41,7 @@ export class AssignmentService {
     private readonly studentRepository: Repository<Student>,
     private readonly googleDriveService: GoogleDriveService,
     private readonly cacheService: CacheService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -64,32 +67,31 @@ export class AssignmentService {
     const folderName = `${course.name || course.id} ${dto.title} Submissions`;
     const driveFolder = await this.googleDriveService.createFolder(folderName);
 
-    let fileId: string | null = null;
-    let fileName: string | null = null;
-
-    if (file) {
-      const readable = Readable.from(file.buffer);
-      const uploaded = await this.googleDriveService.uploadFileStream(
-        driveFolder.id,
-        file.originalname,
-        file.mimetype,
-        readable,
-      );
-      fileId = uploaded.id;
-      fileName = uploaded.name;
-    }
-
     const assignment = this.assignmentRepository.create({
       title: dto.title,
       description: dto.description,
       courseId: dto.courseId,
       deadline,
       submissionFolderId: driveFolder.id,
-      fileId,
-      fileName,
+      fileId: file ? 'pending' : null,
+      fileName: file ? file.originalname : null,
     });
 
     const saved = await this.assignmentRepository.save(assignment);
+
+    // Offload specification file upload to BullMQ background worker
+    if (file) {
+      await this.queueService.uploadToDrive({
+        type: DriveJobType.UPLOAD_ASSIGNMENT_FILE,
+        courseId: dto.courseId,
+        folderId: driveFolder.id,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        fileBufferBase64: file.buffer.toString('base64'),
+        assignmentId: saved.id,
+      });
+    }
+
     await this.cacheService.scanAndInvalidate(`cr:assignments:course:${dto.courseId}:*`);
 
     return saved;
@@ -173,39 +175,41 @@ export class AssignmentService {
       where: { assignmentId: dto.assignmentId, studentId },
     });
 
-    if (existingSubmission && existingSubmission.fileId) {
+    if (existingSubmission && existingSubmission.fileId && existingSubmission.fileId !== 'pending') {
       try {
-        await this.googleDriveService.deleteFile(existingSubmission.fileId);
+        await this.queueService.deleteFromDrive(existingSubmission.fileId);
       } catch (err: any) {
         this.logger.warn(`Failed to clean up old submission file: ${err.message}`);
       }
     }
 
-    // Stream upload new file to Drive
-    const readable = Readable.from(file.buffer);
-    const uploaded = await this.googleDriveService.uploadFileStream(
-      folderId,
-      file.originalname,
-      file.mimetype,
-      readable,
-    );
-
     let savedSubmission: AssignmentSubmission;
     if (existingSubmission) {
-      existingSubmission.fileId = uploaded.id;
-      existingSubmission.fileName = uploaded.name;
+      existingSubmission.fileId = 'pending';
+      existingSubmission.fileName = file.originalname;
       existingSubmission.submittedAt = new Date();
       savedSubmission = await this.submissionRepository.save(existingSubmission);
     } else {
       const newSubmission = this.submissionRepository.create({
         assignmentId: dto.assignmentId,
         studentId,
-        fileId: uploaded.id,
-        fileName: uploaded.name,
+        fileId: 'pending',
+        fileName: file.originalname,
         submittedAt: new Date(),
       });
       savedSubmission = await this.submissionRepository.save(newSubmission);
     }
+
+    // Stream upload offloaded to BullMQ background worker
+    await this.queueService.uploadToDrive({
+      type: DriveJobType.UPLOAD_SUBMISSION_FILE,
+      courseId: assignment.courseId,
+      folderId,
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      fileBufferBase64: file.buffer.toString('base64'),
+      submissionId: savedSubmission.id,
+    });
 
     // Invalidate caches
     await this.cacheService.scanAndInvalidate(`cr:assignments:student:${studentId}:*`);
@@ -425,30 +429,30 @@ export class AssignmentService {
       throw new NotFoundException(`Assignment "${id}" not found`);
     }
 
-    // Delete submission files from Google Drive in parallel
+    // Delete submission files from Google Drive in background queue
     const fileIds = (assignment.submissions || [])
       .map((s) => s.fileId)
-      .filter((fid): fid is string => Boolean(fid));
+      .filter((fid): fid is string => Boolean(fid && fid !== 'pending'));
 
     if (fileIds.length > 0) {
       await Promise.allSettled(
-        fileIds.map((fid) => this.googleDriveService.deleteFile(fid)),
+        fileIds.map((fid) => this.queueService.deleteFromDrive(fid)),
       );
     }
 
     // Delete assignment folder
     if (assignment.submissionFolderId) {
       try {
-        await this.googleDriveService.deleteFile(assignment.submissionFolderId);
+        await this.queueService.deleteFromDrive(assignment.submissionFolderId);
       } catch (err: any) {
         this.logger.warn(`Failed to delete Drive folder: ${err.message}`);
       }
     }
 
     // Delete spec file if present
-    if (assignment.fileId) {
+    if (assignment.fileId && assignment.fileId !== 'pending') {
       try {
-        await this.googleDriveService.deleteFile(assignment.fileId);
+        await this.queueService.deleteFromDrive(assignment.fileId);
       } catch (err: any) {
         this.logger.warn(`Failed to delete spec file: ${err.message}`);
       }
@@ -492,9 +496,9 @@ export class AssignmentService {
       );
     }
 
-    if (submission.fileId) {
+    if (submission.fileId && submission.fileId !== 'pending') {
       try {
-        await this.googleDriveService.deleteFile(submission.fileId);
+        await this.queueService.deleteFromDrive(submission.fileId);
       } catch (err: any) {
         this.logger.warn(`Failed to delete Drive submission file: ${err.message}`);
       }

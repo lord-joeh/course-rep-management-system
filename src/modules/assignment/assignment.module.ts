@@ -6,6 +6,7 @@ import { Course } from '../course/entities/course.entity';
 import { Student } from '../student/entities/student.entity';
 import { GoogleModule } from '../google/google.module';
 import { RedisModule } from '../redis/redis.module';
+import { QueueModule } from '../queue/queue.module';
 import { AssignmentService } from './assignment.service';
 import { AssignmentController } from './assignment.controller';
 
@@ -19,6 +20,7 @@ import { AssignmentController } from './assignment.controller';
     ]),
     GoogleModule,
     RedisModule,
+    QueueModule,
   ],
   controllers: [AssignmentController],
   providers: [AssignmentService],
