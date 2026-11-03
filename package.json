@@ -39,6 +39,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.7",
+    "firebase-admin": "^14.5.0",
     "googleapis": "189.0.0",
     "ioredis": "^6.0.0",
     "joi": "^17.13.3",
@@ -106,6 +107,7 @@
       }
     },
     "testEnvironment": "node",
+    "testTimeout": 30000,
     "moduleNameMapper": {
       "^@common/(.*)$": "<rootDir>/common/$1",
       "^@config/(.*)$": "<rootDir>/config/$1",

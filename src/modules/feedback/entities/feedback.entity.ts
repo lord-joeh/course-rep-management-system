@@ -107,3 +107,4 @@ export class Feedback {
   @UpdateDateColumn({ name: 'updatedAt', type: 'timestamptz' })
   updatedAt: Date;
 }
+

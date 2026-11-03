@@ -19,6 +19,7 @@ import { Attendance } from '../../attendance/entities/attendance.entity';
 import { Group } from '../../group/entities/group.entity';
 import { Event } from '../../event/entities/event.entity';
 import { Feedback } from '../../feedback/entities/feedback.entity';
+import { Notification } from '../../notification/entities/notification.entity';
 
 @Entity('course')
 export class Course {
@@ -73,6 +74,9 @@ export class Course {
 
   @OneToMany(() => Feedback, (fb) => fb.course)
   feedbacks: Feedback[];
+
+  @OneToMany(() => Notification, (n) => n.course)
+  notifications: Notification[];
 
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;

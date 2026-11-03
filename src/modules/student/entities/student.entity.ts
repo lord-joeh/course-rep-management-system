@@ -13,6 +13,7 @@ import { AssignmentSubmission } from "../../assignment/entities/assignment-submi
 import { Attendance } from "../../attendance/entities/attendance.entity";
 import { GroupMember } from "../../group/entities/group-member.entity";
 import { Feedback } from "../../feedback/entities/feedback.entity";
+import { Notification, NotificationRead, FcmToken } from "../../notification/entities";
 
 export enum StudentStatus {
   ACTIVE = "active",
@@ -90,6 +91,19 @@ export class Student {
 
   @OneToMany(() => Feedback, (fb) => fb.student)
   feedbacks: Feedback[];
+
+  @OneToMany(() => Notification, (n) => n.sender)
+  notificationsSent: Notification[];
+
+  @OneToMany(() => NotificationRead, (nr) => nr.student, {
+    cascade: ["remove"],
+  })
+  notificationReads: NotificationRead[];
+
+  @OneToMany(() => FcmToken, (token) => token.student, {
+    cascade: ["remove"],
+  })
+  fcmTokens: FcmToken[];
 
   @BeforeInsert()
   setInitialDates() {

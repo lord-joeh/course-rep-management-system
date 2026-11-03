@@ -17,3 +17,4 @@ import { RedisModule } from '../redis/redis.module';
   exports: [FeedbackService],
 })
 export class FeedbackModule {}
+

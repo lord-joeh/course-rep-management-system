@@ -33,3 +33,4 @@ export class FeedbackQueryDto extends PaginationQueryDto {
   @IsBoolean()
   isAnonymous?: boolean;
 }
+
