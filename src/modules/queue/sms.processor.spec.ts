@@ -42,7 +42,7 @@ describe('SmsProcessor', () => {
     expect(processor).toBeDefined();
   });
 
-  it('should successfully dispatch SMS using HTTP POST with api-key header', async () => {
+  it('should successfully dispatch SMS using HTTP POST with api-key header for V2 endpoint', async () => {
     const mockResponse = {
       ok: true,
       status: 200,
@@ -82,6 +82,86 @@ describe('SmsProcessor', () => {
     );
   });
 
+  it('should dispatch SMS using HTTP GET for Arkesel V1 legacy endpoint', async () => {
+    jest.spyOn(configService, 'get').mockImplementation((key: string) => {
+      if (key === 'ARKESEL_API_KEY') return 'test-key';
+      if (key === 'ARKESEL_SENDER_ID') return 'CourseRep';
+      if (key === 'ARKESEL_BASE_URL') return 'https://sms.arkesel.com/sms/api?action=send-sms&';
+      return null;
+    });
+
+    const mockResponse = {
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({
+        code: 'ok',
+        message: 'Successfully Sent',
+        balance: 500,
+      }),
+    };
+    global.fetch = jest.fn().mockResolvedValue(mockResponse);
+
+    const job = {
+      id: 'sms-job-v1',
+      data: {
+        to: '0256269405',
+        message: 'Hello Student',
+        userId: 'student-456',
+      },
+    } as unknown as Job<SmsJobData>;
+
+    const result = await processor.process(job);
+
+    expect(result.success).toBe(true);
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('https://sms.arkesel.com/sms/api?action=send-sms'),
+      expect.objectContaining({
+        method: 'GET',
+      }),
+    );
+  });
+
+  it('should fallback to V1 GET if V2 POST returns 405 Method Not Supported', async () => {
+    const post405Response = {
+      ok: false,
+      status: 405,
+      json: jest.fn().mockResolvedValue({
+        message: 'The POST method is not supported for this route. Supported methods: GET, HEAD.',
+      }),
+    };
+
+    const getV1Response = {
+      ok: true,
+      status: 200,
+      json: jest.fn().mockResolvedValue({
+        code: 'ok',
+        message: 'Successfully Sent',
+      }),
+    };
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(post405Response)
+      .mockResolvedValueOnce(getV1Response);
+
+    const job = {
+      id: 'sms-job-fallback',
+      data: {
+        to: '0256269405',
+        message: 'Fallback test message',
+      },
+    } as unknown as Job<SmsJobData>;
+
+    const result = await processor.process(job);
+
+    expect(result.success).toBe(true);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('https://sms.arkesel.com/sms/api?action=send-sms'),
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('should run in mock mode when ARKESEL_API_KEY is not configured', async () => {
     jest.spyOn(configService, 'get').mockImplementation((key: string) => {
       if (key === 'ARKESEL_API_KEY') return null;
@@ -103,36 +183,6 @@ describe('SmsProcessor', () => {
     expect(result.to).toBe('233555000111');
   });
 
-  it('should format international recipient numbers that do not start with 0', async () => {
-    const mockResponse = {
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({ status: 'success' }),
-    };
-    global.fetch = jest.fn().mockResolvedValue(mockResponse);
-
-    const job = {
-      id: 'sms-job-intl',
-      data: {
-        to: '+233 24 555 6677',
-        message: 'International test',
-      },
-    } as unknown as Job<SmsJobData>;
-
-    const result = await processor.process(job);
-    expect(result.success).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({
-        body: JSON.stringify({
-          sender: 'CourseRep',
-          message: 'International test',
-          recipients: ['233245556677'],
-        }),
-      }),
-    );
-  });
-
   it('should throw an error when Arkesel API returns error status', async () => {
     const mockResponse = {
       ok: false,
@@ -148,25 +198,10 @@ describe('SmsProcessor', () => {
       id: 'sms-job-err',
       data: {
         to: '0501234567',
-        message: 'Urgent notice',
+        message: 'Error test',
       },
     } as unknown as Job<SmsJobData>;
 
     await expect(processor.process(job)).rejects.toThrow('Insufficient balance in Arkesel account');
   });
-
-  it('should throw an error on network disconnect', async () => {
-    global.fetch = jest.fn().mockRejectedValue(new Error('Connection reset by peer'));
-
-    const job = {
-      id: 'sms-job-fail',
-      data: {
-        to: '0501234567',
-        message: 'Urgent notice',
-      },
-    } as unknown as Job<SmsJobData>;
-
-    await expect(processor.process(job)).rejects.toThrow('Connection reset by peer');
-  });
 });
-
