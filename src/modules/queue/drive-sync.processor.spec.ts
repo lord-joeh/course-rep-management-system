@@ -10,6 +10,7 @@ import { Assignment } from '../assignment/entities/assignment.entity';
 import { AssignmentSubmission } from '../assignment/entities/assignment-submission.entity';
 import { DriveJobType } from './constants';
 import { DriveJobData } from './dto';
+import { CacheService } from '../redis/cache.service';
 
 jest.mock('fs/promises');
 
@@ -23,6 +24,11 @@ describe('DriveSyncProcessor', () => {
   const mockGoogleDriveService = {
     uploadFileStream: jest.fn(),
     deleteFile: jest.fn(),
+  };
+
+  const mockCacheService = {
+    scanAndInvalidate: jest.fn().mockResolvedValue(0),
+    del: jest.fn().mockResolvedValue(0),
   };
 
   const mockSlideRepository = {
@@ -44,6 +50,10 @@ describe('DriveSyncProcessor', () => {
         {
           provide: GoogleDriveService,
           useValue: mockGoogleDriveService,
+        },
+        {
+          provide: CacheService,
+          useValue: mockCacheService,
         },
         {
           provide: getRepositoryToken(Slide),

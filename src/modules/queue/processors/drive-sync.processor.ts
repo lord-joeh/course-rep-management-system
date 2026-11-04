@@ -8,6 +8,7 @@ import { Readable } from 'stream';
 import { QueueName, DriveJobType } from '../constants';
 import { DriveJobData, DriveUploadJobData, DriveDeleteJobData } from '../dto';
 import { GoogleDriveService } from '../../google/services/google-drive.service';
+import { CacheService } from '../../redis/cache.service';
 import { Slide } from '../../slide/entities/slide.entity';
 import { Assignment } from '../../assignment/entities/assignment.entity';
 import { AssignmentSubmission } from '../../assignment/entities/assignment-submission.entity';
@@ -18,6 +19,7 @@ export class DriveSyncProcessor extends WorkerHost {
 
   constructor(
     private readonly googleDriveService: GoogleDriveService,
+    private readonly cacheService: CacheService,
     @InjectRepository(Slide)
     private readonly slideRepository: Repository<Slide>,
     @InjectRepository(Assignment)
@@ -78,6 +80,11 @@ export class DriveSyncProcessor extends WorkerHost {
           fileName: data.fileName,
         });
         this.logger.log(`Updated Slide [${data.slideId}] with Drive file ID: ${uploadResult.id}`);
+        if (data.courseId) {
+          await this.cacheService.scanAndInvalidate(`cr:slides:course:${data.courseId}:*`);
+        } else {
+          await this.cacheService.scanAndInvalidate('cr:slides:*');
+        }
       }
 
       // If tied to an existing Assignment record, update fileId
@@ -87,6 +94,11 @@ export class DriveSyncProcessor extends WorkerHost {
           fileName: data.fileName,
         });
         this.logger.log(`Updated Assignment [${data.assignmentId}] with Drive file ID: ${uploadResult.id}`);
+        if (data.courseId) {
+          await this.cacheService.scanAndInvalidate(`cr:assignments:course:${data.courseId}:*`);
+        }
+        await this.cacheService.del(`cr:assignment:${data.assignmentId}`);
+        await this.cacheService.scanAndInvalidate(`cr:assignments:detail:${data.assignmentId}:*`);
       }
 
       // If tied to an existing AssignmentSubmission record, update fileId
@@ -96,6 +108,13 @@ export class DriveSyncProcessor extends WorkerHost {
           fileName: data.fileName,
         });
         this.logger.log(`Updated AssignmentSubmission [${data.submissionId}] with Drive file ID: ${uploadResult.id}`);
+        if (data.courseId) {
+          await this.cacheService.scanAndInvalidate(`cr:assignments:course:${data.courseId}:*`);
+        }
+        if (data.assignmentId) {
+          await this.cacheService.scanAndInvalidate(`cr:assignments:detail:${data.assignmentId}:*`);
+        }
+        await this.cacheService.scanAndInvalidate('cr:assignments:student:*');
       }
 
       return {
