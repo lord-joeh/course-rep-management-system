@@ -800,8 +800,8 @@ export class AttendanceService implements OnModuleDestroy {
 
     const qb = this.attendanceRepository
       .createQueryBuilder('att')
-      .innerJoinAndSelect('att.course', 'course')
-      .innerJoinAndSelect('att.instance', 'instance')
+      .leftJoinAndSelect('att.course', 'course')
+      .leftJoinAndSelect('att.instance', 'instance')
       .where('att.studentId = :studentId', { studentId });
 
     if (query.status) {
