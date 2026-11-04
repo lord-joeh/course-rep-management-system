@@ -464,11 +464,35 @@ export class NotificationService {
       });
     }
 
-    const saved = await this.fcmTokenRepository.save(tokenRecord);
-    return {
-      message: 'FCM device token registered successfully',
-      token: saved,
-    };
+    try {
+      const saved = await this.fcmTokenRepository.save(tokenRecord);
+      return {
+        message: 'FCM device token registered successfully',
+        token: saved,
+      };
+    } catch (err: any) {
+      // Gracefully handle PostgreSQL 23505 unique constraint violation (IDX_c5e3e17ca5e2e418fe87fca995)
+      // in the event of concurrent client registration race conditions
+      if (
+        err?.code === '23505' ||
+        err?.message?.includes('duplicate key value') ||
+        err?.name === 'QueryFailedError'
+      ) {
+        const existing = await this.fcmTokenRepository.findOne({
+          where: { studentId, token: dto.token },
+        });
+        if (existing) {
+          existing.expiresAt = expiresAt;
+          if (dto.deviceType) existing.deviceType = dto.deviceType;
+          const updated = await this.fcmTokenRepository.save(existing);
+          return {
+            message: 'FCM device token registered successfully',
+            token: updated,
+          };
+        }
+      }
+      throw err;
+    }
   }
 
   /**

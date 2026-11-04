@@ -680,6 +680,43 @@ describe('NotificationService', () => {
       );
       expect(fcmTokenRepoMock.save).toHaveBeenCalledWith(existingToken);
     });
+
+    it('should recover gracefully from PostgreSQL 23505 unique constraint race conditions', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'student-1' });
+      // Initially findOne returns null (race condition window)
+      fcmTokenRepoMock.findOne.mockResolvedValueOnce(null);
+
+      const duplicateError: any = new Error(
+        'duplicate key value violates unique constraint "IDX_c5e3e17ca5e2e418fe87fca995"',
+      );
+      duplicateError.code = '23505';
+      duplicateError.name = 'QueryFailedError';
+
+      const existingRecord = {
+        id: 'token-race-1',
+        studentId: 'student-1',
+        token: 'concurrent-token',
+        deviceType: 'web',
+        expiresAt: new Date(),
+      };
+
+      // save fails first time due to race condition
+      fcmTokenRepoMock.save.mockRejectedValueOnce(duplicateError);
+      // second findOne finds the record inserted by the concurrent request
+      fcmTokenRepoMock.findOne.mockResolvedValueOnce(existingRecord);
+      // second save succeeds with updated record
+      fcmTokenRepoMock.save.mockResolvedValueOnce(existingRecord);
+
+      const dto: RegisterFcmTokenDto = {
+        token: 'concurrent-token',
+        deviceType: 'web',
+      };
+
+      const result = await service.registerFcmToken('student-1', dto);
+
+      expect(result.message).toBe('FCM device token registered successfully');
+      expect(fcmTokenRepoMock.save).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('sendDirectNotification', () => {
