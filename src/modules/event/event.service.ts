@@ -310,7 +310,7 @@ export class EventService {
       );
     }
 
-    qb.orderBy('e.start_date', 'ASC')
+    qb.orderBy('e.startDate', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
@@ -343,7 +343,7 @@ export class EventService {
       .where('e.end_date >= :now AND e.is_cancelled = false', {
         now: new Date(),
       })
-      .orderBy('e.start_date', 'ASC')
+      .orderBy('e.startDate', 'ASC')
       .take(limit)
       .getMany();
   }
