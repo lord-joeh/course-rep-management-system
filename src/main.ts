@@ -46,9 +46,9 @@ async function bootstrap() {
   // Strict dynamic Cross-Origin Resource Sharing
   const allowedOrigins = [
     frontendUrl,
-    'http://localhost:5173',
-    'http://localhost:4173',
-    'http://192.168.100.189:5173',
+    'https://localhost:5173',
+    'https://localhost:4173',
+    'https://192.168.100.189:5173',
     'http://localhost:3000',
     'https://madalene-noninflected-writhingly.ngrok-free.dev'
   ];
