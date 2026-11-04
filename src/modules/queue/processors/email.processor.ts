@@ -1,11 +1,11 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Job } from 'bullmq';
-import * as nodemailer from 'nodemailer';
-import * as sanitizeHtml from 'sanitize-html';
-import { QueueName, EmailJobType } from '../constants';
-import { EmailJobData } from '../dto';
+import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Job } from "bullmq";
+import * as nodemailer from "nodemailer";
+import * as sanitizeHtml from "sanitize-html";
+import { QueueName, EmailJobType } from "../constants";
+import { EmailJobData } from "../dto";
 import {
   renderRegistrationSuccessTemplate,
   renderPasswordResetTemplate,
@@ -13,7 +13,7 @@ import {
   renderGroupAssignmentTemplate,
   renderFeedbackReceivedTemplate,
   renderStudentMessageTemplate,
-} from '../templates';
+} from "../templates";
 
 @Processor(QueueName.EMAIL)
 export class EmailProcessor extends WorkerHost {
@@ -26,25 +26,27 @@ export class EmailProcessor extends WorkerHost {
       pool: true,
       maxConnections: 5,
       maxMessages: 100,
-      host: this.configService.get<string>('SMTP_HOST', 'localhost'),
-      port: Number(this.configService.get<number>('SMTP_PORT', 587)),
-      secure: this.configService.get<boolean>('SMTP_SECURE', false),
+      host: this.configService.get<string>("SMTP_HOST", "localhost"),
+      port: Number(this.configService.get<number>("SMTP_PORT", 587)),
+      secure: this.configService.get<boolean>("SMTP_SECURE", false),
       auth: {
-        user: this.configService.get<string>('SMTP_USER', ''),
-        pass: this.configService.get<string>('SMTP_PASS', ''),
+        user: this.configService.get<string>("SMTP_USER", ""),
+        pass: this.configService.get<string>("SMTP_PASS", ""),
       },
     });
   }
 
   async process(job: Job<EmailJobData, any, string>): Promise<any> {
     const { jobType, to } = job.data;
-    this.logger.log(`Processing email job [${job.id}] type [${jobType}] to <${to}>`);
+    this.logger.log(
+      `Processing email job [${job.id}] type [${jobType}] to <${to}>`,
+    );
 
     try {
       const { html, subject } = this.generateEmailPayload(job.data);
       const from = this.configService.get<string>(
-        'SMTP_FROM',
-        'Course Rep Management <no-reply@courserep.edu>',
+        "SMTP_SENDER",
+        "Course Rep Management",
       );
 
       const info = await this.transporter.sendMail({
@@ -54,23 +56,34 @@ export class EmailProcessor extends WorkerHost {
         html,
       });
 
-      this.logger.log(`Email job [${job.id}] sent successfully: ${info.messageId}`);
+      this.logger.log(
+        `Email job [${job.id}] sent successfully: ${info.messageId}`,
+      );
       return { success: true, messageId: info.messageId, to };
     } catch (error: any) {
-      this.logger.error(`Email job [${job.id}] failed for <${to}>: ${error.message}`, error.stack);
+      this.logger.error(
+        `Email job [${job.id}] failed for <${to}>: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  private generateEmailPayload(data: EmailJobData): { html: string; subject: string } {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+  private generateEmailPayload(data: EmailJobData): {
+    html: string;
+    subject: string;
+  } {
+    const frontendUrl = this.configService.get<string>(
+      "FRONTEND_URL",
+      "http://localhost:3000",
+    );
 
     switch (data.jobType) {
       case EmailJobType.REGISTRATION_SUCCESS: {
-        const sanitizedName = this.sanitize(data.name || 'Student');
-        const sanitizedId = this.sanitize(data.studentId || '');
+        const sanitizedName = this.sanitize(data.name || "Student");
+        const sanitizedId = this.sanitize(data.studentId || "");
         return {
-          subject: 'Welcome to Course Rep Management System',
+          subject: "Welcome to Course Rep Management System",
           html: renderRegistrationSuccessTemplate({
             name: sanitizedName,
             studentId: sanitizedId,
@@ -81,9 +94,9 @@ export class EmailProcessor extends WorkerHost {
 
       case EmailJobType.PASSWORD_RESET: {
         const sanitizedName = this.sanitize(data.name);
-        const resetToken = data.resetToken || '';
+        const resetToken = data.resetToken || "";
         return {
-          subject: 'Password Reset Request',
+          subject: "Password Reset Request",
           html: renderPasswordResetTemplate({
             name: sanitizedName,
             resetUrl: `${frontendUrl}/reset-password?token=${encodeURIComponent(resetToken)}`,
@@ -95,7 +108,7 @@ export class EmailProcessor extends WorkerHost {
       case EmailJobType.PASSWORD_CHANGED: {
         const sanitizedName = this.sanitize(data.name);
         return {
-          subject: 'Password Changed Confirmation',
+          subject: "Password Changed Confirmation",
           html: renderPasswordChangedTemplate({
             name: sanitizedName,
             changedAt: new Date().toUTCString(),
@@ -104,15 +117,18 @@ export class EmailProcessor extends WorkerHost {
       }
 
       case EmailJobType.GROUP_ASSIGNMENT: {
-        const sanitizedStudentName = this.sanitize(data.name || 'Student');
-        const sanitizedGroupName = this.sanitize(data.groupName || 'Academic Group');
+        const sanitizedStudentName = this.sanitize(data.name || "Student");
+        const sanitizedGroupName = this.sanitize(
+          data.groupName || "Academic Group",
+        );
         const members = (data.groupMembers || []).map((m, idx) => ({
           id: this.sanitize(m.id),
           name: this.sanitize(m.name),
           email: this.sanitize(m.email),
-          role: idx === 0 ? 'Leader' : 'Member',
+          role: idx === 0 ? "Leader" : "Member",
         }));
-        const leaderName = members.length > 0 ? members[0].name : 'Designated Leader';
+        const leaderName =
+          members.length > 0 ? members[0].name : "Designated Leader";
 
         return {
           subject: `Academic Group Assigned: ${sanitizedGroupName}`,
@@ -126,7 +142,7 @@ export class EmailProcessor extends WorkerHost {
       }
 
       case EmailJobType.FEEDBACK_RECEIVED: {
-        const sanitizedName = this.sanitize(data.name || 'Student');
+        const sanitizedName = this.sanitize(data.name || "Student");
         return {
           subject: "We've Received Your Feedback - Course Rep Team",
           html: renderFeedbackReceivedTemplate({
@@ -136,9 +152,9 @@ export class EmailProcessor extends WorkerHost {
       }
 
       case EmailJobType.STUDENT_MESSAGE: {
-        const sanitizedName = this.sanitize(data.name || 'Student');
-        const sanitizedMessage = this.sanitize(data.message || '');
-        const subject = data.subject || 'Message from Course Representative';
+        const sanitizedName = this.sanitize(data.name || "Student");
+        const sanitizedMessage = this.sanitize(data.message || "");
+        const subject = data.subject || "Message from Course Representative";
         return {
           subject,
           html: renderStudentMessageTemplate({
@@ -155,9 +171,9 @@ export class EmailProcessor extends WorkerHost {
   }
 
   private sanitize(str?: string): string {
-    if (!str) return '';
+    if (!str) return "";
     const sanitizeFn: any =
-      typeof sanitizeHtml === 'function'
+      typeof sanitizeHtml === "function"
         ? sanitizeHtml
         : (sanitizeHtml as any).default;
     return sanitizeFn(str, {
@@ -166,4 +182,3 @@ export class EmailProcessor extends WorkerHost {
     });
   }
 }
-
