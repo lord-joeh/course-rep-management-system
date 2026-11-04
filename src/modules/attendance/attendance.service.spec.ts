@@ -55,6 +55,7 @@ describe('AttendanceService', () => {
       addOrderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
     };
 
@@ -809,6 +810,65 @@ describe('AttendanceService', () => {
       expect(result.stats.presentCount).toBe(5);
       expect(result.stats.totalEnrolled).toBe(8);
       expect(result.attendees.items).toHaveLength(1);
+    });
+  });
+
+  describe('exportAttendanceCsv', () => {
+    it('should throw NotFoundException if instance does not exist', async () => {
+      instanceRepoMock.findOne.mockResolvedValue(null);
+      const res = { setHeader: jest.fn(), write: jest.fn(), end: jest.fn() } as any;
+
+      await expect(service.exportAttendanceCsv('non-existent', res)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should stream RFC-4180 CSV with UTF-8 BOM and student actual names', async () => {
+      const mockSession = {
+        id: 'inst-1',
+        courseId: 'SENG 401',
+        date: new Date('2026-11-04T10:00:00Z'),
+        classType: ClassType.IN_PERSON,
+        latitude: 5.6037,
+        longitude: -0.1870,
+        course: { name: 'Software Verification' },
+      };
+      instanceRepoMock.findOne.mockResolvedValue(mockSession);
+
+      const mockAttendee = {
+        id: 'att-1',
+        instanceId: 'inst-1',
+        studentId: '10928374',
+        status: AttendanceStatus.PRESENT,
+        date: new Date('2026-11-04T10:05:00Z'),
+        student: { id: '10928374', name: 'Ada Lovelace, "Pioneer"' },
+      };
+      queryBuilderMock.getMany.mockResolvedValue([mockAttendee]);
+
+      const writtenChunks: string[] = [];
+      const res = {
+        setHeader: jest.fn(),
+        write: jest.fn((chunk) => writtenChunks.push(chunk)),
+        end: jest.fn(),
+      } as any;
+
+      await service.exportAttendanceCsv('inst-1', res);
+
+      expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'text/csv; charset=utf-8');
+      expect(res.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringContaining('attendance_SENG_401_'),
+      );
+      // Check BOM
+      expect(writtenChunks[0]).toBe('\uFEFF');
+      // Check header
+      expect(writtenChunks[1]).toContain('Student ID');
+      expect(writtenChunks[1]).toContain('Student Name');
+      // Check data row with escaped quotes and real student name
+      expect(writtenChunks[2]).toContain('"10928374"');
+      expect(writtenChunks[2]).toContain('"Ada Lovelace, ""Pioneer"""');
+      expect(writtenChunks[2]).toContain('"PRESENT"');
+      expect(res.end).toHaveBeenCalled();
     });
   });
 

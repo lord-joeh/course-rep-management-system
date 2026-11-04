@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Response } from 'express';
 import * as crypto from 'crypto';
 import * as qrcode from 'qrcode';
 
@@ -785,6 +786,101 @@ export class AttendanceService implements OnModuleDestroy {
         },
       },
     };
+  }
+
+  /**
+   * Stream full session attendance roster as an optimized RFC-4180 CSV with UTF-8 BOM.
+   * Joins real student names directly at the database level and streams chunks into the HTTP response.
+   */
+  async exportAttendanceCsv(instanceId: string, res: Response): Promise<void> {
+    const instance = await this.instanceRepository.findOne({
+      where: { id: instanceId },
+      relations: ['course'],
+    });
+
+    if (!instance) {
+      throw new NotFoundException(`Attendance session "${instanceId}" not found`);
+    }
+
+    const attendees = await this.attendanceRepository
+      .createQueryBuilder('att')
+      .leftJoinAndSelect('att.student', 'student')
+      .where('att.instanceId = :instanceId', { instanceId })
+      .orderBy('att.status', 'ASC')
+      .addOrderBy('student.name', 'ASC')
+      .getMany();
+
+    const safeCourseId = (instance.courseId || 'course').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const dateStr = instance.date ? new Date(instance.date).toISOString().slice(0, 10) : 'session';
+    const fileName = `attendance_${safeCourseId}_${dateStr}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    // Write UTF-8 BOM (\uFEFF) for compatibility with Excel, Numbers, and Google Sheets
+    res.write('\uFEFF');
+
+    const headers = [
+      'Student ID',
+      'Student Name',
+      'Status',
+      'Check-In Time',
+      'Course Code',
+      'Course Name',
+      'Session Date',
+      'Session Time',
+      'Class Type',
+      'Location / Geofence',
+    ];
+
+    const escapeCsv = (val: string | number | null | undefined): string => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    res.write(headers.map(escapeCsv).join(',') + '\r\n');
+
+    const sessionDate = new Date(instance.date);
+    const formattedDate = sessionDate.toLocaleDateString();
+    const formattedTime = sessionDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const classTypeStr = instance.classType === ClassType.IN_PERSON ? 'In-Person' : 'Online / Remote';
+    const locationStr =
+      instance.classType === ClassType.IN_PERSON && instance.latitude && instance.longitude
+        ? `${instance.latitude.toFixed(5)}, ${instance.longitude.toFixed(5)} (50m)`
+        : 'N/A';
+    const courseName = instance.course?.name || '';
+
+    for (const record of attendees) {
+      const studentId = record.studentId || '';
+      const studentName = record.student?.name || 'Enrolled Student';
+      const status = (record.status || 'absent').toUpperCase();
+      const checkInTime =
+        record.status === AttendanceStatus.PRESENT && record.date
+          ? new Date(record.date).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+          : 'N/A';
+
+      const line = [
+        escapeCsv(studentId),
+        escapeCsv(studentName),
+        escapeCsv(status),
+        escapeCsv(checkInTime),
+        escapeCsv(instance.courseId),
+        escapeCsv(courseName),
+        escapeCsv(formattedDate),
+        escapeCsv(formattedTime),
+        escapeCsv(classTypeStr),
+        escapeCsv(locationStr),
+      ].join(',') + '\r\n';
+
+      res.write(line);
+    }
+
+    res.end();
   }
 
   /**

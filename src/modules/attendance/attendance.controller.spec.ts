@@ -22,6 +22,7 @@ describe('AttendanceController', () => {
     getMyAttendanceHistory: jest.Mock;
     getAttendanceInstances: jest.Mock;
     getAttendanceByInstance: jest.Mock;
+    exportAttendanceCsv: jest.Mock;
     deleteInstance: jest.Mock;
     deleteAttendanceRecord: jest.Mock;
   };
@@ -47,6 +48,7 @@ describe('AttendanceController', () => {
       getMyAttendanceHistory: jest.fn(),
       getAttendanceInstances: jest.fn(),
       getAttendanceByInstance: jest.fn(),
+      exportAttendanceCsv: jest.fn(),
       deleteInstance: jest.fn(),
       deleteAttendanceRecord: jest.fn(),
     };
@@ -164,6 +166,20 @@ describe('AttendanceController', () => {
 
       expect(result).toBe(expected);
       expect(serviceMock.getAttendanceByInstance).toHaveBeenCalledWith('inst-1', query);
+    });
+  });
+
+  describe('exportAttendanceCsv', () => {
+    it('should delegate streaming export to attendanceService.exportAttendanceCsv', async () => {
+      const mockRes = {
+        setHeader: jest.fn(),
+        write: jest.fn(),
+        end: jest.fn(),
+      } as any;
+
+      await controller.exportAttendanceCsv('inst-1', mockRes);
+
+      expect(serviceMock.exportAttendanceCsv).toHaveBeenCalledWith('inst-1', mockRes);
     });
   });
 

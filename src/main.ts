@@ -50,6 +50,7 @@ async function bootstrap() {
     'http://localhost:4173',
     'http://192.168.100.189:5173',
     'http://localhost:3000',
+    'https://madalene-noninflected-writhingly.ngrok-free.dev'
   ];
 
   app.enableCors({

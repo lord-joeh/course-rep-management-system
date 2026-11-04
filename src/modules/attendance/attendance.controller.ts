@@ -7,8 +7,10 @@ import {
   Param,
   Body,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AttendanceService } from './attendance.service';
 import {
@@ -106,6 +108,19 @@ export class AttendanceController {
     @Query() query: AttendanceRecordQueryDto,
   ) {
     return this.attendanceService.getAttendanceByInstance(instanceId, query);
+  }
+
+  /**
+   * Stream full session attendance roster as an optimized CSV download.
+   * Rep only. Directly streams from the database to avoid massive JSON transfers and frontend memory bloat.
+   */
+  @Get('instances/:instanceId/export-csv')
+  @Roles(UserRole.REP)
+  async exportAttendanceCsv(
+    @Param('instanceId') instanceId: string,
+    @Res() res: Response,
+  ) {
+    return this.attendanceService.exportAttendanceCsv(instanceId, res);
   }
 
   /**
