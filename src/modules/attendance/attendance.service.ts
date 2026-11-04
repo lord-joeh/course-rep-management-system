@@ -166,14 +166,84 @@ export class AttendanceService implements OnModuleDestroy {
   }
 
   /**
-   * Execute single rotation tick with error handling.
+   * Execute single rotation tick with error handling and automatic expiration closure.
    */
   async handleRotationTick(instanceId: string): Promise<void> {
     try {
+      const instance = await this.instanceRepository.findOne({
+        where: { id: instanceId },
+      });
+      if (
+        !instance ||
+        instance.isClose ||
+        (instance.expiresAt && new Date() > new Date(instance.expiresAt))
+      ) {
+        if (instance && !instance.isClose) {
+          instance.isClose = true;
+          instance.qrToken = null;
+          instance.qrImage = null;
+          await this.instanceRepository.save(instance);
+          this.attendanceGateway.broadcastSessionClosed(instanceId);
+          await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
+          await this.cacheService.scanAndInvalidate(`cr:attendance:instance:${instanceId}:*`);
+        }
+        this.stopRotationTimer(instanceId);
+        return;
+      }
       await this.generateRotatingQR(instanceId);
     } catch (err: any) {
       this.logger.warn(`Stopping rotation timer for ${instanceId}: ${err.message}`);
       this.stopRotationTimer(instanceId);
+    }
+  }
+
+  /**
+   * Starts on-demand QR projection stream when a client occupies the classroom room.
+   */
+  async startProjectionStream(instanceId: string): Promise<void> {
+    const instance = await this.instanceRepository.findOne({
+      where: { id: instanceId },
+    });
+    if (!instance) return;
+
+    // Check expiration or closure
+    if (instance.isClose || (instance.expiresAt && new Date() > new Date(instance.expiresAt))) {
+      if (!instance.isClose) {
+        instance.isClose = true;
+        instance.qrToken = null;
+        instance.qrImage = null;
+        await this.instanceRepository.save(instance);
+        this.attendanceGateway.broadcastSessionClosed(instanceId);
+        await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
+      }
+      return;
+    }
+
+    // Immediately trigger a rotation tick to emit a fresh QR code without delay
+    await this.handleRotationTick(instanceId);
+
+    // If rotation timer not already running, start 20s interval
+    if (!this.rotationTimers.has(instanceId)) {
+      this.startRotationTimer(instanceId);
+    }
+  }
+
+  /**
+   * Stops QR projection stream when all clients leave the classroom room.
+   */
+  stopProjectionStream(instanceId: string): void {
+    this.stopRotationTimer(instanceId);
+    this.logger.log(`Stopped projection stream for ${instanceId} (zero active viewers)`);
+  }
+
+  /**
+   * Checks all active rotation timers on socket disconnects and stops any empty rooms.
+   */
+  handleDisconnectCleanup(isRoomEmpty: (instanceId: string) => boolean): void {
+    for (const instanceId of this.rotationTimers.keys()) {
+      if (isRoomEmpty(instanceId)) {
+        this.stopProjectionStream(instanceId);
+      }
     }
   }
 
@@ -285,8 +355,7 @@ export class AttendanceService implements OnModuleDestroy {
       sessionDate.toISOString(),
     );
 
-    // Start 20s projection stream
-    this.startRotationTimer(savedInstance.id);
+    // Invalidate instance list cache (projection stream will start on-demand when client joins socket room)
     await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
 
     return savedInstance;
@@ -524,17 +593,34 @@ export class AttendanceService implements OnModuleDestroy {
   async manualMarkAttendee(dto: ManualMarkAttendeeDto): Promise<Attendance> {
     const attendance = await this.attendanceRepository.findOne({
       where: { id: dto.attendanceId },
+      relations: ['student'],
     });
     if (!attendance) {
       throw new NotFoundException(`Attendee record "${dto.attendanceId}" not found`);
     }
 
     attendance.status = dto.status;
+    if (dto.status === AttendanceStatus.PRESENT) {
+      attendance.date = new Date();
+    }
     const saved = await this.attendanceRepository.save(attendance);
 
     await this.cacheService.scanAndInvalidate(
       `cr:attendance:instance:${attendance.instanceId}:*`,
     );
+
+    // Broadcast attendee update to projector stream with updated count
+    const presentCount = await this.attendanceRepository.count({
+      where: { instanceId: attendance.instanceId, status: AttendanceStatus.PRESENT },
+    });
+
+    this.attendanceGateway.broadcastAttendeeMarked({
+      instanceId: attendance.instanceId,
+      studentId: attendance.studentId,
+      studentName: attendance.student?.name,
+      markedAt: attendance.date,
+      presentCount,
+    });
 
     return saved;
   }
@@ -576,6 +662,27 @@ export class AttendanceService implements OnModuleDestroy {
       .take(limit);
 
     const [items, total] = await qb.getManyAndCount();
+
+    // Dynamically check and auto-close any sessions that passed their expiration time
+    const now = new Date();
+    const expiredInstances = items.filter(
+      (inst) => !inst.isClose && inst.expiresAt && now > new Date(inst.expiresAt),
+    );
+
+    if (expiredInstances.length > 0) {
+      await Promise.all(
+        expiredInstances.map(async (inst) => {
+          inst.isClose = true;
+          inst.qrToken = null;
+          inst.qrImage = null;
+          await this.instanceRepository.save(inst);
+          this.stopRotationTimer(inst.id);
+          this.attendanceGateway.broadcastSessionClosed(inst.id);
+        }),
+      );
+      await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
+    }
+
     const totalPages = Math.ceil(total / limit) || 1;
 
     const result: PaginatedResult<AttendanceInstance> = {
@@ -607,6 +714,18 @@ export class AttendanceService implements OnModuleDestroy {
     });
     if (!instance) {
       throw new NotFoundException(`Attendance session "${instanceId}" not found`);
+    }
+
+    // Auto-close if passed expiration time
+    if (!instance.isClose && instance.expiresAt && new Date() > new Date(instance.expiresAt)) {
+      instance.isClose = true;
+      instance.qrToken = null;
+      instance.qrImage = null;
+      await this.instanceRepository.save(instance);
+      this.stopRotationTimer(instance.id);
+      this.attendanceGateway.broadcastSessionClosed(instance.id);
+      await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
+      await this.cacheService.scanAndInvalidate(`cr:attendance:instance:${instance.id}:*`);
     }
 
     const page = query.page || 1;
