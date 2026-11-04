@@ -12,17 +12,19 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
 
 # Install all dependencies including devDependencies for build
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy configuration and source code
 COPY tsconfig*.json nest-cli.json ./
 COPY src ./src
 
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Compile NestJS TypeScript application to JavaScript
 RUN pnpm run build
 
 # Prune development dependencies for minimal production footprint
-RUN pnpm prune --prod
+RUN pnpm prune --prod --ignore-scripts
 
 # ==========================================
 # Stage 2: Hardened Production Runtime
