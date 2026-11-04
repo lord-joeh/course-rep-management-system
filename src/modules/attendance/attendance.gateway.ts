@@ -42,16 +42,23 @@ export class AttendanceGateway implements OnGatewayConnection, OnGatewayDisconne
     private readonly attendanceService: AttendanceService,
   ) {}
 
+  /**
+   * Helper to inspect room occupants in Socket.io namespace adapter.
+   */
+  private getRoomSockets(room: string): Set<string> | undefined {
+    return (this.server as any)?.adapter?.rooms?.get(room);
+  }
+
   handleConnection(client: Socket) {
     this.logger.log(`Client connected to attendance stream: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected from attendance stream: ${client.id}`);
-    if (this.server?.sockets?.adapter?.rooms) {
+    if ((this.server as any)?.adapter?.rooms) {
       this.attendanceService.handleDisconnectCleanup((instanceId: string) => {
         const room = `instance_${instanceId}`;
-        const roomSockets = this.server.sockets.adapter.rooms.get(room);
+        const roomSockets = this.getRoomSockets(room);
         return !roomSockets || roomSockets.size === 0;
       });
     }
@@ -71,7 +78,7 @@ export class AttendanceGateway implements OnGatewayConnection, OnGatewayDisconne
       client.join(room);
       this.logger.log(`Client ${client.id} joined room ${room}`);
 
-      const roomSockets = this.server.sockets.adapter.rooms.get(room);
+      const roomSockets = this.getRoomSockets(room);
       const occupantCount = roomSockets ? roomSockets.size : 1;
 
       // Start on-demand dynamic stream when first client enters room
@@ -101,7 +108,7 @@ export class AttendanceGateway implements OnGatewayConnection, OnGatewayDisconne
       client.leave(room);
       this.logger.log(`Client ${client.id} left room ${room}`);
 
-      const roomSockets = this.server.sockets.adapter.rooms.get(room);
+      const roomSockets = this.getRoomSockets(room);
       const remaining = roomSockets ? roomSockets.size : 0;
 
       if (remaining === 0) {
