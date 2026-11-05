@@ -4,7 +4,7 @@ services:
     container_name: rep-postgres
     restart: unless-stopped
     env_file:
-      - .env.prod
+      - ${ENV_FILE:-.env}
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-lord}
@@ -55,7 +55,7 @@ services:
     expose:
       - 5000
     env_file:
-      - .env.prod
+      - ${ENV_FILE:-.env}
     environment:
       NODE_ENV: production
       PORT: 5000
