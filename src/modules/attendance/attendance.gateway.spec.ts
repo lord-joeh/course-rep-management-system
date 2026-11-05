@@ -1,11 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceGateway } from './attendance.gateway';
+import { AttendanceService } from './attendance.service';
 
 describe('AttendanceGateway', () => {
   let gateway: AttendanceGateway;
   let serverMock: {
     to: jest.Mock;
     emit: jest.Mock;
+    adapter?: any;
+  };
+  let attendanceServiceMock: {
+    startProjectionStream: jest.Mock;
+    stopProjectionStream: jest.Mock;
+    handleDisconnectCleanup: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -14,10 +21,25 @@ describe('AttendanceGateway', () => {
     serverMock = {
       to: jest.fn().mockReturnThis(),
       emit: jest.fn(),
+      adapter: {
+        rooms: new Map(),
+      },
+    };
+
+    attendanceServiceMock = {
+      startProjectionStream: jest.fn().mockResolvedValue(undefined),
+      stopProjectionStream: jest.fn().mockReturnValue(undefined),
+      handleDisconnectCleanup: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AttendanceGateway],
+      providers: [
+        AttendanceGateway,
+        {
+          provide: AttendanceService,
+          useValue: attendanceServiceMock,
+        },
+      ],
     }).compile();
 
     gateway = module.get<AttendanceGateway>(AttendanceGateway);
@@ -33,27 +55,45 @@ describe('AttendanceGateway', () => {
       const client = { id: 'sock-123' } as any;
       expect(() => gateway.handleConnection(client)).not.toThrow();
       expect(() => gateway.handleDisconnect(client)).not.toThrow();
+      expect(attendanceServiceMock.handleDisconnectCleanup).toHaveBeenCalled();
     });
   });
 
   describe('handleJoinSession', () => {
-    it('should allow client to join attendance instance room', () => {
+    it('should allow client to join attendance instance room and start stream when first occupant', async () => {
       const client = { id: 'sock-123', join: jest.fn() } as any;
-      const res = gateway.handleJoinSession(client, { instanceId: 'inst-1' });
+      const res = await gateway.handleJoinSession(client, { instanceId: 'inst-1' });
 
       expect(client.join).toHaveBeenCalledWith('instance_inst-1');
+      expect(attendanceServiceMock.startProjectionStream).toHaveBeenCalledWith('inst-1');
       expect(res).toEqual({
         event: 'joinedSession',
         data: { room: 'instance_inst-1', instanceId: 'inst-1' },
       });
     });
 
-    it('should ignore join request if instanceId is missing', () => {
+    it('should ignore join request if instanceId is missing', async () => {
       const client = { id: 'sock-123', join: jest.fn() } as any;
-      const res = gateway.handleJoinSession(client, null as any);
+      const res = await gateway.handleJoinSession(client, null as any);
 
       expect(client.join).not.toHaveBeenCalled();
       expect(res).toBeUndefined();
+    });
+  });
+
+  describe('handleLeaveSession', () => {
+    it('should leave room and stop stream when room is empty', () => {
+      const client = { id: 'sock-123', leave: jest.fn() } as any;
+      gateway.handleLeaveSession(client, { instanceId: 'inst-1' });
+
+      expect(client.leave).toHaveBeenCalledWith('instance_inst-1');
+      expect(attendanceServiceMock.stopProjectionStream).toHaveBeenCalledWith('inst-1');
+    });
+
+    it('should ignore leave request if instanceId is missing', () => {
+      const client = { id: 'sock-123', leave: jest.fn() } as any;
+      expect(() => gateway.handleLeaveSession(client, null as any)).not.toThrow();
+      expect(client.leave).not.toHaveBeenCalled();
     });
   });
 
