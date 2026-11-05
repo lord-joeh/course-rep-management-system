@@ -1,0 +1,81 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, master, develop, v2]
+    tags: ['v*.*.*']
+  pull_request:
+    branches: [main, master, develop, v2]
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  test:
+    name: Backend Test, Build & Migration Gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_course_rep_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compile Application (TypeScript NestJS)
+        run: pnpm run build
+
+      - name: Run Unit Tests
+        run: pnpm run test -- --maxWorkers=2
+
+      - name: Validate TypeORM Database Migrations
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+          DB_NAME: test_course_rep_db
+          NODE_ENV: test
+        run: pnpm run migration:run
+

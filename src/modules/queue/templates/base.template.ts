@@ -2,7 +2,7 @@ export const emailHTMLFooter = `
   <p style="margin-top: 30px; font-size: 13px; color: #666; border-top: 1px solid #eee; padding-top: 15px;">
     Best regards,<br/>
     <strong>Course Rep Management Team</strong><br/>
-    <small style="color: #999;">Course Rep Management Platform</small>
+    <small style="color: #999;"><a href='https://mensah.dev-joseph.me'>Software developed by STYLES</a></small>
   </p>
 `;
 
