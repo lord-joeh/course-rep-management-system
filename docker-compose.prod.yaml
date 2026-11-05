@@ -41,6 +41,7 @@ services:
       - course-rep-network
 
   backend:
+    image: ghcr.io/lord-joeh/course-rep-management-system:latest
     build:
       context: .
       dockerfile: Dockerfile
