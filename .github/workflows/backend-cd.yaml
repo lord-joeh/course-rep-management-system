@@ -61,7 +61,7 @@ jobs:
         if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && env.DEPLOY_HOST != ''
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        uses: appleboy/ssh-action@v1.2.0
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
