@@ -10,7 +10,7 @@ services:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_AGENT_PORT=8126
       - LOG_LEVEL=info
-    env_file: .env.prod
+    env_file: .env
 
     command: ["pnpm", "start"]
     ports:
@@ -27,7 +27,7 @@ services:
     labels:
       com.datadoghq.ad.logs: '[{"source":"nodejs","service":"course-rep-worker"}]'
     env_file:
-      - .env.prod
+      - .env
     restart: unless-stopped
     command: ["pnpm", "start:worker"]
     networks:

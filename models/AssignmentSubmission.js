@@ -9,7 +9,7 @@ module.exports = (sequelize) => {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true,
       },
-      assignmentId: DataTypes.STRING,
+      assignmentId: DataTypes.UUID,
       studentId: DataTypes.STRING,
       fileId: DataTypes.STRING,
       fileName: DataTypes.STRING,

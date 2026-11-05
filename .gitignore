@@ -9,4 +9,5 @@ docs/
 examples/
 uploads/
 utils/fakerGenerator.js
-course-rep-firebase-cert.jsoncoverage/
+course-rep-firebase-cert.json
+coverage/

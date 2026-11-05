@@ -1,9 +1,9 @@
-const tracer = require("dd-trace");
-tracer.init({
-  service: "course-rep-api",
-  env: process.env.NODE_ENV,
-  logInjection: true,
-});
+// const tracer = require("dd-trace");
+// tracer.init({
+//   service: "course-rep-api",
+//   env: process.env.NODE_ENV,
+//   logInjection: true,
+// });
 
 const { createServer } = require("node:http");
 const { initSocketIO } = require("./middleware/socketIO");
@@ -20,23 +20,23 @@ httpServer.listen(PORT, (error) => {
     ? console.error("Error starting up server: ", error.message)
     : console.log(`Server running on ${PORT}`);
 
-  process.on("uncaughtException", (err) => {
-    console.error("Uncaught Exception:", err);
-    process.exit(1);
-  });
+  // process.on("uncaughtException", (err) => {
+  //   console.error("Uncaught Exception:", err);
+  //   process.exit(1);
+  // });
 
-  process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled Rejection at:", promise, "reason:", reason);
-    process.exit(1);
-  });
+  // process.on("unhandledRejection", (reason, promise) => {
+  //   console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  //   process.exit(1);
+  // });
 
   (async () => {
     try {
       await sequelize.authenticate();
       console.log("Database connection has been established successfully.");
 
-      // await sequelize.sync({ alter: true });
-      // console.log("DB synced successfully");
+      await sequelize.sync({ alter: true });
+      console.log("DB synced successfully");
 
       await authorize();
       console.log("Google Drive Connected successfully");

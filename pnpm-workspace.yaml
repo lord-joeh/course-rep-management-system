@@ -8,6 +8,7 @@ allowBuilds:
   dd-trace: false
   msgpackr-extract: false
   protobufjs: false
+  unrs-resolver: set this to true or false
 minimumReleaseAgeExclude:
   - minimatch@9.0.6
   - minimatch@9.0.7

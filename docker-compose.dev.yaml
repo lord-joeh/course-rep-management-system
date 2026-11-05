@@ -1,10 +1,11 @@
 services:
   api:
+    container_name: course-rep-api
     build:
       context: .
       target: dev-deps
     command: ["pnpm", "dev"]
-    restart: always
+    restart: unless-stopped
     env_file: .env
     environment:
       - NODE_ENV=development
@@ -15,17 +16,20 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    networks:
+      - web
     volumes:
       - .:/app
       - /app/node_modules
       - ./logs:/app/logs
 
   worker:
+    container_name: course-rep-worker
     build:
       context: .
       target: dev-deps
     command: ["pnpm", "dev:worker"]
-    restart: always
+    restart: unless-stopped
     env_file: .env
     environment:
       - NODE_ENV=development
@@ -34,12 +38,15 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    networks:
+      - web
     volumes:
       - .:/app
       - /app/node_modules
       - ./logs:/app/logs
 
   redis:
+    container_name: redis
     image: redis:alpine
     restart: always
     env_file:
@@ -51,10 +58,14 @@ services:
       timeout: 3s
       retries: 5
       start_period: 10s
+    networks:
+      web:
+        aliases: [redis]
     volumes:
       - redis_data:/data
 
   postgres:
+    container_name: postgres
     image: postgres:16-alpine
     restart: always
     env_file:
@@ -68,8 +79,15 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+       web:
+        aliases: [postgres]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+networks:
+  web:
+    external: true
 
 volumes:
   redis_data:

@@ -6,7 +6,7 @@ module.exports = (sequelize) => {
     {
       id: { type: DataTypes.STRING, primaryKey: true },
       name: DataTypes.STRING,
-      lecturerId: DataTypes.STRING,
+      lecturerId: DataTypes.UUID,
       day: DataTypes.STRING,
       start_time: DataTypes.STRING,
       end_time: DataTypes.STRING,
