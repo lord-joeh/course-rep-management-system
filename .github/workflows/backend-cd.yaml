@@ -71,8 +71,12 @@ jobs:
           script: |
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            cd /opt/course-rep/backend
-            docker compose -f docker-compose.prod.yaml up -d --no-deps backend
+            cd /opt/course-rep
+            if [ -f "docker-compose.prod.yaml" ]; then
+              docker compose -f docker-compose.prod.yaml up -d --no-deps backend
+            else
+              docker compose up -d --no-deps backend
+            fi
             # Verify container healthcheck
             for i in {1..12}; do
               if docker exec rep-backend wget -qO- http://localhost:5000/api/health | grep -q "status"; then
