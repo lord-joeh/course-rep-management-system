@@ -152,12 +152,19 @@ export class FirebaseMessagingService {
       response.responses.forEach((resp: any, index: number) => {
         if (!resp.success && resp.error) {
           const errorCode = resp.error.code;
+          this.logger.warn(
+            `FCM delivery failure for token [${tokens[index]?.substring(0, 20)}...]: ${errorCode} - ${resp.error.message || 'delivery failed'}`,
+          );
           if (
             errorCode === 'messaging/invalid-registration-token' ||
-            errorCode === 'messaging/registration-token-not-registered'
+            errorCode === 'messaging/registration-token-not-registered' ||
+            errorCode === 'messaging/invalid-argument' ||
+            tokens[index]?.startsWith('dev-fcm-token-')
           ) {
             invalidTokens.push(tokens[index]);
           }
+        } else if (tokens[index]?.startsWith('dev-fcm-token-')) {
+          invalidTokens.push(tokens[index]);
         }
       });
 

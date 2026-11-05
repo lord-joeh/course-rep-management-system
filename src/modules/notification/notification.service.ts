@@ -537,11 +537,20 @@ export class NotificationService {
 
       if (studentTokens.length > 0) {
         const tokens = studentTokens.map((t) => t.token);
-        await this.firebaseService.sendMulticast(tokens, {
+        const result = await this.firebaseService.sendMulticast(tokens, {
           title,
           body: dto.message,
           data: { senderId, messageType },
         });
+
+        if (result && result.invalidTokens && result.invalidTokens.length > 0) {
+          await this.fcmTokenRepository.delete({
+            token: In(result.invalidTokens),
+          });
+          this.logger.log(
+            `Pruned ${result.invalidTokens.length} stale/invalid FCM tokens for student "${dto.studentId}"`,
+          );
+        }
       }
     } catch (fcmError: any) {
       this.logger.error(`Direct push error: ${fcmError?.message || fcmError}`);
