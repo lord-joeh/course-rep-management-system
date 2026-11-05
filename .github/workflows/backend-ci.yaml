@@ -67,7 +67,7 @@ jobs:
         run: pnpm run build
 
       - name: Run Unit Tests
-        run: pnpm run test -- --maxWorkers=2
+        run: pnpm run test --maxWorkers=2
 
       - name: Validate TypeORM Database Migrations
         env:
