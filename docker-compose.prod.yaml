@@ -52,8 +52,8 @@ services:
         condition: service_healthy
     command: >
       sh -c "npx typeorm migration:run -d dist/database/data-source.js && node dist/main.js"
-    expose:
-      - 5000
+    ports:
+      - "127.0.0.1:5000:5000"
     env_file:
       - ${ENV_FILE:-.env}
     environment:
