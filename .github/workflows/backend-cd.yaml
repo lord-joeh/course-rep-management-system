@@ -79,7 +79,7 @@ jobs:
             fi
             # Verify container healthcheck
             for i in {1..12}; do
-              if docker exec rep-backend wget -qO- http://localhost:5000/api/health | grep -q "status"; then
+              if docker exec rep-backend wget -qO- http://127.0.0.1:5000/api/health | grep -q "status"; then
                 echo "Backend container verified healthy."
                 exit 0
               fi
