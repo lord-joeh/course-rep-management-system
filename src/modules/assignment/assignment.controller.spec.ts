@@ -83,10 +83,10 @@ describe('AssignmentController', () => {
       const expected = { id: 'ass-1', ...dto };
       serviceMock.createAssignment.mockResolvedValue(expected);
 
-      const result = await controller.createAssignment(dto, fileMock);
+      const result = await controller.createAssignment(dto, fileMock, userMock.id);
 
       expect(result).toBe(expected);
-      expect(serviceMock.createAssignment).toHaveBeenCalledWith(dto, fileMock);
+      expect(serviceMock.createAssignment).toHaveBeenCalledWith(dto, fileMock, userMock.id);
     });
   });
 

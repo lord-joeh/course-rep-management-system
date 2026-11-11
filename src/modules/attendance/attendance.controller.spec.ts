@@ -86,10 +86,10 @@ describe('AttendanceController', () => {
       const expected = { id: 'inst-1' };
       serviceMock.initializeAttendance.mockResolvedValue(expected);
 
-      const result = await controller.initializeAttendance(dto);
+      const result = await controller.initializeAttendance(dto, userMock.id);
 
       expect(result).toBe(expected);
-      expect(serviceMock.initializeAttendance).toHaveBeenCalledWith(dto);
+      expect(serviceMock.initializeAttendance).toHaveBeenCalledWith(dto, userMock.id);
     });
   });
 

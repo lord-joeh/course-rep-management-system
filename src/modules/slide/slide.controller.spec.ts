@@ -53,13 +53,14 @@ describe('SlideController', () => {
       const mockResponse = { uploaded: [], duplicatesSkipped: [], failed: [] };
       slideServiceMock.uploadSlides.mockResolvedValue(mockResponse);
 
-      const result = await controller.uploadSlides(mockFiles, dto);
+      const result = await controller.uploadSlides(mockFiles, dto, 'user-uploader-1');
 
       expect(result).toBe(mockResponse);
       expect(slideServiceMock.uploadSlides).toHaveBeenCalledWith(
         mockFiles,
         'CS101',
         'folder_abc',
+        'user-uploader-1',
       );
     });
   });

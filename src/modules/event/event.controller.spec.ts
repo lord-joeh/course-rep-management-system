@@ -63,9 +63,9 @@ describe('EventController', () => {
       };
       serviceMock.createEvent.mockResolvedValue({ id: 'evt-1', ...dto });
 
-      const result = await controller.createEvent(dto);
+      const result = await controller.createEvent(dto, 'user-creator-1');
 
-      expect(serviceMock.createEvent).toHaveBeenCalledWith(dto);
+      expect(serviceMock.createEvent).toHaveBeenCalledWith(dto, 'user-creator-1');
       expect(result.id).toBe('evt-1');
     });
   });
