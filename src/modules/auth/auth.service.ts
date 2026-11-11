@@ -58,7 +58,7 @@ export class AuthService {
   /**
    * Register a new student account.
    */
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ipAddress?: string) {
     const existingById = await this.studentService.findById(dto.id);
     if (existingById) {
       throw new ConflictException(`Student with ID "${dto.id}" already exists`);
@@ -104,6 +104,17 @@ export class AuthService {
       });
     }
 
+    await this.auditService.recordEvent({
+      action: AuditAction.STUDENT_CREATED,
+      severity: AuditSeverity.LOW,
+      resource: AuditResource.AUTH,
+      actorId: student.id,
+      actorEmail: student.email,
+      actorRole: student.isRep ? 'REP' : 'STUDENT',
+      ipAddress,
+      details: { role: student.isRep ? 'REP' : 'STUDENT' },
+    });
+
     return {
       student: this.sanitizeStudent(student),
       ...tokens,
@@ -115,7 +126,7 @@ export class AuthService {
   /**
    * Authenticate student with ID/Email and password.
    */
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ipAddress?: string) {
     const identifier = dto.identifier || dto.id || dto.email;
     if (!identifier) {
       throw new BadRequestException(
@@ -131,6 +142,7 @@ export class AuthService {
         severity: AuditSeverity.HIGH,
         resource: AuditResource.AUTH,
         actorEmail: identifier,
+        ipAddress,
         details: { reason: "User not found or missing password hash" },
       });
       throw new UnauthorizedException("Invalid credentials");
@@ -144,6 +156,7 @@ export class AuthService {
         resource: AuditResource.AUTH,
         actorId: student.id,
         actorEmail: student.email,
+        ipAddress,
         details: { reason: "Password mismatch" },
       });
       throw new UnauthorizedException("Invalid credentials");
@@ -156,6 +169,7 @@ export class AuthService {
         resource: AuditResource.AUTH,
         actorId: student.id,
         actorEmail: student.email,
+        ipAddress,
         details: { reason: `Account status is ${student.status}` },
       });
       throw new UnauthorizedException(`Account is ${student.status}`);
@@ -171,6 +185,7 @@ export class AuthService {
       actorId: student.id,
       actorRole: student.isRep ? "REP" : "STUDENT",
       actorEmail: student.email,
+      ipAddress,
     });
 
     return {
@@ -234,7 +249,7 @@ export class AuthService {
   /**
    * Dispatches a password reset token stored in Redis with a 15-minute TTL.
    */
-  async forgotPassword(dto: ForgotPasswordDto) {
+  async forgotPassword(dto: ForgotPasswordDto, ipAddress?: string) {
     const student = await this.studentService.findByIdentifierWithPassword(
       dto.identifier,
     );
@@ -264,6 +279,15 @@ export class AuthService {
       resetToken,
     });
 
+    await this.auditService.recordEvent({
+      action: AuditAction.PASSWORD_RESET_REQUEST,
+      severity: AuditSeverity.INFO,
+      resource: AuditResource.AUTH,
+      actorId: student.id,
+      actorEmail: student.email,
+      ipAddress,
+    });
+
     return {
       message:
         "If an account exists with this identifier, password reset instructions have been dispatched.",
@@ -275,7 +299,7 @@ export class AuthService {
   /**
    * Reset student password using Redis-backed single-use token.
    */
-  async resetPassword(dto: ResetPasswordDto) {
+  async resetPassword(dto: ResetPasswordDto, ipAddress?: string) {
     const redisKey = `${CACHE_KEYSPACES.AUTH_RESET}${dto.token}`;
     const resetData = await this.cacheService.get<{
       studentId: string;
@@ -314,6 +338,7 @@ export class AuthService {
       resource: AuditResource.AUTH,
       actorId: resetData.studentId,
       actorEmail: resetData.email,
+      ipAddress,
     });
 
     return {
@@ -325,7 +350,7 @@ export class AuthService {
   /**
    * Authenticated student password change.
    */
-  async changePassword(studentId: string, dto: ChangePasswordDto) {
+  async changePassword(studentId: string, dto: ChangePasswordDto, ipAddress?: string) {
     const student = await this.studentService.findByIdWithPassword(studentId);
     if (!student || !student.passwordHash) {
       throw new BadRequestException("Student record not found");
@@ -352,6 +377,16 @@ export class AuthService {
         name: student.name,
       });
     }
+
+    await this.auditService.recordEvent({
+      action: AuditAction.PASSWORD_CHANGE,
+      severity: AuditSeverity.LOW,
+      resource: AuditResource.AUTH,
+      actorId: student.id,
+      actorEmail: student.email,
+      actorRole: student.isRep ? 'REP' : 'STUDENT',
+      ipAddress,
+    });
 
     return {
       message:

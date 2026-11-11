@@ -23,7 +23,7 @@ import { FeedbackModule } from './modules/feedback/feedback.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
@@ -88,10 +88,6 @@ import { RolesGuard } from './common/guards/roles.guard';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
     },
     {
       provide: APP_GUARD,

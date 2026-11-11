@@ -11,6 +11,7 @@ import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/security-audit-log.entity';
 import { Student, StudentStatus } from '../student/entities/student.entity';
 import { RefreshToken } from '../student/entities/refresh-token.entity';
 import {
@@ -276,6 +277,28 @@ describe('AuthService', () => {
       expect(studentServiceMock.findByIdentifierWithPassword).toHaveBeenCalledWith('std_01');
       expect(result.accessToken).toBe('mock_access_jwt');
       expect(result.student).toEqual(expect.not.objectContaining({ passwordHash: expect.anything() }));
+    });
+
+    it('should record login success audit event with client IP address', async () => {
+      const hash = await bcrypt.hash('CorrectPass', 10);
+      studentServiceMock.findByIdentifierWithPassword.mockResolvedValue({
+        id: 'std_01',
+        email: 'std@student.edu',
+        name: 'John',
+        isRep: false,
+        passwordHash: hash,
+        status: StudentStatus.ACTIVE,
+      });
+
+      await service.login({ id: 'std_01', password: 'CorrectPass' }, '197.251.140.2');
+
+      expect(auditServiceMock.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.LOGIN_SUCCESS,
+          actorId: 'std_01',
+          ipAddress: '197.251.140.2',
+        }),
+      );
     });
 
     it('should authenticate with email fallback when identifier is omitted', async () => {

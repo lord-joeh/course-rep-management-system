@@ -23,6 +23,7 @@ import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
 import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/entities/security-audit-log.entity';
 import { AttendanceGateway } from './attendance.gateway';
 
 describe('AttendanceService', () => {
@@ -631,6 +632,53 @@ describe('AttendanceService', () => {
           instanceId: 'inst-1',
           studentId: 'student-1',
           presentCount: 12,
+        }),
+      );
+      expect(auditServiceMock.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.ATTENDANCE_MARKED,
+        }),
+      );
+    });
+
+    it('should record attendance marked audit event with client IP address', async () => {
+      jwtServiceMock.verify.mockReturnValue({
+        instanceId: 'inst-1',
+        courseId: 'CS101',
+        nonce: 'nonce-123',
+      });
+      cacheServiceMock.setNx.mockResolvedValue(true);
+      cacheServiceMock.get.mockResolvedValue(true);
+
+      instanceRepoMock.findOne.mockResolvedValue({
+        id: 'inst-1',
+        courseId: 'CS101',
+        classType: ClassType.ONLINE,
+        isClose: false,
+        expiresAt: new Date(Date.now() + 100000),
+        date: new Date(),
+      });
+
+      dataSourceMock.transaction.mockImplementation(async (cb: any) => {
+        const manager = {
+          findOne: jest.fn().mockResolvedValue(null),
+          create: jest.fn((_, entity: any) => entity),
+          save: jest.fn(async (_, entity: any) => entity),
+          count: jest.fn().mockResolvedValue(1),
+        };
+        return cb(manager);
+      });
+
+      await service.markAttendance(
+        { token: 'valid-token' },
+        userMock,
+        '197.251.140.2',
+      );
+
+      expect(auditServiceMock.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.ATTENDANCE_MARKED,
+          ipAddress: '197.251.140.2',
         }),
       );
     });

@@ -266,6 +266,53 @@ describe('NotificationService', () => {
       expect(result.priority).toBe(NotificationPriority.HIGH);
     });
 
+    it('should skip FCM push notification when priority is LOW', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
+      fcmTokenRepoMock.find.mockResolvedValue([{ token: 'tok-1' }]);
+
+      const dto: CreateNotificationDto = {
+        title: 'Routine Notice',
+        message: 'Library open till 8pm',
+        priority: NotificationPriority.LOW,
+      };
+
+      const result = await service.createNotification('sender-1', dto);
+
+      expect(gatewayMock.emitNewNotification).toHaveBeenCalled();
+      expect(firebaseServiceMock.sendMulticast).not.toHaveBeenCalled();
+      expect(result.priority).toBe(NotificationPriority.LOW);
+    });
+
+    it('should scope FCM tokens to enrolled course students when courseId is provided', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        enrollments: [{ studentId: 'student-enrolled-1' }, { studentId: 'student-enrolled-2' }],
+      });
+      fcmTokenRepoMock.find.mockResolvedValue([{ token: 'course-student-fcm-token' }]);
+
+      const dto: CreateNotificationDto = {
+        title: 'CS101 Notice',
+        message: 'Lab room moved to Room 402',
+        priority: NotificationPriority.NORMAL,
+        courseId: 'CS101',
+      };
+
+      await service.createNotification('sender-1', dto);
+
+      expect(fcmTokenRepoMock.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            studentId: expect.anything(),
+          }),
+        }),
+      );
+      expect(firebaseServiceMock.sendMulticast).toHaveBeenCalledWith(
+        ['course-student-fcm-token'],
+        expect.objectContaining({ title: 'CS101 Notice' }),
+      );
+    });
+
     it('should dispatch urgent SMS alerts when notification priority is URGENT', async () => {
       studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
       studentRepoMock.find.mockResolvedValue([

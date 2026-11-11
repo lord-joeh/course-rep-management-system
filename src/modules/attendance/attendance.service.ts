@@ -368,6 +368,7 @@ export class AttendanceService implements OnModuleDestroy {
   async markAttendance(
     dto: MarkAttendanceDto,
     user: AuthenticatedUser,
+    ipAddress?: string,
   ): Promise<{
     success: boolean;
     message: string;
@@ -480,6 +481,7 @@ export class AttendanceService implements OnModuleDestroy {
             resource: AuditResource.ATTENDANCE,
             resourceId: instanceId,
             actorId: studentId,
+            ipAddress,
             details: { distance, maxAllowed: 50 },
           });
 
@@ -542,6 +544,7 @@ export class AttendanceService implements OnModuleDestroy {
         resource: AuditResource.ATTENDANCE,
         resourceId: instanceId,
         actorId: studentId,
+        ipAddress,
         details: { courseId, status: AttendanceStatus.PRESENT },
       });
 

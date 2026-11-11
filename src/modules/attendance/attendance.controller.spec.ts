@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import {
@@ -61,7 +62,10 @@ describe('AttendanceController', () => {
           useValue: serviceMock,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AttendanceController>(AttendanceController);
   });
@@ -90,7 +94,7 @@ describe('AttendanceController', () => {
   });
 
   describe('markAttendance', () => {
-    it('should delegate to attendanceService.markAttendance with user context', async () => {
+    it('should delegate to attendanceService.markAttendance with user context and default IP', async () => {
       const dto: MarkAttendanceDto = { token: 'jwt-qr-token' };
       const expected = { success: true };
       serviceMock.markAttendance.mockResolvedValue(expected);
@@ -98,7 +102,18 @@ describe('AttendanceController', () => {
       const result = await controller.markAttendance(dto, userMock);
 
       expect(result).toBe(expected);
-      expect(serviceMock.markAttendance).toHaveBeenCalledWith(dto, userMock);
+      expect(serviceMock.markAttendance).toHaveBeenCalledWith(dto, userMock, '127.0.0.1');
+    });
+
+    it('should forward custom client IP from proxy', async () => {
+      const dto: MarkAttendanceDto = { token: 'jwt-qr-token' };
+      const expected = { success: true };
+      serviceMock.markAttendance.mockResolvedValue(expected);
+
+      const result = await controller.markAttendance(dto, userMock, '197.251.140.2');
+
+      expect(result).toBe(expected);
+      expect(serviceMock.markAttendance).toHaveBeenCalledWith(dto, userMock, '197.251.140.2');
     });
   });
 

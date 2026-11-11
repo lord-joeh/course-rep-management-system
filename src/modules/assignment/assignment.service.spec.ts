@@ -179,8 +179,12 @@ describe('AssignmentService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
-    it('should successfully create an assignment without file', async () => {
-      courseRepoMock.findOne.mockResolvedValue({ id: 'CS101', name: 'CS 101' });
+    it('should successfully create an assignment nested under existing course slidesFolderId', async () => {
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        name: 'CS 101',
+        slidesFolderId: 'folder-slides-101',
+      });
 
       const result = await service.createAssignment({
         title: 'Project 1',
@@ -189,7 +193,10 @@ describe('AssignmentService', () => {
         deadline: futureDate,
       });
 
-      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith('CS 101 Project 1 Submissions');
+      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith(
+        'CS 101 Project 1 Submissions',
+        'folder-slides-101',
+      );
       expect(googleDriveServiceMock.uploadFileStream).not.toHaveBeenCalled();
       expect(assignmentRepoMock.save).toHaveBeenCalled();
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:assignments:course:CS101:*');
@@ -197,8 +204,16 @@ describe('AssignmentService', () => {
       expect(result.fileId).toBeNull();
     });
 
-    it('should fallback to courseId for folder name if course.name is empty', async () => {
-      courseRepoMock.findOne.mockResolvedValue({ id: 'CS101', name: '' });
+    it('should auto-provision course materials folder if slidesFolderId is missing', async () => {
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        name: 'CS 101',
+        slidesFolderId: null,
+      });
+
+      googleDriveServiceMock.createFolder
+        .mockResolvedValueOnce({ id: 'new-course-folder-id', name: 'CS 101 Materials' })
+        .mockResolvedValueOnce({ id: 'new-submissions-folder-id', name: 'CS 101 Project 1 Submissions' });
 
       await service.createAssignment({
         title: 'Project 1',
@@ -207,11 +222,43 @@ describe('AssignmentService', () => {
         deadline: futureDate,
       });
 
-      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith('CS101 Project 1 Submissions');
+      expect(googleDriveServiceMock.createFolder).toHaveBeenNthCalledWith(1, 'CS 101 Materials');
+      expect(courseRepoMock.save).toHaveBeenCalledWith(
+        expect.objectContaining({ slidesFolderId: 'new-course-folder-id' }),
+      );
+      expect(googleDriveServiceMock.createFolder).toHaveBeenNthCalledWith(
+        2,
+        'CS 101 Project 1 Submissions',
+        'new-course-folder-id',
+      );
+    });
+
+    it('should fallback to courseId for folder name if course.name is empty', async () => {
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        name: '',
+        slidesFolderId: 'folder-slides-101',
+      });
+
+      await service.createAssignment({
+        title: 'Project 1',
+        description: 'Build an API',
+        courseId: 'CS101',
+        deadline: futureDate,
+      });
+
+      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith(
+        'CS101 Project 1 Submissions',
+        'folder-slides-101',
+      );
     });
 
     it('should successfully create an assignment with attached spec file', async () => {
-      courseRepoMock.findOne.mockResolvedValue({ id: 'CS101', name: 'CS 101' });
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        name: 'CS 101',
+        slidesFolderId: 'folder-slides-101',
+      });
 
       const fileMock: Express.Multer.File = {
         fieldname: 'file',
@@ -374,7 +421,7 @@ describe('AssignmentService', () => {
         id: 'ass-1',
         title: 'Project 1',
         courseId: 'CS101',
-        course: { name: 'CS 101' },
+        course: { name: 'CS 101', slidesFolderId: 'folder-slides-101' },
         submissionFolderId: null,
         deadline: new Date(Date.now() + 86400000),
       };
@@ -384,7 +431,10 @@ describe('AssignmentService', () => {
 
       await service.submitAssignment({ assignmentId: 'ass-1' }, 'student-1', fileMock);
 
-      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith('CS 101 Project 1 Submissions');
+      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith(
+        'CS 101 Project 1 Submissions',
+        'folder-slides-101',
+      );
       expect(assignmentRepoMock.save).toHaveBeenCalledWith(
         expect.objectContaining({ submissionFolderId: 'drive-folder-123' }),
       );
@@ -400,12 +450,20 @@ describe('AssignmentService', () => {
         deadline: new Date(Date.now() + 86400000),
       };
       assignmentRepoMock.findOne.mockResolvedValue(assignment);
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        name: '',
+        slidesFolderId: 'folder-slides-101',
+      });
       studentRepoMock.findOne.mockResolvedValue({ id: 'student-1' });
       submissionRepoMock.findOne.mockResolvedValue(null);
 
       await service.submitAssignment({ assignmentId: 'ass-1' }, 'student-1', fileMock);
 
-      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith('CS101 Project 1 Submissions');
+      expect(googleDriveServiceMock.createFolder).toHaveBeenCalledWith(
+        'CS101 Project 1 Submissions',
+        'folder-slides-101',
+      );
     });
 
     it('should clean up prior submission file on resubmission', async () => {

@@ -11,7 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AttendanceService } from './attendance.service';
 import {
   InitializeAttendanceDto,
@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles, UserRole } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ClientIp } from '../../common/decorators/client-ip.decorator';
 import { AuthenticatedUser } from '../../common/types/jwt-payload.interface';
 
 @Controller('attendance')
@@ -46,13 +47,15 @@ export class AttendanceController {
    * Protected with distributed mutex to eliminate double-marking race conditions.
    */
   @Post('mark')
+  @UseGuards(ThrottlerGuard)
   @Throttle({ attendance: { limit: 5, ttl: 60000 } })
   @Roles(UserRole.STUDENT, UserRole.REP)
   async markAttendance(
     @Body() dto: MarkAttendanceDto,
     @CurrentUser() user: AuthenticatedUser,
+    @ClientIp() clientIp: string = '127.0.0.1',
   ) {
-    return this.attendanceService.markAttendance(dto, user);
+    return this.attendanceService.markAttendance(dto, user, clientIp);
   }
 
   /**

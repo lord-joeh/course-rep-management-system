@@ -92,36 +92,64 @@ export class NotificationService {
       this.logger.error(`WebSocket notification emit error: ${wsError?.message || wsError}`);
     }
 
-    // 2. Multicast FCM push to active subscriber tokens
-    try {
-      const activeTokens = await this.fcmTokenRepository.find({
-        where: { expiresAt: MoreThan(new Date()) },
-      });
+    // 2. Multicast FCM push to active subscriber tokens (gated by priority > LOW)
+    if (saved.priority !== NotificationPriority.LOW) {
+      try {
+        let activeTokens: FcmToken[] = [];
 
-      if (activeTokens.length > 0) {
-        const tokenStrings = activeTokens.map((t) => t.token);
-        const result = await this.firebaseService.sendMulticast(tokenStrings, {
-          title: saved.title,
-          body: saved.message,
-          data: {
-            notificationId: saved.id,
-            type: saved.type,
-            priority: saved.priority,
-          },
-        });
-
-        // Prune stale/unregistered tokens
-        if (result.invalidTokens.length > 0) {
-          await this.fcmTokenRepository.delete({
-            token: In(result.invalidTokens),
+        if (saved.courseId) {
+          // Scope tokens to students enrolled in this course
+          const course = await this.courseRepository.findOne({
+            where: { id: saved.courseId },
+            relations: ['enrollments'],
           });
-          this.logger.log(
-            `Pruned ${result.invalidTokens.length} invalid FCM tokens from registry`,
-          );
+
+          const enrolledStudentIds =
+            course?.enrollments?.map((e) => e.studentId) || [];
+          if (enrolledStudentIds.length > 0) {
+            activeTokens = await this.fcmTokenRepository.find({
+              where: {
+                studentId: In(enrolledStudentIds),
+                expiresAt: MoreThan(new Date()),
+              },
+            });
+          }
+        } else {
+          // General broadcast to all active subscribers
+          activeTokens = await this.fcmTokenRepository.find({
+            where: { expiresAt: MoreThan(new Date()) },
+          });
         }
+
+        if (activeTokens.length > 0) {
+          const tokenStrings = activeTokens.map((t) => t.token);
+          const result = await this.firebaseService.sendMulticast(tokenStrings, {
+            title: saved.title,
+            body: saved.message,
+            data: {
+              notificationId: saved.id,
+              type: saved.type,
+              priority: saved.priority,
+            },
+          });
+
+          // Prune stale/unregistered tokens
+          if (result.invalidTokens.length > 0) {
+            await this.fcmTokenRepository.delete({
+              token: In(result.invalidTokens),
+            });
+            this.logger.log(
+              `Pruned ${result.invalidTokens.length} invalid FCM tokens from registry`,
+            );
+          }
+        }
+      } catch (fcmError: any) {
+        this.logger.error(`FCM multicast dispatch error: ${fcmError?.message || fcmError}`);
       }
-    } catch (fcmError: any) {
-      this.logger.error(`FCM multicast dispatch error: ${fcmError?.message || fcmError}`);
+    } else {
+      this.logger.log(
+        `Skipping FCM push for LOW priority announcement "${saved.id}" (in-app only)`,
+      );
     }
 
     // 3. Dispatch urgent SMS alerts to active students with phone numbers
