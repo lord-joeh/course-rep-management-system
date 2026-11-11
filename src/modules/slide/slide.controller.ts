@@ -17,6 +17,7 @@ import { Response } from 'express';
 import { SlideService } from './slide.service';
 import { UploadSlideDto, SlideQueryDto } from './dto';
 import { Roles, UserRole } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('slides')
 export class SlideController {
@@ -36,8 +37,9 @@ export class SlideController {
   async uploadSlides(
     @UploadedFiles() files: Express.Multer.File[],
     @Body() dto: UploadSlideDto,
+    @CurrentUser('id') uploaderId?: string,
   ) {
-    return this.slideService.uploadSlides(files, dto.courseId, dto.folderId);
+    return this.slideService.uploadSlides(files, dto.courseId, dto.folderId, uploaderId);
   }
 
   /**

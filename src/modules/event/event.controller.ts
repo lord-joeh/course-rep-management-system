@@ -17,6 +17,7 @@ import { CreateEventDto, UpdateEventDto, EventQueryDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles, UserRole } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('events')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -29,8 +30,11 @@ export class EventController {
    */
   @Post()
   @Roles(UserRole.REP)
-  async createEvent(@Body() dto: CreateEventDto) {
-    return this.eventService.createEvent(dto);
+  async createEvent(
+    @Body() dto: CreateEventDto,
+    @CurrentUser('id') creatorId?: string,
+  ) {
+    return this.eventService.createEvent(dto, creatorId);
   }
 
   /**

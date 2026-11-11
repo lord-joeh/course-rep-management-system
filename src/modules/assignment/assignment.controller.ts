@@ -45,8 +45,9 @@ export class AssignmentController {
   async createAssignment(
     @Body() dto: CreateAssignmentDto,
     @UploadedFile() file?: Express.Multer.File,
+    @CurrentUser('id') creatorId?: string,
   ) {
-    return this.assignmentService.createAssignment(dto, file);
+    return this.assignmentService.createAssignment(dto, file, creatorId);
   }
 
   /**

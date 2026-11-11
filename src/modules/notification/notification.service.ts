@@ -56,14 +56,16 @@ export class NotificationService {
    * Rep only.
    */
   async createNotification(
-    senderId: string,
+    senderId: string | null | undefined,
     dto: CreateNotificationDto,
   ): Promise<Notification> {
-    const sender = await this.studentRepository.findOne({
-      where: { id: senderId },
-    });
-    if (!sender) {
-      throw new NotFoundException(`Sender student "${senderId}" not found`);
+    if (senderId) {
+      const sender = await this.studentRepository.findOne({
+        where: { id: senderId },
+      });
+      if (!sender) {
+        throw new NotFoundException(`Sender student "${senderId}" not found`);
+      }
     }
 
     if (dto.courseId) {
@@ -80,7 +82,7 @@ export class NotificationService {
       message: dto.message,
       type: dto.type || NotificationType.ANNOUNCEMENT,
       priority: dto.priority || NotificationPriority.NORMAL,
-      senderId,
+      senderId: senderId || null,
       courseId: dto.courseId || null,
     });
 

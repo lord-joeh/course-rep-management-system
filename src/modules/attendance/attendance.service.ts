@@ -27,6 +27,7 @@ import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import {
   AuditAction,
   AuditSeverity,
@@ -72,6 +73,7 @@ export class AttendanceService implements OnModuleDestroy {
     private readonly attendanceGateway: AttendanceGateway,
     private readonly queueService: QueueService,
     private readonly auditService: AuditService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {
     this.jwtSecret =
       this.configService.get<string>('jwt.accessSecret') ||
@@ -283,6 +285,7 @@ export class AttendanceService implements OnModuleDestroy {
    */
   async initializeAttendance(
     dto: InitializeAttendanceDto,
+    creatorId?: string,
   ): Promise<AttendanceInstance> {
     const course = await this.courseRepository.findOne({
       where: { id: dto.courseId },
@@ -358,6 +361,14 @@ export class AttendanceService implements OnModuleDestroy {
 
     // Invalidate instance list cache (projection stream will start on-demand when client joins socket room)
     await this.cacheService.scanAndInvalidate('cr:attendance:instances:*');
+
+    // Dispatch centralized notification across in-app and push channels
+    await this.notificationDispatcher.dispatchAttendanceSessionCreated({
+      courseId: dto.courseId,
+      courseName: course.name,
+      instance: savedInstance,
+      creatorId,
+    });
 
     return savedInstance;
   }
