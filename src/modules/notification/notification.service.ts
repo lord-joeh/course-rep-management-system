@@ -25,6 +25,7 @@ import {
   UpdateNotificationDto,
   NotificationQueryDto,
   RegisterFcmTokenDto,
+  UnregisterFcmTokenDto,
   DirectNotificationDto,
 } from './dto';
 import { PaginatedResult } from '../../common/pagination';
@@ -92,36 +93,64 @@ export class NotificationService {
       this.logger.error(`WebSocket notification emit error: ${wsError?.message || wsError}`);
     }
 
-    // 2. Multicast FCM push to active subscriber tokens
-    try {
-      const activeTokens = await this.fcmTokenRepository.find({
-        where: { expiresAt: MoreThan(new Date()) },
-      });
+    // 2. Multicast FCM push to active subscriber tokens (gated by priority > LOW)
+    if (saved.priority !== NotificationPriority.LOW) {
+      try {
+        let activeTokens: FcmToken[] = [];
 
-      if (activeTokens.length > 0) {
-        const tokenStrings = activeTokens.map((t) => t.token);
-        const result = await this.firebaseService.sendMulticast(tokenStrings, {
-          title: saved.title,
-          body: saved.message,
-          data: {
-            notificationId: saved.id,
-            type: saved.type,
-            priority: saved.priority,
-          },
-        });
-
-        // Prune stale/unregistered tokens
-        if (result.invalidTokens.length > 0) {
-          await this.fcmTokenRepository.delete({
-            token: In(result.invalidTokens),
+        if (saved.courseId) {
+          // Scope tokens to students enrolled in this course
+          const course = await this.courseRepository.findOne({
+            where: { id: saved.courseId },
+            relations: ['enrollments'],
           });
-          this.logger.log(
-            `Pruned ${result.invalidTokens.length} invalid FCM tokens from registry`,
-          );
+
+          const enrolledStudentIds =
+            course?.enrollments?.map((e) => e.studentId) || [];
+          if (enrolledStudentIds.length > 0) {
+            activeTokens = await this.fcmTokenRepository.find({
+              where: {
+                studentId: In(enrolledStudentIds),
+                expiresAt: MoreThan(new Date()),
+              },
+            });
+          }
+        } else {
+          // General broadcast to all active subscribers
+          activeTokens = await this.fcmTokenRepository.find({
+            where: { expiresAt: MoreThan(new Date()) },
+          });
         }
+
+        if (activeTokens.length > 0) {
+          const tokenStrings = activeTokens.map((t) => t.token);
+          const result = await this.firebaseService.sendMulticast(tokenStrings, {
+            title: saved.title,
+            body: saved.message,
+            data: {
+              notificationId: saved.id,
+              type: saved.type,
+              priority: saved.priority,
+            },
+          });
+
+          // Prune stale/unregistered tokens
+          if (result.invalidTokens.length > 0) {
+            await this.fcmTokenRepository.delete({
+              token: In(result.invalidTokens),
+            });
+            this.logger.log(
+              `Pruned ${result.invalidTokens.length} invalid FCM tokens from registry`,
+            );
+          }
+        }
+      } catch (fcmError: any) {
+        this.logger.error(`FCM multicast dispatch error: ${fcmError?.message || fcmError}`);
       }
-    } catch (fcmError: any) {
-      this.logger.error(`FCM multicast dispatch error: ${fcmError?.message || fcmError}`);
+    } else {
+      this.logger.log(
+        `Skipping FCM push for LOW priority announcement "${saved.id}" (in-app only)`,
+      );
     }
 
     // 3. Dispatch urgent SMS alerts to active students with phone numbers
@@ -493,6 +522,57 @@ export class NotificationService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Unregister FCM device push token(s) to turn OFF push notifications.
+   */
+  async unregisterFcmToken(
+    studentId: string,
+    dto?: UnregisterFcmTokenDto,
+  ): Promise<{ message: string; enabled: boolean; unregisteredCount: number }> {
+    let affected = 0;
+    if (dto?.token) {
+      const result = await this.fcmTokenRepository.delete({
+        studentId,
+        token: dto.token,
+      });
+      affected = result.affected || 0;
+    } else {
+      const result = await this.fcmTokenRepository.delete({
+        studentId,
+      });
+      affected = result.affected || 0;
+    }
+
+    this.logger.log(
+      `Unregistered ${affected} FCM push token(s) for student "${studentId}"`,
+    );
+
+    return {
+      message: 'Push notifications turned off successfully',
+      enabled: false,
+      unregisteredCount: affected,
+    };
+  }
+
+  /**
+   * Get push notification subscription status for current student.
+   */
+  async getPushStatus(
+    studentId: string,
+  ): Promise<{ enabled: boolean; tokenCount: number }> {
+    const count = await this.fcmTokenRepository.count({
+      where: {
+        studentId,
+        expiresAt: MoreThan(new Date()),
+      },
+    });
+
+    return {
+      enabled: count > 0,
+      tokenCount: count,
+    };
   }
 
   /**

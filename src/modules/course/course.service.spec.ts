@@ -9,6 +9,7 @@ import { CourseStudent } from './entities/course-student.entity';
 import { Lecturer } from '../lecturer/entities/lecturer.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import { CreateCourseDto, UpdateCourseDto, CourseQueryDto } from './dto';
 
 describe('CourseService', () => {
@@ -41,6 +42,9 @@ describe('CourseService', () => {
   let dataSourceMock: {
     transaction: jest.Mock;
   };
+  let queueServiceMock: {
+    enrollAllStudentsInCourse: jest.Mock;
+  };
 
   let queryBuilderMock: any;
 
@@ -52,6 +56,10 @@ describe('CourseService', () => {
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn(),
+    };
+
+    queueServiceMock = {
+      enrollAllStudentsInCourse: jest.fn().mockResolvedValue('job-course-1'),
     };
 
     courseRepoMock = {
@@ -104,6 +112,7 @@ describe('CourseService', () => {
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
         { provide: CacheService, useValue: cacheServiceMock },
         { provide: DataSource, useValue: dataSourceMock },
+        { provide: QueueService, useValue: queueServiceMock },
       ],
     }).compile();
 
@@ -156,6 +165,7 @@ describe('CourseService', () => {
         }),
       );
       expect(courseRepoMock.save).toHaveBeenCalled();
+      expect(queueServiceMock.enrollAllStudentsInCourse).toHaveBeenCalledWith('CPEN401');
       expect(cacheServiceMock.scanAndInvalidate).toHaveBeenCalledWith('cr:courses:*');
       expect(result.id).toBe('CPEN401');
     });

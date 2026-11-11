@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import {
@@ -42,7 +43,10 @@ describe('AuthController', () => {
           useValue: authServiceMock,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
   });
@@ -64,7 +68,24 @@ describe('AuthController', () => {
     authServiceMock.register.mockResolvedValue(expected);
 
     const result = await controller.register(dto);
-    expect(authServiceMock.register).toHaveBeenCalledWith(dto);
+    expect(authServiceMock.register).toHaveBeenCalledWith(dto, '127.0.0.1');
+    expect(result).toBe(expected);
+  });
+
+  it('should forward custom client IP to authService.register', async () => {
+    const dto: RegisterDto = {
+      id: 'std_02',
+      name: 'Jane Doe',
+      email: 'jane@uni.edu',
+      password: 'StrongPassword123!',
+      phone: '08012345679',
+      isRep: false,
+    };
+    const expected = { student: { id: 'std_02' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.register.mockResolvedValue(expected);
+
+    const result = await controller.register(dto, '197.251.140.5');
+    expect(authServiceMock.register).toHaveBeenCalledWith(dto, '197.251.140.5');
     expect(result).toBe(expected);
   });
 
@@ -77,7 +98,20 @@ describe('AuthController', () => {
     authServiceMock.login.mockResolvedValue(expected);
 
     const result = await controller.login(dto);
-    expect(authServiceMock.login).toHaveBeenCalledWith(dto);
+    expect(authServiceMock.login).toHaveBeenCalledWith(dto, '127.0.0.1');
+    expect(result).toBe(expected);
+  });
+
+  it('should forward custom client IP to authService.login', async () => {
+    const dto: LoginDto = {
+      identifier: 'john@uni.edu',
+      password: 'StrongPassword123!',
+    };
+    const expected = { student: { id: 'std_01' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.login.mockResolvedValue(expected);
+
+    const result = await controller.login(dto, '102.176.65.12');
+    expect(authServiceMock.login).toHaveBeenCalledWith(dto, '102.176.65.12');
     expect(result).toBe(expected);
   });
 
@@ -101,7 +135,7 @@ describe('AuthController', () => {
     authServiceMock.forgotPassword.mockResolvedValue(expected);
 
     const result = await controller.forgotPassword(dto);
-    expect(authServiceMock.forgotPassword).toHaveBeenCalledWith(dto);
+    expect(authServiceMock.forgotPassword).toHaveBeenCalledWith(dto, '127.0.0.1');
     expect(result).toBe(expected);
   });
 
@@ -114,7 +148,7 @@ describe('AuthController', () => {
     authServiceMock.resetPassword.mockResolvedValue(expected);
 
     const result = await controller.resetPassword(dto);
-    expect(authServiceMock.resetPassword).toHaveBeenCalledWith(dto);
+    expect(authServiceMock.resetPassword).toHaveBeenCalledWith(dto, '127.0.0.1');
     expect(result).toBe(expected);
   });
 
@@ -160,7 +194,7 @@ describe('AuthController', () => {
     authServiceMock.changePassword.mockResolvedValue(expected);
 
     const result = await controller.changePassword('std_01', dto);
-    expect(authServiceMock.changePassword).toHaveBeenCalledWith('std_01', dto);
+    expect(authServiceMock.changePassword).toHaveBeenCalledWith('std_01', dto, '127.0.0.1');
     expect(result).toBe(expected);
   });
 });

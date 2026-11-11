@@ -81,7 +81,7 @@ async function bootstrap() {
       "X-Socket-ID",
     ],
   });
-  app.set("trust proxy", 1);
+  app.set("trust proxy", true);
 
   // Enable graceful shutdown hooks (SIGTERM, SIGINT)
   app.enableShutdownHooks();

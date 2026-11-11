@@ -27,6 +27,8 @@ describe('NotificationController', () => {
     markAsRead: jest.Mock;
     markAllAsRead: jest.Mock;
     registerFcmToken: jest.Mock;
+    unregisterFcmToken: jest.Mock;
+    getPushStatus: jest.Mock;
     sendDirectNotification: jest.Mock;
   };
 
@@ -63,6 +65,8 @@ describe('NotificationController', () => {
       markAsRead: jest.fn(),
       markAllAsRead: jest.fn(),
       registerFcmToken: jest.fn(),
+      unregisterFcmToken: jest.fn(),
+      getPushStatus: jest.fn(),
       sendDirectNotification: jest.fn(),
     };
 
@@ -242,6 +246,41 @@ describe('NotificationController', () => {
         mockUser.id,
         dto,
       );
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('unregisterFcmToken', () => {
+    it('should delegate to service.unregisterFcmToken', async () => {
+      const dto = { token: 'device-token-123' };
+      const expected = {
+        message: 'Push notifications turned off successfully',
+        enabled: false,
+        unregisteredCount: 1,
+      };
+      serviceMock.unregisterFcmToken.mockResolvedValue(expected);
+
+      const result = await controller.unregisterFcmToken(mockUser, dto);
+
+      expect(serviceMock.unregisterFcmToken).toHaveBeenCalledWith(
+        mockUser.id,
+        dto,
+      );
+      expect(result).toEqual(expected);
+    });
+  });
+
+  describe('getPushStatus', () => {
+    it('should delegate to service.getPushStatus', async () => {
+      const expected = {
+        enabled: true,
+        tokenCount: 1,
+      };
+      serviceMock.getPushStatus.mockResolvedValue(expected);
+
+      const result = await controller.getPushStatus(mockUser);
+
+      expect(serviceMock.getPushStatus).toHaveBeenCalledWith(mockUser.id);
       expect(result).toEqual(expected);
     });
   });

@@ -63,9 +63,23 @@ export class AssignmentService {
       throw new BadRequestException('Deadline must be a valid future date and time');
     }
 
-    // Create a dedicated Google Drive folder for submissions
+    // Ensure parent course materials/slides folder exists on Google Drive
+    let parentFolderId = course.slidesFolderId;
+    if (!parentFolderId) {
+      const courseFolder = await this.googleDriveService.createFolder(
+        `${course.name || course.id} Materials`,
+      );
+      course.slidesFolderId = courseFolder.id;
+      await this.courseRepository.save(course);
+      parentFolderId = courseFolder.id;
+    }
+
+    // Create a dedicated Google Drive folder for submissions nested under the course folder
     const folderName = `${course.name || course.id} ${dto.title} Submissions`;
-    const driveFolder = await this.googleDriveService.createFolder(folderName);
+    const driveFolder = await this.googleDriveService.createFolder(
+      folderName,
+      parentFolderId || undefined,
+    );
 
     const assignment = this.assignmentRepository.create({
       title: dto.title,
@@ -163,8 +177,27 @@ export class AssignmentService {
     // Ensure target folder exists
     let folderId = assignment.submissionFolderId;
     if (!folderId) {
+      let parentFolderId = assignment.course?.slidesFolderId;
+      if (!parentFolderId && assignment.courseId) {
+        const course = await this.courseRepository.findOne({
+          where: { id: assignment.courseId },
+        });
+        if (course) {
+          if (!course.slidesFolderId) {
+            const courseFolder = await this.googleDriveService.createFolder(
+              `${course.name || course.id} Materials`,
+            );
+            course.slidesFolderId = courseFolder.id;
+            await this.courseRepository.save(course);
+          }
+          parentFolderId = course.slidesFolderId;
+        }
+      }
       const folderName = `${assignment.course?.name || assignment.courseId} ${assignment.title} Submissions`;
-      const createdFolder = await this.googleDriveService.createFolder(folderName);
+      const createdFolder = await this.googleDriveService.createFolder(
+        folderName,
+        parentFolderId || undefined,
+      );
       folderId = createdFolder.id;
       assignment.submissionFolderId = folderId;
       await this.assignmentRepository.save(assignment);

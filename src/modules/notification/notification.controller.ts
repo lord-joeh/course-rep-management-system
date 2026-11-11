@@ -16,6 +16,7 @@ import {
   UpdateNotificationDto,
   NotificationQueryDto,
   RegisterFcmTokenDto,
+  UnregisterFcmTokenDto,
   DirectNotificationDto,
 } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -82,6 +83,27 @@ export class NotificationController {
     @Body() dto: RegisterFcmTokenDto,
   ) {
     return this.notificationService.registerFcmToken(user.id, dto);
+  }
+
+  /**
+   * Unregister FCM push token(s) (turn push off).
+   */
+  @Delete('push-token')
+  @Roles(UserRole.STUDENT, UserRole.REP)
+  async unregisterFcmToken(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto?: UnregisterFcmTokenDto,
+  ) {
+    return this.notificationService.unregisterFcmToken(user.id, dto);
+  }
+
+  /**
+   * Get push notification subscription status for current user.
+   */
+  @Get('push-status')
+  @Roles(UserRole.STUDENT, UserRole.REP)
+  async getPushStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.notificationService.getPushStatus(user.id);
   }
 
   /**

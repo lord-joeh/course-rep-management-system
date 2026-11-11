@@ -266,6 +266,53 @@ describe('NotificationService', () => {
       expect(result.priority).toBe(NotificationPriority.HIGH);
     });
 
+    it('should skip FCM push notification when priority is LOW', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
+      fcmTokenRepoMock.find.mockResolvedValue([{ token: 'tok-1' }]);
+
+      const dto: CreateNotificationDto = {
+        title: 'Routine Notice',
+        message: 'Library open till 8pm',
+        priority: NotificationPriority.LOW,
+      };
+
+      const result = await service.createNotification('sender-1', dto);
+
+      expect(gatewayMock.emitNewNotification).toHaveBeenCalled();
+      expect(firebaseServiceMock.sendMulticast).not.toHaveBeenCalled();
+      expect(result.priority).toBe(NotificationPriority.LOW);
+    });
+
+    it('should scope FCM tokens to enrolled course students when courseId is provided', async () => {
+      studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
+      courseRepoMock.findOne.mockResolvedValue({
+        id: 'CS101',
+        enrollments: [{ studentId: 'student-enrolled-1' }, { studentId: 'student-enrolled-2' }],
+      });
+      fcmTokenRepoMock.find.mockResolvedValue([{ token: 'course-student-fcm-token' }]);
+
+      const dto: CreateNotificationDto = {
+        title: 'CS101 Notice',
+        message: 'Lab room moved to Room 402',
+        priority: NotificationPriority.NORMAL,
+        courseId: 'CS101',
+      };
+
+      await service.createNotification('sender-1', dto);
+
+      expect(fcmTokenRepoMock.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            studentId: expect.anything(),
+          }),
+        }),
+      );
+      expect(firebaseServiceMock.sendMulticast).toHaveBeenCalledWith(
+        ['course-student-fcm-token'],
+        expect.objectContaining({ title: 'CS101 Notice' }),
+      );
+    });
+
     it('should dispatch urgent SMS alerts when notification priority is URGENT', async () => {
       studentRepoMock.findOne.mockResolvedValue({ id: 'sender-1' });
       studentRepoMock.find.mockResolvedValue([
@@ -716,6 +763,72 @@ describe('NotificationService', () => {
 
       expect(result.message).toBe('FCM device token registered successfully');
       expect(fcmTokenRepoMock.save).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('unregisterFcmToken', () => {
+    it('should unregister specific device token when token is passed', async () => {
+      fcmTokenRepoMock.delete.mockResolvedValue({ affected: 1 });
+
+      const result = await service.unregisterFcmToken('student-1', {
+        token: 'specific-token',
+      });
+
+      expect(fcmTokenRepoMock.delete).toHaveBeenCalledWith({
+        studentId: 'student-1',
+        token: 'specific-token',
+      });
+      expect(result).toEqual({
+        message: 'Push notifications turned off successfully',
+        enabled: false,
+        unregisteredCount: 1,
+      });
+    });
+
+    it('should unregister all device tokens for student when dto is omitted', async () => {
+      fcmTokenRepoMock.delete.mockResolvedValue({ affected: 3 });
+
+      const result = await service.unregisterFcmToken('student-1');
+
+      expect(fcmTokenRepoMock.delete).toHaveBeenCalledWith({
+        studentId: 'student-1',
+      });
+      expect(result).toEqual({
+        message: 'Push notifications turned off successfully',
+        enabled: false,
+        unregisteredCount: 3,
+      });
+    });
+  });
+
+  describe('getPushStatus', () => {
+    it('should return enabled: true and tokenCount when active tokens exist', async () => {
+      fcmTokenRepoMock.count = jest.fn().mockResolvedValue(2);
+
+      const result = await service.getPushStatus('student-1');
+
+      expect(fcmTokenRepoMock.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            studentId: 'student-1',
+          }),
+        }),
+      );
+      expect(result).toEqual({
+        enabled: true,
+        tokenCount: 2,
+      });
+    });
+
+    it('should return enabled: false and tokenCount: 0 when no active tokens exist', async () => {
+      fcmTokenRepoMock.count = jest.fn().mockResolvedValue(0);
+
+      const result = await service.getPushStatus('student-1');
+
+      expect(result).toEqual({
+        enabled: false,
+        tokenCount: 0,
+      });
     });
   });
 

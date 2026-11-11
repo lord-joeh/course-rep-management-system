@@ -12,6 +12,7 @@ import { CourseStudent } from './entities/course-student.entity';
 import { Lecturer } from '../lecturer/entities/lecturer.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
+import { QueueService } from '../queue/queue.service';
 import { CACHE_TTL } from '../../common/constants/cache.constants';
 import { CreateCourseDto, UpdateCourseDto, CourseQueryDto } from './dto';
 import { PaginatedResult } from '../../common/pagination';
@@ -31,6 +32,7 @@ export class CourseService {
     private readonly studentRepository: Repository<Student>,
     private readonly cacheService: CacheService,
     private readonly dataSource: DataSource,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -74,6 +76,9 @@ export class CourseService {
     });
 
     const saved = await this.courseRepository.save(course);
+
+    // Enqueue auto-enrollment of all active students into this course
+    await this.queueService.enrollAllStudentsInCourse(saved.id);
 
     // Invalidate course list cache
     await this.cacheService.scanAndInvalidate('cr:courses:*');
