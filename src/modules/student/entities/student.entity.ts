@@ -57,6 +57,31 @@ export class Student {
   })
   isRep: boolean;
 
+  @Column({
+    name: "google_id",
+    type: "varchar",
+    length: 255,
+    unique: true,
+    nullable: true,
+  })
+  googleId: string | null;
+
+  @Column({
+    name: "apple_id",
+    type: "varchar",
+    length: 255,
+    unique: true,
+    nullable: true,
+  })
+  appleId: string | null;
+
+  @Column({
+    name: "avatar_url",
+    type: "text",
+    nullable: true,
+  })
+  avatarUrl: string | null;
+
   @CreateDateColumn({
     name: "createdAt",
     type: "timestamp with time zone",

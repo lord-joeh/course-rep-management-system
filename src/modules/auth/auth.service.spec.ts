@@ -7,6 +7,8 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 
 import { AuthService } from './auth.service';
+import { GoogleOAuthService } from './services/google-oauth.service';
+import { AppleOAuthService } from './services/apple-oauth.service';
 import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
@@ -34,6 +36,7 @@ describe('AuthService', () => {
   };
   let jwtServiceMock: {
     signAsync: jest.Mock;
+    verifyAsync: jest.Mock;
   };
   let configServiceMock: {
     get: jest.Mock;
@@ -53,6 +56,8 @@ describe('AuthService', () => {
   let studentRepoMock: {
     update: jest.Mock;
     findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
   };
   let queueServiceMock: {
     sendEmail: jest.Mock;
@@ -60,6 +65,12 @@ describe('AuthService', () => {
   };
   let auditServiceMock: {
     recordEvent: jest.Mock;
+  };
+  let googleOAuthServiceMock: {
+    verifyIdToken: jest.Mock;
+  };
+  let appleOAuthServiceMock: {
+    verifyIdentityToken: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -73,7 +84,23 @@ describe('AuthService', () => {
     jwtServiceMock = {
       signAsync: jest.fn().mockImplementation((payload) => {
         if (payload.type === 'refresh') return Promise.resolve('mock_refresh_jwt');
+        if (payload.type === 'oauth_onboard') return Promise.resolve('mock_temp_onboard_jwt');
         return Promise.resolve('mock_access_jwt');
+      }),
+      verifyAsync: jest.fn().mockImplementation((token) => {
+        if (token === 'valid_temp_token') {
+          return Promise.resolve({
+            type: 'oauth_onboard',
+            provider: 'google',
+            providerId: 'google-sub-123',
+            email: 'new.student@university.edu',
+            name: 'New Student',
+          });
+        }
+        if (token === 'expired_temp_token') {
+          throw new Error('jwt expired');
+        }
+        throw new Error('invalid token');
       }),
     };
     configServiceMock = {
@@ -100,6 +127,8 @@ describe('AuthService', () => {
     studentRepoMock = {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       findOne: jest.fn().mockResolvedValue({ id: 'std_01', name: 'Test Student' }),
+      create: jest.fn().mockImplementation((d) => d),
+      save: jest.fn().mockImplementation((d) => Promise.resolve({ id: d.id || 'std_saved', ...d })),
     };
     queueServiceMock = {
       sendEmail: jest.fn().mockResolvedValue('job-email-1'),
@@ -107,6 +136,12 @@ describe('AuthService', () => {
     };
     auditServiceMock = {
       recordEvent: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    };
+    googleOAuthServiceMock = {
+      verifyIdToken: jest.fn(),
+    };
+    appleOAuthServiceMock = {
+      verifyIdentityToken: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -118,6 +153,8 @@ describe('AuthService', () => {
         { provide: CacheService, useValue: cacheServiceMock },
         { provide: QueueService, useValue: queueServiceMock },
         { provide: AuditService, useValue: auditServiceMock },
+        { provide: GoogleOAuthService, useValue: googleOAuthServiceMock },
+        { provide: AppleOAuthService, useValue: appleOAuthServiceMock },
         { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepoMock },
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
       ],
@@ -563,6 +600,194 @@ describe('AuthService', () => {
       process.env.JWT_ACCESS_SECRET = origAccessSecret;
       process.env.JWT_REFRESH_SECRET = origRefreshSecret;
     }, 15000);
+  });
+
+  describe('loginWithGoogle', () => {
+    it('should log in existing student by googleId and return session tokens', async () => {
+      googleOAuthServiceMock.verifyIdToken.mockResolvedValue({
+        sub: 'google-sub-1',
+        email: 'student@univ.edu',
+        name: 'Existing Google Student',
+        picture: 'https://lh3.google.com/pic.jpg',
+        emailVerified: true,
+      });
+
+      const existingStudent = {
+        id: 'std_google_1',
+        name: 'Existing Google Student',
+        email: 'student@univ.edu',
+        googleId: 'google-sub-1',
+        status: StudentStatus.ACTIVE,
+        isRep: false,
+      };
+      studentRepoMock.findOne.mockResolvedValue(existingStudent);
+
+      const result = await service.loginWithGoogle({ idToken: 'valid-google-id-token' });
+
+      expect(result.requiresCompletion).toBe(false);
+      expect((result as any).accessToken).toBe('mock_access_jwt');
+      expect((result as any).refreshToken).toBe('mock_refresh_jwt');
+      expect((result as any).student.id).toBe('std_google_1');
+    });
+
+    it('should link googleId to existing student matching by email and log in', async () => {
+      googleOAuthServiceMock.verifyIdToken.mockResolvedValue({
+        sub: 'google-sub-new-link',
+        email: 'unlinked@univ.edu',
+        name: 'Unlinked Student',
+        picture: 'https://lh3.google.com/new.jpg',
+        emailVerified: true,
+      });
+
+      const unlinkedStudent = {
+        id: 'std_unlinked',
+        name: 'Unlinked Student',
+        email: 'unlinked@univ.edu',
+        googleId: null,
+        avatarUrl: null,
+        status: StudentStatus.ACTIVE,
+        isRep: false,
+      };
+      // First findOne by googleId returns null, second by email returns unlinkedStudent
+      studentRepoMock.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(unlinkedStudent);
+
+      const result = await service.loginWithGoogle({ idToken: 'valid-token' });
+
+      expect(unlinkedStudent.googleId).toBe('google-sub-new-link');
+      expect(unlinkedStudent.avatarUrl).toBe('https://lh3.google.com/new.jpg');
+      expect(studentRepoMock.save).toHaveBeenCalledWith(unlinkedStudent);
+      expect(result.requiresCompletion).toBe(false);
+      expect((result as any).student.id).toBe('std_unlinked');
+    });
+
+    it('should throw UnauthorizedException if student account is suspended', async () => {
+      googleOAuthServiceMock.verifyIdToken.mockResolvedValue({
+        sub: 'google-sub-suspended',
+        email: 'suspended@univ.edu',
+        emailVerified: true,
+      });
+
+      studentRepoMock.findOne.mockResolvedValue({
+        id: 'std_suspended',
+        googleId: 'google-sub-suspended',
+        status: StudentStatus.SUSPENDED,
+      });
+
+      await expect(
+        service.loginWithGoogle({ idToken: 'token' }),
+      ).rejects.toThrow(new UnauthorizedException('Student account is no longer active'));
+    });
+
+    it('should return requiresCompletion: true with tempToken when student is not found', async () => {
+      googleOAuthServiceMock.verifyIdToken.mockResolvedValue({
+        sub: 'google-sub-brand-new',
+        email: 'brandnew@univ.edu',
+        name: 'Brand New',
+        picture: 'https://pic.jpg',
+        emailVerified: true,
+      });
+
+      studentRepoMock.findOne.mockResolvedValue(null);
+
+      const result = await service.loginWithGoogle({ idToken: 'new-token' });
+
+      expect(result.requiresCompletion).toBe(true);
+      expect((result as any).tempToken).toBe('mock_temp_onboard_jwt');
+      expect((result as any).email).toBe('brandnew@univ.edu');
+      expect((result as any).provider).toBe('google');
+    });
+  });
+
+  describe('loginWithApple', () => {
+    it('should log in existing student by appleId and return session tokens', async () => {
+      appleOAuthServiceMock.verifyIdentityToken.mockResolvedValue({
+        sub: 'apple-sub-1',
+        email: 'student@privaterelay.appleid.com',
+        emailVerified: true,
+      });
+
+      const existingStudent = {
+        id: 'std_apple_1',
+        name: 'Apple Student',
+        email: 'student@privaterelay.appleid.com',
+        appleId: 'apple-sub-1',
+        status: StudentStatus.ACTIVE,
+        isRep: false,
+      };
+      studentRepoMock.findOne.mockResolvedValue(existingStudent);
+
+      const result = await service.loginWithApple({ idToken: 'apple-id-token' });
+
+      expect(result.requiresCompletion).toBe(false);
+      expect((result as any).accessToken).toBe('mock_access_jwt');
+      expect((result as any).student.id).toBe('std_apple_1');
+    });
+
+    it('should return requiresCompletion: true with tempToken for first-time Apple user', async () => {
+      appleOAuthServiceMock.verifyIdentityToken.mockResolvedValue({
+        sub: 'apple-sub-new',
+        email: 'newapple@apple.com',
+        emailVerified: true,
+      });
+
+      studentRepoMock.findOne.mockResolvedValue(null);
+
+      const result = await service.loginWithApple({
+        idToken: 'apple-new-token',
+        user: { name: { firstName: 'Ama', lastName: 'Mensah' } },
+      });
+
+      expect(result.requiresCompletion).toBe(true);
+      expect((result as any).tempToken).toBe('mock_temp_onboard_jwt');
+      expect((result as any).provider).toBe('apple');
+    });
+  });
+
+  describe('completeOAuthRegistration', () => {
+    it('should throw UnauthorizedException if tempToken is expired or invalid', async () => {
+      await expect(
+        service.completeOAuthRegistration({
+          tempToken: 'expired_temp_token',
+          studentId: '10928374',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should throw ConflictException if studentId already exists', async () => {
+      studentServiceMock.findById.mockResolvedValue({ id: '10928374' });
+
+      await expect(
+        service.completeOAuthRegistration({
+          tempToken: 'valid_temp_token',
+          studentId: '10928374',
+        }),
+      ).rejects.toThrow(new ConflictException('Student with ID "10928374" already exists'));
+    });
+
+    it('should successfully create student, link OAuth provider, auto-enroll in courses, and return tokens', async () => {
+      studentServiceMock.findById.mockResolvedValue(null);
+      studentServiceMock.findByEmail.mockResolvedValue(null);
+
+      const result = await service.completeOAuthRegistration({
+        tempToken: 'valid_temp_token',
+        studentId: '10928374',
+        phone: '0200000001',
+      });
+
+      expect(studentRepoMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: '10928374',
+          googleId: 'google-sub-123',
+          email: 'new.student@university.edu',
+        }),
+      );
+      expect(studentRepoMock.save).toHaveBeenCalled();
+      expect(queueServiceMock.enrollStudentInAllCourses).toHaveBeenCalledWith('10928374');
+      expect(result.accessToken).toBe('mock_access_jwt');
+      expect(result.student.id).toBe('10928374');
+    });
   });
 });
 
