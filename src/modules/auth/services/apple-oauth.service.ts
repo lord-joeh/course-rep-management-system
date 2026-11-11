@@ -39,16 +39,18 @@ export class AppleOAuthService {
       throw new UnauthorizedException('Apple identity token is required');
     }
 
-    // Support mock token for test environments
-    if (
-      (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') &&
-      idToken.startsWith('mock-apple-token')
-    ) {
-      return {
-        sub: 'mock-apple-sub-98765',
-        email: 'mock.apple.student@privaterelay.appleid.com',
-        emailVerified: true,
-      };
+    // Support mock token for test and development environments
+    if (idToken.startsWith('mock-apple-token')) {
+      if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+        return {
+          sub: 'mock-apple-sub-98765',
+          email: 'mock.apple.student@privaterelay.appleid.com',
+          emailVerified: true,
+        };
+      }
+      throw new UnauthorizedException(
+        'Mock Apple authentication tokens are disabled in production mode',
+      );
     }
 
     try {

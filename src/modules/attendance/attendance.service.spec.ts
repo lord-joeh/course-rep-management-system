@@ -25,6 +25,7 @@ import { QueueService } from '../queue/queue.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/entities/security-audit-log.entity';
 import { AttendanceGateway } from './attendance.gateway';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 
 describe('AttendanceService', () => {
   jest.setTimeout(30000);
@@ -201,6 +202,12 @@ describe('AttendanceService', () => {
         {
           provide: AuditService,
           useValue: auditServiceMock,
+        },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchAttendanceSessionCreated: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();

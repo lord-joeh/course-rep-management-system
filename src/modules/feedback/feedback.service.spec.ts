@@ -12,6 +12,7 @@ import { Student } from '../student/entities/student.entity';
 import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import {
   CreateFeedbackDto,
   UpdateFeedbackStatusDto,
@@ -92,6 +93,12 @@ describe('FeedbackService', () => {
         {
           provide: QueueService,
           useValue: queueServiceMock,
+        },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchFeedbackReceived: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();

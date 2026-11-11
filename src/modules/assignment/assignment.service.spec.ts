@@ -13,6 +13,7 @@ import { Student } from '../student/entities/student.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { DriveJobType } from '../queue/constants';
 import { UserRole } from '../../common/decorators/roles.decorator';
 import { Readable } from 'stream';
@@ -129,6 +130,12 @@ describe('AssignmentService', () => {
         {
           provide: QueueService,
           useValue: queueServiceMock,
+        },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchAssignmentCreated: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();

@@ -15,6 +15,7 @@ import {
 } from './entities/event.entity';
 import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 
 describe('EventService', () => {
   let service: EventService;
@@ -88,6 +89,12 @@ describe('EventService', () => {
         { provide: getRepositoryToken(Course), useValue: courseRepoMock },
         { provide: DataSource, useValue: dataSourceMock },
         { provide: CacheService, useValue: cacheServiceMock },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchAcademicEventCreated: jest.fn().mockResolvedValue(true),
+          },
+        },
       ],
     }).compile();
 

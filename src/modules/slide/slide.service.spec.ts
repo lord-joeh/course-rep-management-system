@@ -10,6 +10,7 @@ import { Course } from '../course/entities/course.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { DriveJobType } from '../queue/constants';
 import { CACHE_TTL } from '../../common/constants/cache.constants';
 
@@ -113,6 +114,12 @@ describe('SlideService', () => {
         {
           provide: QueueService,
           useValue: queueServiceMock,
+        },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchSlideUploaded: jest.fn().mockResolvedValue(true),
+          },
         },
       ],
     }).compile();
