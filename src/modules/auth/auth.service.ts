@@ -83,6 +83,9 @@ export class AuthService {
       status: StudentStatus.ACTIVE,
     });
 
+    // Enqueue background auto-enrollment into all available courses
+    await this.queueService.enrollStudentInAllCourses(student.id);
+
     // Store transient verification code in Redis with 15-minute TTL (Zero DB bloat)
     const verificationCode = crypto.randomInt(100000, 999999).toString();
     await this.cacheService.set(

@@ -1,7 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { QueueService } from './queue.service';
-import { QueueName, EmailJobType, DriveJobType, AttendanceJobType } from './constants';
+import {
+  QueueName,
+  EmailJobType,
+  DriveJobType,
+  AttendanceJobType,
+  EnrollmentJobType,
+} from './constants';
 
 describe('QueueService', () => {
   let service: QueueService;
@@ -26,6 +32,11 @@ describe('QueueService', () => {
     getJobCounts: jest.fn().mockResolvedValue({ waiting: 0, active: 0, completed: 3, failed: 0 }),
   };
 
+  const mockEnrollmentQueue = {
+    add: jest.fn().mockResolvedValue({ id: 'enrollment-job-1' }),
+    getJobCounts: jest.fn().mockResolvedValue({ waiting: 1, active: 0, completed: 4, failed: 0 }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -45,6 +56,10 @@ describe('QueueService', () => {
         {
           provide: getQueueToken(QueueName.ATTENDANCE),
           useValue: mockAttendanceQueue,
+        },
+        {
+          provide: getQueueToken(QueueName.ENROLLMENT),
+          useValue: mockEnrollmentQueue,
         },
       ],
     }).compile();
@@ -166,6 +181,38 @@ describe('QueueService', () => {
     );
   });
 
+  it('should enqueue student auto-enrollment into all courses', async () => {
+    const jobId = await service.enrollStudentInAllCourses('STD-001');
+
+    expect(jobId).toBe('enrollment-job-1');
+    expect(mockEnrollmentQueue.add).toHaveBeenCalledWith(
+      EnrollmentJobType.ENROLL_STUDENT_ALL_COURSES,
+      expect.objectContaining({
+        type: EnrollmentJobType.ENROLL_STUDENT_ALL_COURSES,
+        studentId: 'STD-001',
+      }),
+      expect.objectContaining({
+        attempts: 3,
+      }),
+    );
+  });
+
+  it('should enqueue course auto-enrollment for all active students', async () => {
+    const jobId = await service.enrollAllStudentsInCourse('COURSE-101');
+
+    expect(jobId).toBe('enrollment-job-1');
+    expect(mockEnrollmentQueue.add).toHaveBeenCalledWith(
+      EnrollmentJobType.ENROLL_ALL_STUDENTS_COURSE,
+      expect.objectContaining({
+        type: EnrollmentJobType.ENROLL_ALL_STUDENTS_COURSE,
+        courseId: 'COURSE-101',
+      }),
+      expect.objectContaining({
+        attempts: 3,
+      }),
+    );
+  });
+
   it('should retrieve queue operational statistics', async () => {
     const stats = await service.getQueueStats();
 
@@ -173,6 +220,7 @@ describe('QueueService', () => {
     expect(stats[QueueName.SMS]).toEqual({ waiting: 0, active: 0, completed: 5, failed: 0 });
     expect(stats[QueueName.DRIVE_SYNC]).toEqual({ waiting: 2, active: 0, completed: 8, failed: 1 });
     expect(stats[QueueName.ATTENDANCE]).toEqual({ waiting: 0, active: 0, completed: 3, failed: 0 });
+    expect(stats[QueueName.ENROLLMENT]).toEqual({ waiting: 1, active: 0, completed: 4, failed: 0 });
   });
 });
 

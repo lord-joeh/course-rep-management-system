@@ -766,6 +766,72 @@ describe('NotificationService', () => {
     });
   });
 
+  describe('unregisterFcmToken', () => {
+    it('should unregister specific device token when token is passed', async () => {
+      fcmTokenRepoMock.delete.mockResolvedValue({ affected: 1 });
+
+      const result = await service.unregisterFcmToken('student-1', {
+        token: 'specific-token',
+      });
+
+      expect(fcmTokenRepoMock.delete).toHaveBeenCalledWith({
+        studentId: 'student-1',
+        token: 'specific-token',
+      });
+      expect(result).toEqual({
+        message: 'Push notifications turned off successfully',
+        enabled: false,
+        unregisteredCount: 1,
+      });
+    });
+
+    it('should unregister all device tokens for student when dto is omitted', async () => {
+      fcmTokenRepoMock.delete.mockResolvedValue({ affected: 3 });
+
+      const result = await service.unregisterFcmToken('student-1');
+
+      expect(fcmTokenRepoMock.delete).toHaveBeenCalledWith({
+        studentId: 'student-1',
+      });
+      expect(result).toEqual({
+        message: 'Push notifications turned off successfully',
+        enabled: false,
+        unregisteredCount: 3,
+      });
+    });
+  });
+
+  describe('getPushStatus', () => {
+    it('should return enabled: true and tokenCount when active tokens exist', async () => {
+      fcmTokenRepoMock.count = jest.fn().mockResolvedValue(2);
+
+      const result = await service.getPushStatus('student-1');
+
+      expect(fcmTokenRepoMock.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            studentId: 'student-1',
+          }),
+        }),
+      );
+      expect(result).toEqual({
+        enabled: true,
+        tokenCount: 2,
+      });
+    });
+
+    it('should return enabled: false and tokenCount: 0 when no active tokens exist', async () => {
+      fcmTokenRepoMock.count = jest.fn().mockResolvedValue(0);
+
+      const result = await service.getPushStatus('student-1');
+
+      expect(result).toEqual({
+        enabled: false,
+        tokenCount: 0,
+      });
+    });
+  });
+
   describe('sendDirectNotification', () => {
     it('should throw NotFoundException if student does not exist', async () => {
       studentRepoMock.findOne.mockResolvedValue(null);

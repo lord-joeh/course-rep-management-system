@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue, JobsOptions } from 'bullmq';
-import { QueueName, EmailJobType, DriveJobType, AttendanceJobType } from './constants';
+import {
+  QueueName,
+  EmailJobType,
+  DriveJobType,
+  AttendanceJobType,
+  EnrollmentJobType,
+} from './constants';
 import {
   EmailJobData,
   SmsJobData,
@@ -10,6 +16,9 @@ import {
   DriveUploadType,
   DriveDeleteJobData,
   AttendanceRosterJobData,
+  EnrollmentJobData,
+  EnrollStudentAllCoursesJobData,
+  EnrollAllStudentsCourseJobData,
 } from './dto';
 
 @Injectable()
@@ -21,6 +30,7 @@ export class QueueService {
     @InjectQueue(QueueName.SMS) private readonly smsQueue: Queue<SmsJobData>,
     @InjectQueue(QueueName.DRIVE_SYNC) private readonly driveSyncQueue: Queue<DriveJobData>,
     @InjectQueue(QueueName.ATTENDANCE) private readonly attendanceQueue: Queue<AttendanceRosterJobData>,
+    @InjectQueue(QueueName.ENROLLMENT) private readonly enrollmentQueue: Queue<EnrollmentJobData>,
   ) {}
 
   /**
@@ -154,14 +164,81 @@ export class QueueService {
   }
 
   /**
+   * Enqueue auto-enrollment of a newly created student into all available courses
+   */
+  async enrollStudentInAllCourses(
+    studentId: string,
+    options?: JobsOptions,
+  ): Promise<string> {
+    const jobData: EnrollStudentAllCoursesJobData = {
+      type: EnrollmentJobType.ENROLL_STUDENT_ALL_COURSES,
+      studentId,
+    };
+    const defaultOptions: JobsOptions = {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { age: 86400, count: 1000 },
+      removeOnFail: { age: 604800, count: 5000 },
+      ...options,
+    };
+
+    const job = await this.enrollmentQueue.add(
+      EnrollmentJobType.ENROLL_STUDENT_ALL_COURSES,
+      jobData,
+      defaultOptions,
+    );
+    this.logger.log(
+      `Enqueued Student auto-enrollment job [${job.id}] for student [${studentId}]`,
+    );
+    return job.id ? String(job.id) : '';
+  }
+
+  /**
+   * Enqueue auto-enrollment of all active students into a newly created course
+   */
+  async enrollAllStudentsInCourse(
+    courseId: string,
+    options?: JobsOptions,
+  ): Promise<string> {
+    const jobData: EnrollAllStudentsCourseJobData = {
+      type: EnrollmentJobType.ENROLL_ALL_STUDENTS_COURSE,
+      courseId,
+    };
+    const defaultOptions: JobsOptions = {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { age: 86400, count: 1000 },
+      removeOnFail: { age: 604800, count: 5000 },
+      ...options,
+    };
+
+    const job = await this.enrollmentQueue.add(
+      EnrollmentJobType.ENROLL_ALL_STUDENTS_COURSE,
+      jobData,
+      defaultOptions,
+    );
+    this.logger.log(
+      `Enqueued Course auto-enrollment job [${job.id}] for course [${courseId}]`,
+    );
+    return job.id ? String(job.id) : '';
+  }
+
+  /**
    * Retrieve real-time operational queue statistics
    */
   async getQueueStats(): Promise<Record<string, any>> {
-    const [emailCounts, smsCounts, driveCounts, attendanceCounts] = await Promise.all([
+    const [
+      emailCounts,
+      smsCounts,
+      driveCounts,
+      attendanceCounts,
+      enrollmentCounts,
+    ] = await Promise.all([
       this.emailQueue.getJobCounts(),
       this.smsQueue.getJobCounts(),
       this.driveSyncQueue.getJobCounts(),
       this.attendanceQueue.getJobCounts(),
+      this.enrollmentQueue.getJobCounts(),
     ]);
 
     return {
@@ -169,6 +246,7 @@ export class QueueService {
       [QueueName.SMS]: smsCounts,
       [QueueName.DRIVE_SYNC]: driveCounts,
       [QueueName.ATTENDANCE]: attendanceCounts,
+      [QueueName.ENROLLMENT]: enrollmentCounts,
     };
   }
 }

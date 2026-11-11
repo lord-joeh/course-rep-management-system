@@ -3,6 +3,7 @@ export enum QueueName {
   SMS = 'sms-queue',
   DRIVE_SYNC = 'drive-sync-queue',
   ATTENDANCE = 'attendance-queue',
+  ENROLLMENT = 'enrollment-queue',
 }
 
 export enum EmailJobType {
@@ -23,5 +24,10 @@ export enum DriveJobType {
 
 export enum AttendanceJobType {
   INITIALIZE_ROSTER = 'initialize-roster',
+}
+
+export enum EnrollmentJobType {
+  ENROLL_STUDENT_ALL_COURSES = 'enroll-student-all-courses',
+  ENROLL_ALL_STUDENTS_COURSE = 'enroll-all-students-course',
 }
 

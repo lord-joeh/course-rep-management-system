@@ -25,6 +25,7 @@ import {
   UpdateNotificationDto,
   NotificationQueryDto,
   RegisterFcmTokenDto,
+  UnregisterFcmTokenDto,
   DirectNotificationDto,
 } from './dto';
 import { PaginatedResult } from '../../common/pagination';
@@ -521,6 +522,57 @@ export class NotificationService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Unregister FCM device push token(s) to turn OFF push notifications.
+   */
+  async unregisterFcmToken(
+    studentId: string,
+    dto?: UnregisterFcmTokenDto,
+  ): Promise<{ message: string; enabled: boolean; unregisteredCount: number }> {
+    let affected = 0;
+    if (dto?.token) {
+      const result = await this.fcmTokenRepository.delete({
+        studentId,
+        token: dto.token,
+      });
+      affected = result.affected || 0;
+    } else {
+      const result = await this.fcmTokenRepository.delete({
+        studentId,
+      });
+      affected = result.affected || 0;
+    }
+
+    this.logger.log(
+      `Unregistered ${affected} FCM push token(s) for student "${studentId}"`,
+    );
+
+    return {
+      message: 'Push notifications turned off successfully',
+      enabled: false,
+      unregisteredCount: affected,
+    };
+  }
+
+  /**
+   * Get push notification subscription status for current student.
+   */
+  async getPushStatus(
+    studentId: string,
+  ): Promise<{ enabled: boolean; tokenCount: number }> {
+    const count = await this.fcmTokenRepository.count({
+      where: {
+        studentId,
+        expiresAt: MoreThan(new Date()),
+      },
+    });
+
+    return {
+      enabled: count > 0,
+      tokenCount: count,
+    };
   }
 
   /**

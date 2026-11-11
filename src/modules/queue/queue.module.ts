@@ -16,9 +16,11 @@ import { EmailProcessor } from './processors/email.processor';
 import { SmsProcessor } from './processors/sms.processor';
 import { DriveSyncProcessor } from './processors/drive-sync.processor';
 import { AttendanceProcessor } from './processors/attendance.processor';
+import { EnrollmentProcessor } from './processors/enrollment.processor';
 
 import { Slide } from '../slide/entities/slide.entity';
 import { Attendance } from '../attendance/entities/attendance.entity';
+import { Course } from '../course/entities/course.entity';
 import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { Assignment } from '../assignment/entities/assignment.entity';
@@ -32,6 +34,7 @@ import { GoogleModule } from '../google/google.module';
     TypeOrmModule.forFeature([
       Slide,
       Attendance,
+      Course,
       CourseStudent,
       Student,
       Assignment,
@@ -52,12 +55,13 @@ import { GoogleModule } from '../google/google.module';
       }),
     }),
 
-    // Register 4 Isolated Queues
+    // Register Isolated Queues
     BullModule.registerQueue(
       { name: QueueName.EMAIL },
       { name: QueueName.SMS },
       { name: QueueName.DRIVE_SYNC },
       { name: QueueName.ATTENDANCE },
+      { name: QueueName.ENROLLMENT },
     ),
 
     // Bull Board Queue Dashboard UI at /admin/queues/ui
@@ -70,6 +74,7 @@ import { GoogleModule } from '../google/google.module';
       { name: QueueName.SMS, adapter: BullMQAdapter },
       { name: QueueName.DRIVE_SYNC, adapter: BullMQAdapter },
       { name: QueueName.ATTENDANCE, adapter: BullMQAdapter },
+      { name: QueueName.ENROLLMENT, adapter: BullMQAdapter },
     ),
   ],
   controllers: [QueueController],
@@ -80,6 +85,7 @@ import { GoogleModule } from '../google/google.module';
     SmsProcessor,
     DriveSyncProcessor,
     AttendanceProcessor,
+    EnrollmentProcessor,
   ],
   exports: [QueueService, BullModule],
 })

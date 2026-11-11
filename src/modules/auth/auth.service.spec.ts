@@ -56,6 +56,7 @@ describe('AuthService', () => {
   };
   let queueServiceMock: {
     sendEmail: jest.Mock;
+    enrollStudentInAllCourses: jest.Mock;
   };
   let auditServiceMock: {
     recordEvent: jest.Mock;
@@ -102,6 +103,7 @@ describe('AuthService', () => {
     };
     queueServiceMock = {
       sendEmail: jest.fn().mockResolvedValue('job-email-1'),
+      enrollStudentInAllCourses: jest.fn().mockResolvedValue('job-enroll-1'),
     };
     auditServiceMock = {
       recordEvent: jest.fn().mockResolvedValue({ id: 'audit-1' }),
@@ -186,6 +188,7 @@ describe('AuthService', () => {
           status: StudentStatus.ACTIVE,
         }),
       );
+      expect(queueServiceMock.enrollStudentInAllCourses).toHaveBeenCalledWith('std_01');
       expect(cacheServiceMock.set).toHaveBeenCalled();
       expect(refreshTokenRepoMock.save).toHaveBeenCalled();
       expect(result.student).toEqual(
