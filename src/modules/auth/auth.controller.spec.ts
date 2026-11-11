@@ -9,6 +9,9 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   ChangePasswordDto,
+  GoogleAuthDto,
+  AppleAuthDto,
+  CompleteOAuthRegistrationDto,
 } from './dto';
 import { AuthenticatedUser } from '../../common/types/jwt-payload.interface';
 
@@ -22,6 +25,9 @@ describe('AuthController', () => {
     resetPassword: jest.Mock;
     logout: jest.Mock;
     changePassword: jest.Mock;
+    loginWithGoogle: jest.Mock;
+    loginWithApple: jest.Mock;
+    completeOAuthRegistration: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -33,6 +39,9 @@ describe('AuthController', () => {
       resetPassword: jest.fn(),
       logout: jest.fn(),
       changePassword: jest.fn(),
+      loginWithGoogle: jest.fn(),
+      loginWithApple: jest.fn(),
+      completeOAuthRegistration: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -112,6 +121,74 @@ describe('AuthController', () => {
 
     const result = await controller.login(dto, '102.176.65.12');
     expect(authServiceMock.login).toHaveBeenCalledWith(dto, '102.176.65.12');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.loginWithGoogle with default IP', async () => {
+    const dto: GoogleAuthDto = { idToken: 'google_id_token_123' };
+    const expected = { student: { id: 'std_01' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.loginWithGoogle.mockResolvedValue(expected);
+
+    const result = await controller.loginWithGoogle(dto);
+    expect(authServiceMock.loginWithGoogle).toHaveBeenCalledWith(dto, '127.0.0.1');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.loginWithGoogle with custom IP', async () => {
+    const dto: GoogleAuthDto = { idToken: 'google_id_token_123' };
+    const expected = { requiresCompletion: true, tempToken: 'ticket_abc', email: 'g@uni.edu', name: 'Google User' };
+    authServiceMock.loginWithGoogle.mockResolvedValue(expected);
+
+    const result = await controller.loginWithGoogle(dto, '197.251.10.2');
+    expect(authServiceMock.loginWithGoogle).toHaveBeenCalledWith(dto, '197.251.10.2');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.loginWithApple with default IP', async () => {
+    const dto: AppleAuthDto = { idToken: 'apple_identity_token_456', user: { name: { firstName: 'Jane', lastName: 'Doe' } } };
+    const expected = { student: { id: 'std_02' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.loginWithApple.mockResolvedValue(expected);
+
+    const result = await controller.loginWithApple(dto);
+    expect(authServiceMock.loginWithApple).toHaveBeenCalledWith(dto, '127.0.0.1');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.loginWithApple with custom IP', async () => {
+    const dto: AppleAuthDto = { idToken: 'apple_identity_token_456' };
+    const expected = { requiresCompletion: true, tempToken: 'ticket_xyz', email: 'a@privaterelay.appleid.com', name: 'Apple User' };
+    authServiceMock.loginWithApple.mockResolvedValue(expected);
+
+    const result = await controller.loginWithApple(dto, '197.251.10.2');
+    expect(authServiceMock.loginWithApple).toHaveBeenCalledWith(dto, '197.251.10.2');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.completeOAuthRegistration with default IP', async () => {
+    const dto: CompleteOAuthRegistrationDto = {
+      tempToken: 'ticket_abc',
+      studentId: 'std_03',
+      phone: '0240000000',
+    };
+    const expected = { student: { id: 'std_03' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.completeOAuthRegistration.mockResolvedValue(expected);
+
+    const result = await controller.completeOAuthRegistration(dto);
+    expect(authServiceMock.completeOAuthRegistration).toHaveBeenCalledWith(dto, '127.0.0.1');
+    expect(result).toBe(expected);
+  });
+
+  it('should call authService.completeOAuthRegistration with custom IP', async () => {
+    const dto: CompleteOAuthRegistrationDto = {
+      tempToken: 'ticket_abc',
+      studentId: 'std_03',
+      phone: '0240000000',
+    };
+    const expected = { student: { id: 'std_03' }, accessToken: 'jwt', refreshToken: 'rt' };
+    authServiceMock.completeOAuthRegistration.mockResolvedValue(expected);
+
+    const result = await controller.completeOAuthRegistration(dto, '197.251.10.2');
+    expect(authServiceMock.completeOAuthRegistration).toHaveBeenCalledWith(dto, '197.251.10.2');
     expect(result).toBe(expected);
   });
 

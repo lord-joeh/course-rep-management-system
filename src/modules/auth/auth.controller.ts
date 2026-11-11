@@ -21,6 +21,9 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   ChangePasswordDto,
+  GoogleAuthDto,
+  AppleAuthDto,
+  CompleteOAuthRegistrationDto,
 } from './dto';
 
 @Controller('auth')
@@ -41,6 +44,39 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDto, @ClientIp() clientIp: string = '127.0.0.1') {
     return this.authService.login(dto, clientIp);
+  }
+
+  @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('google')
+  async loginWithGoogle(
+    @Body() dto: GoogleAuthDto,
+    @ClientIp() clientIp: string = '127.0.0.1',
+  ) {
+    return this.authService.loginWithGoogle(dto, clientIp);
+  }
+
+  @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('apple')
+  async loginWithApple(
+    @Body() dto: AppleAuthDto,
+    @ClientIp() clientIp: string = '127.0.0.1',
+  ) {
+    return this.authService.loginWithApple(dto, clientIp);
+  }
+
+  @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('oauth/complete-registration')
+  async completeOAuthRegistration(
+    @Body() dto: CompleteOAuthRegistrationDto,
+    @ClientIp() clientIp: string = '127.0.0.1',
+  ) {
+    return this.authService.completeOAuthRegistration(dto, clientIp);
   }
 
   @Public()
