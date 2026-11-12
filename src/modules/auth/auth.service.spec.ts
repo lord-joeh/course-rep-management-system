@@ -8,7 +8,6 @@ import * as bcrypt from 'bcryptjs';
 
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
-import { AppleOAuthService } from './services/apple-oauth.service';
 import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
@@ -69,9 +68,6 @@ describe('AuthService', () => {
   };
   let googleOAuthServiceMock: {
     verifyIdToken: jest.Mock;
-  };
-  let appleOAuthServiceMock: {
-    verifyIdentityToken: jest.Mock;
   };
   let notificationDispatcherMock: {
     dispatchRegistrationSuccess: jest.Mock;
@@ -146,9 +142,6 @@ describe('AuthService', () => {
     googleOAuthServiceMock = {
       verifyIdToken: jest.fn(),
     };
-    appleOAuthServiceMock = {
-      verifyIdentityToken: jest.fn(),
-    };
     notificationDispatcherMock = {
       dispatchRegistrationSuccess: jest.fn().mockResolvedValue(true),
       dispatchPasswordReset: jest.fn().mockResolvedValue(true),
@@ -166,7 +159,6 @@ describe('AuthService', () => {
         { provide: AuditService, useValue: auditServiceMock },
         { provide: NotificationDispatcherService, useValue: notificationDispatcherMock },
         { provide: GoogleOAuthService, useValue: googleOAuthServiceMock },
-        { provide: AppleOAuthService, useValue: appleOAuthServiceMock },
         { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepoMock },
         { provide: getRepositoryToken(Student), useValue: studentRepoMock },
       ],
@@ -709,51 +701,6 @@ describe('AuthService', () => {
       expect((result as any).tempToken).toBe('mock_temp_onboard_jwt');
       expect((result as any).email).toBe('brandnew@univ.edu');
       expect((result as any).provider).toBe('google');
-    });
-  });
-
-  describe('loginWithApple', () => {
-    it('should log in existing student by appleId and return session tokens', async () => {
-      appleOAuthServiceMock.verifyIdentityToken.mockResolvedValue({
-        sub: 'apple-sub-1',
-        email: 'student@privaterelay.appleid.com',
-        emailVerified: true,
-      });
-
-      const existingStudent = {
-        id: 'std_apple_1',
-        name: 'Apple Student',
-        email: 'student@privaterelay.appleid.com',
-        appleId: 'apple-sub-1',
-        status: StudentStatus.ACTIVE,
-        isRep: false,
-      };
-      studentRepoMock.findOne.mockResolvedValue(existingStudent);
-
-      const result = await service.loginWithApple({ idToken: 'apple-id-token' });
-
-      expect(result.requiresCompletion).toBe(false);
-      expect((result as any).accessToken).toBe('mock_access_jwt');
-      expect((result as any).student.id).toBe('std_apple_1');
-    });
-
-    it('should return requiresCompletion: true with tempToken for first-time Apple user', async () => {
-      appleOAuthServiceMock.verifyIdentityToken.mockResolvedValue({
-        sub: 'apple-sub-new',
-        email: 'newapple@apple.com',
-        emailVerified: true,
-      });
-
-      studentRepoMock.findOne.mockResolvedValue(null);
-
-      const result = await service.loginWithApple({
-        idToken: 'apple-new-token',
-        user: { name: { firstName: 'Ama', lastName: 'Mensah' } },
-      });
-
-      expect(result.requiresCompletion).toBe(true);
-      expect((result as any).tempToken).toBe('mock_temp_onboard_jwt');
-      expect((result as any).provider).toBe('apple');
     });
   });
 
