@@ -5,7 +5,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
-import { AppleOAuthService } from './services/apple-oauth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { StudentModule } from '../student/student.module';
 import { QueueModule } from '../queue/queue.module';
@@ -23,8 +22,8 @@ import { RefreshToken } from '../student/entities/refresh-token.entity';
     NotificationModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleOAuthService, AppleOAuthService],
-  exports: [AuthService, GoogleOAuthService, AppleOAuthService, PassportModule, JwtModule],
+  providers: [AuthService, JwtStrategy, GoogleOAuthService],
+  exports: [AuthService, GoogleOAuthService, PassportModule, JwtModule],
 })
 export class AuthModule {}
 

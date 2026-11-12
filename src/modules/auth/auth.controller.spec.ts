@@ -10,7 +10,6 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
   GoogleAuthDto,
-  AppleAuthDto,
   CompleteOAuthRegistrationDto,
 } from './dto';
 import { AuthenticatedUser } from '../../common/types/jwt-payload.interface';
@@ -26,7 +25,6 @@ describe('AuthController', () => {
     logout: jest.Mock;
     changePassword: jest.Mock;
     loginWithGoogle: jest.Mock;
-    loginWithApple: jest.Mock;
     completeOAuthRegistration: jest.Mock;
   };
 
@@ -40,7 +38,6 @@ describe('AuthController', () => {
       logout: jest.fn(),
       changePassword: jest.fn(),
       loginWithGoogle: jest.fn(),
-      loginWithApple: jest.fn(),
       completeOAuthRegistration: jest.fn(),
     };
 
@@ -141,26 +138,6 @@ describe('AuthController', () => {
 
     const result = await controller.loginWithGoogle(dto, '197.251.10.2');
     expect(authServiceMock.loginWithGoogle).toHaveBeenCalledWith(dto, '197.251.10.2');
-    expect(result).toBe(expected);
-  });
-
-  it('should call authService.loginWithApple with default IP', async () => {
-    const dto: AppleAuthDto = { idToken: 'apple_identity_token_456', user: { name: { firstName: 'Jane', lastName: 'Doe' } } };
-    const expected = { student: { id: 'std_02' }, accessToken: 'jwt', refreshToken: 'rt' };
-    authServiceMock.loginWithApple.mockResolvedValue(expected);
-
-    const result = await controller.loginWithApple(dto);
-    expect(authServiceMock.loginWithApple).toHaveBeenCalledWith(dto, '127.0.0.1');
-    expect(result).toBe(expected);
-  });
-
-  it('should call authService.loginWithApple with custom IP', async () => {
-    const dto: AppleAuthDto = { idToken: 'apple_identity_token_456' };
-    const expected = { requiresCompletion: true, tempToken: 'ticket_xyz', email: 'a@privaterelay.appleid.com', name: 'Apple User' };
-    authServiceMock.loginWithApple.mockResolvedValue(expected);
-
-    const result = await controller.loginWithApple(dto, '197.251.10.2');
-    expect(authServiceMock.loginWithApple).toHaveBeenCalledWith(dto, '197.251.10.2');
     expect(result).toBe(expected);
   });
 

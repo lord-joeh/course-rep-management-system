@@ -22,7 +22,6 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
   GoogleAuthDto,
-  AppleAuthDto,
   CompleteOAuthRegistrationDto,
 } from './dto';
 
@@ -55,17 +54,6 @@ export class AuthController {
     @ClientIp() clientIp: string = '127.0.0.1',
   ) {
     return this.authService.loginWithGoogle(dto, clientIp);
-  }
-
-  @Public()
-  @Throttle({ auth: { limit: 10, ttl: 60000 } })
-  @HttpCode(HttpStatus.OK)
-  @Post('apple')
-  async loginWithApple(
-    @Body() dto: AppleAuthDto,
-    @ClientIp() clientIp: string = '127.0.0.1',
-  ) {
-    return this.authService.loginWithApple(dto, clientIp);
   }
 
   @Public()

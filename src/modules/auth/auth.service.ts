@@ -37,11 +37,9 @@ import {
   ResetPasswordDto,
   ChangePasswordDto,
   GoogleAuthDto,
-  AppleAuthDto,
   CompleteOAuthRegistrationDto,
 } from "./dto";
 import { GoogleOAuthService } from "./services/google-oauth.service";
-import { AppleOAuthService } from "./services/apple-oauth.service";
 
 @Injectable()
 export class AuthService {
@@ -60,7 +58,6 @@ export class AuthService {
     private readonly auditService: AuditService,
     private readonly notificationDispatcher: NotificationDispatcherService,
     private readonly googleOAuthService: GoogleOAuthService,
-    private readonly appleOAuthService: AppleOAuthService,
   ) {}
 
   /**
@@ -491,87 +488,6 @@ export class AuthService {
   }
 
   /**
-   * Authenticate or initiate onboarding with Apple Sign In.
-   */
-  async loginWithApple(dto: AppleAuthDto, ipAddress?: string) {
-    const payload = await this.appleOAuthService.verifyIdentityToken(dto.idToken);
-
-    // 1. Try finding existing student by Apple Subject ID
-    let student = await this.studentRepository.findOne({
-      where: { appleId: payload.sub },
-    });
-
-    // 2. Fallback: try finding by verified email (if provided)
-    if (!student && payload.email) {
-      student = await this.studentRepository.findOne({
-        where: { email: payload.email },
-      });
-    }
-
-    const fullName = dto.user?.name
-      ? [dto.user.name.firstName, dto.user.name.lastName].filter(Boolean).join(' ')
-      : undefined;
-
-    if (student) {
-      if (student.status !== StudentStatus.ACTIVE) {
-        throw new UnauthorizedException('Student account is no longer active');
-      }
-
-      // Link Apple ID if missing
-      if (!student.appleId) {
-        student.appleId = payload.sub;
-        await this.studentRepository.save(student);
-      }
-
-      const tokens = await this.generateTokenPair(student);
-      await this.storeHashedRefreshToken(student.id, tokens.refreshToken);
-
-      await this.auditService.recordEvent({
-        action: AuditAction.LOGIN_SUCCESS,
-        severity: AuditSeverity.INFO,
-        resource: AuditResource.AUTH,
-        actorId: student.id,
-        actorEmail: student.email,
-        actorRole: student.isRep ? 'REP' : 'STUDENT',
-        ipAddress,
-        details: { provider: 'apple', appleId: payload.sub },
-      });
-
-      return {
-        requiresCompletion: false,
-        student: this.sanitizeStudent(student),
-        ...tokens,
-      };
-    }
-
-    // New student: Issue signed 10-minute onboarding ticket
-    const tempToken = await this.jwtService.signAsync(
-      {
-        type: 'oauth_onboard',
-        provider: 'apple',
-        providerId: payload.sub,
-        email: payload.email,
-        name: fullName,
-      },
-      {
-        secret:
-          this.configService.get<string>('JWT_SECRET') ||
-          this.configService.get<string>('jwt.secret') ||
-          'super_secret_jwt_access_key_course_rep_2026',
-        expiresIn: '10m',
-      },
-    );
-
-    return {
-      requiresCompletion: true,
-      tempToken,
-      email: payload.email,
-      name: fullName,
-      provider: 'apple',
-    };
-  }
-
-  /**
    * Complete student profile creation for a new OAuth user.
    */
   async completeOAuthRegistration(
@@ -619,7 +535,6 @@ export class AuthService {
       status: StudentStatus.ACTIVE,
       isRep: false,
       googleId: decoded.provider === 'google' ? decoded.providerId : undefined,
-      appleId: decoded.provider === 'apple' ? decoded.providerId : undefined,
       avatarUrl: decoded.picture || undefined,
     });
 
