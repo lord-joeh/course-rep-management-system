@@ -15,6 +15,7 @@ import { Student } from '../student/entities/student.entity';
 import { GoogleDriveService, DriveDownloadResult } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { DriveJobType } from '../queue/constants';
 import {
   CreateAssignmentDto,
@@ -42,6 +43,7 @@ export class AssignmentService {
     private readonly googleDriveService: GoogleDriveService,
     private readonly cacheService: CacheService,
     private readonly queueService: QueueService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {}
 
   /**
@@ -50,6 +52,7 @@ export class AssignmentService {
   async createAssignment(
     dto: CreateAssignmentDto,
     file?: Express.Multer.File,
+    creatorId?: string,
   ): Promise<Assignment> {
     const course = await this.courseRepository.findOne({
       where: { id: dto.courseId },
@@ -107,6 +110,14 @@ export class AssignmentService {
     }
 
     await this.cacheService.scanAndInvalidate(`cr:assignments:course:${dto.courseId}:*`);
+
+    // Dispatch centralized notification across in-app and push channels
+    await this.notificationDispatcher.dispatchAssignmentCreated({
+      courseId: dto.courseId,
+      courseName: course.name,
+      assignment: saved,
+      creatorId,
+    });
 
     return saved;
   }

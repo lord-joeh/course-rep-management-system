@@ -5,9 +5,14 @@ import { Course } from '../course/entities/course.entity';
 import { EventService } from './event.service';
 import { EventController } from './event.controller';
 import { RedisModule } from '../redis/redis.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Event, Course]), RedisModule],
+  imports: [
+    TypeOrmModule.forFeature([Event, Course]),
+    RedisModule,
+    NotificationModule,
+  ],
   controllers: [EventController],
   providers: [EventService],
   exports: [EventService],

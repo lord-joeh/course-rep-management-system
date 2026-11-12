@@ -30,18 +30,20 @@ export class GoogleOAuthService {
       throw new UnauthorizedException('Google ID token is required');
     }
 
-    // Support mock token for test environments
-    if (
-      (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') &&
-      idToken.startsWith('mock-google-token')
-    ) {
-      return {
-        sub: 'mock-google-sub-12345',
-        email: 'test.oauth.student@university.edu',
-        name: 'Mock OAuth Student',
-        picture: 'https://lh3.googleusercontent.com/mock-avatar.png',
-        emailVerified: true,
-      };
+    // Support mock token for test and development environments
+    if (idToken.startsWith('mock-google-token')) {
+      if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+        return {
+          sub: 'mock-google-sub-12345',
+          email: 'test.oauth.student@university.edu',
+          name: 'Mock OAuth Student',
+          picture: 'https://lh3.googleusercontent.com/mock-avatar.png',
+          emailVerified: true,
+        };
+      }
+      throw new UnauthorizedException(
+        'Mock Google authentication tokens are disabled in production mode',
+      );
     }
 
     try {

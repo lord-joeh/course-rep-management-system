@@ -14,6 +14,7 @@ import { CourseStudent } from '../course/entities/course-student.entity';
 import { Student } from '../student/entities/student.entity';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 
 describe('GroupService', () => {
   let service: GroupService;
@@ -108,6 +109,12 @@ describe('GroupService', () => {
         { provide: DataSource, useValue: dataSourceMock },
         { provide: CacheService, useValue: cacheServiceMock },
         { provide: QueueService, useValue: queueServiceMock },
+        {
+          provide: NotificationDispatcherService,
+          useValue: {
+            dispatchGroupAssigned: jest.fn().mockResolvedValue(true),
+          },
+        },
       ],
     }).compile();
 

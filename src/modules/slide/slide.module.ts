@@ -8,6 +8,7 @@ import { SlideController } from './slide.controller';
 import { GoogleModule } from '../google/google.module';
 import { RedisModule } from '../redis/redis.module';
 import { QueueModule } from '../queue/queue.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { QueueModule } from '../queue/queue.module';
     GoogleModule,
     RedisModule,
     QueueModule,
+    NotificationModule,
   ],
   controllers: [SlideController],
   providers: [SlideService],

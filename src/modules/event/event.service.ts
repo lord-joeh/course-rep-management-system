@@ -16,6 +16,7 @@ import {
 } from './entities/event.entity';
 import { Course } from '../course/entities/course.entity';
 import { CacheService } from '../redis/cache.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { CreateEventDto, UpdateEventDto, EventQueryDto } from './dto';
 import { PaginatedResult } from '../../common/pagination';
 
@@ -30,6 +31,7 @@ export class EventService {
     private readonly courseRepository: Repository<Course>,
     private readonly dataSource: DataSource,
     private readonly cacheService: CacheService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {}
 
   /**
@@ -126,7 +128,7 @@ export class EventService {
   /**
    * Create a single or recurring event series with collision prevention.
    */
-  async createEvent(dto: CreateEventDto): Promise<any> {
+  async createEvent(dto: CreateEventDto, creatorId?: string): Promise<any> {
     const start = new Date(dto.startDate);
     const end = new Date(dto.endDate);
 
@@ -134,8 +136,9 @@ export class EventService {
       throw new BadRequestException('End date must be strictly after start date');
     }
 
+    let course: Course | null = null;
     if (dto.courseId) {
-      const course = await this.courseRepository.findOne({
+      course = await this.courseRepository.findOne({
         where: { id: dto.courseId },
       });
       if (!course) {
@@ -209,6 +212,21 @@ export class EventService {
 
       await this.cacheService.scanAndInvalidate('cr:events:*');
 
+      // Dispatch centralized notification across in-app and push channels
+      await this.notificationDispatcher.dispatchAcademicEventCreated({
+        event: {
+          id: recurrenceSeriesId,
+          title: dto.title,
+          startDate: start,
+          endDate: end,
+          venue: dto.venue,
+          isRecurring: true,
+        },
+        courseId: dto.courseId || null,
+        courseName: course?.name,
+        creatorId,
+      });
+
       return {
         totalOccurrences: savedEvents.length,
         recurrenceSeriesId,
@@ -248,6 +266,15 @@ export class EventService {
 
     const saved = await this.eventRepository.save(event);
     await this.cacheService.scanAndInvalidate('cr:events:*');
+
+    // Dispatch centralized notification across in-app and push channels
+    await this.notificationDispatcher.dispatchAcademicEventCreated({
+      event: saved,
+      courseId: dto.courseId || null,
+      courseName: course?.name,
+      creatorId,
+    });
+
     return saved;
   }
 

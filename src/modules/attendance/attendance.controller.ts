@@ -38,8 +38,11 @@ export class AttendanceController {
    */
   @Post('initialize')
   @Roles(UserRole.REP)
-  async initializeAttendance(@Body() dto: InitializeAttendanceDto) {
-    return this.attendanceService.initializeAttendance(dto);
+  async initializeAttendance(
+    @Body() dto: InitializeAttendanceDto,
+    @CurrentUser('id') creatorId?: string,
+  ) {
+    return this.attendanceService.initializeAttendance(dto, creatorId);
   }
 
   /**

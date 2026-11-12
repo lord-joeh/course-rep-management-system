@@ -20,6 +20,7 @@ export enum NotificationType {
   EVENT = 'event',
   FEEDBACK = 'feedback',
   SYSTEM = 'system',
+  SLIDE = 'slide',
 }
 
 export enum NotificationPriority {

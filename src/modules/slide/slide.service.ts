@@ -14,6 +14,7 @@ import { Course } from '../course/entities/course.entity';
 import { GoogleDriveService } from '../google/services/google-drive.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { DriveJobType } from '../queue/constants';
 import { CACHE_TTL } from '../../common/constants/cache.constants';
 import { SlideQueryDto } from './dto';
@@ -37,6 +38,7 @@ export class SlideService {
     private readonly googleDriveService: GoogleDriveService,
     private readonly cacheService: CacheService,
     private readonly queueService: QueueService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
   ) {}
 
   /**
@@ -47,6 +49,7 @@ export class SlideService {
     files: Express.Multer.File[],
     courseId: string,
     folderId?: string,
+    uploaderId?: string,
   ): Promise<SlideUploadResult> {
     if (!files || files.length === 0) {
       throw new BadRequestException('No slide files provided for upload');
@@ -133,6 +136,14 @@ export class SlideService {
       );
 
       await this.cacheService.scanAndInvalidate(`cr:slides:course:${courseId}:*`);
+
+      // Dispatch centralized notification across in-app and push channels
+      await this.notificationDispatcher.dispatchSlideUploaded({
+        courseId,
+        courseName: course.name,
+        slides: savedSlides,
+        uploaderId,
+      });
     }
 
     return {

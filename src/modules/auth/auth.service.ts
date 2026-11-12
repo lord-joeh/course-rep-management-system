@@ -17,7 +17,7 @@ import { Student, StudentStatus } from "../student/entities/student.entity";
 import { RefreshToken } from "../student/entities/refresh-token.entity";
 import { CacheService } from "../redis/cache.service";
 import { QueueService } from "../queue/queue.service";
-import { EmailJobType } from "../queue/constants";
+import { NotificationDispatcherService } from "../notification/services/notification-dispatcher.service";
 import { AuditService } from "../audit/audit.service";
 import {
   AuditAction,
@@ -58,6 +58,7 @@ export class AuthService {
     private readonly studentRepository: Repository<Student>,
     private readonly queueService: QueueService,
     private readonly auditService: AuditService,
+    private readonly notificationDispatcher: NotificationDispatcherService,
     private readonly googleOAuthService: GoogleOAuthService,
     private readonly appleOAuthService: AppleOAuthService,
   ) {}
@@ -105,14 +106,10 @@ export class AuthService {
     const tokens = await this.generateTokenPair(student);
     await this.storeHashedRefreshToken(student.id, tokens.refreshToken);
 
-    // Enqueue transactional registration welcome email
-    if (student.email) {
-      await this.queueService.sendEmail(EmailJobType.REGISTRATION_SUCCESS, {
-        to: student.email,
-        name: student.name,
-        studentId: student.id,
-      });
-    }
+    // Dispatch centralized registration success notification
+    await this.notificationDispatcher.dispatchRegistrationSuccess({
+      student,
+    });
 
     await this.auditService.recordEvent({
       action: AuditAction.STUDENT_CREATED,
@@ -282,11 +279,11 @@ export class AuthService {
       CACHE_TTL.FIFTEEN_MINUTES,
     );
 
-    // Enqueue transactional password reset email
-    await this.queueService.sendEmail(EmailJobType.PASSWORD_RESET, {
-      to: student.email,
-      name: student.name,
+    // Dispatch centralized password reset notification
+    await this.notificationDispatcher.dispatchPasswordReset({
+      student: { id: student.id, name: student.name, email: student.email },
       resetToken,
+      resetUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`,
     });
 
     await this.auditService.recordEvent({
@@ -335,10 +332,13 @@ export class AuthService {
       where: { id: resetData.studentId },
     });
 
-    // Enqueue transactional password changed security notice
-    await this.queueService.sendEmail(EmailJobType.PASSWORD_CHANGED, {
-      to: resetData.email,
-      name: student?.name || "Student",
+    // Dispatch centralized password changed security notice
+    await this.notificationDispatcher.dispatchPasswordChanged({
+      student: {
+        id: resetData.studentId,
+        name: student?.name || "Student",
+        email: resetData.email,
+      },
     });
 
     // Record audit event
@@ -380,13 +380,10 @@ export class AuthService {
     // Revoke all existing refresh tokens
     await this.refreshTokenRepository.delete({ studentId });
 
-    // Enqueue transactional password changed security notice
-    if (student.email) {
-      await this.queueService.sendEmail(EmailJobType.PASSWORD_CHANGED, {
-        to: student.email,
-        name: student.name,
-      });
-    }
+    // Dispatch centralized password changed security notice
+    await this.notificationDispatcher.dispatchPasswordChanged({
+      student: { id: student.id, name: student.name, email: student.email },
+    });
 
     await this.auditService.recordEvent({
       action: AuditAction.PASSWORD_CHANGE,

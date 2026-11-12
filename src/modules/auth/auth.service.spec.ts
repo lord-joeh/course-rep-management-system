@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { GoogleOAuthService } from './services/google-oauth.service';
 import { AppleOAuthService } from './services/apple-oauth.service';
+import { NotificationDispatcherService } from '../notification/services/notification-dispatcher.service';
 import { StudentService } from '../student/student.service';
 import { CacheService } from '../redis/cache.service';
 import { QueueService } from '../queue/queue.service';
@@ -71,6 +72,11 @@ describe('AuthService', () => {
   };
   let appleOAuthServiceMock: {
     verifyIdentityToken: jest.Mock;
+  };
+  let notificationDispatcherMock: {
+    dispatchRegistrationSuccess: jest.Mock;
+    dispatchPasswordReset: jest.Mock;
+    dispatchPasswordChanged: jest.Mock;
   };
 
   beforeEach(async () => {
@@ -143,6 +149,11 @@ describe('AuthService', () => {
     appleOAuthServiceMock = {
       verifyIdentityToken: jest.fn(),
     };
+    notificationDispatcherMock = {
+      dispatchRegistrationSuccess: jest.fn().mockResolvedValue(true),
+      dispatchPasswordReset: jest.fn().mockResolvedValue(true),
+      dispatchPasswordChanged: jest.fn().mockResolvedValue(true),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -153,6 +164,7 @@ describe('AuthService', () => {
         { provide: CacheService, useValue: cacheServiceMock },
         { provide: QueueService, useValue: queueServiceMock },
         { provide: AuditService, useValue: auditServiceMock },
+        { provide: NotificationDispatcherService, useValue: notificationDispatcherMock },
         { provide: GoogleOAuthService, useValue: googleOAuthServiceMock },
         { provide: AppleOAuthService, useValue: appleOAuthServiceMock },
         { provide: getRepositoryToken(RefreshToken), useValue: refreshTokenRepoMock },
